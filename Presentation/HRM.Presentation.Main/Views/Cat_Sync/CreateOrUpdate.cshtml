@@ -1,0 +1,398 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+
+@model  Cat_SyncModel
+@{
+    ViewBag.Title = "InsertCatSync";
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var gridName = "grid_Cat_ImportItem";
+    var popupName = "windowCatImportInImportItem";
+}
+
+@{
+    string innerTable = Model == null ? string.Empty : Model.InnerTable;
+    string outerTable = Model == null ? string.Empty : Model.OuterTable;
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowCatImportInImportItem",
+        Visible = false,
+        Width = 700,
+        Title = @ConstantDisplay.HRM_Category_ImportItem.TranslateString(),
+        LoadContentFrom = _hrm_Main_Web + "Cat_Sync/Cat_SyncItemInfo?innerTable=" + innerTable + "&OuterTable=" + outerTable,
+    }; 
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Vui Lòng Lưu nhập Dữ Liệu Trước Khi Tạo Mới Dữ Liệu Nhập Chi Tiết!!!</b></center>"
+    };
+}
+@(Html.VnrWindow(windowError))
+
+<script type="text/javascript">
+    var gridName = "@gridName";
+    var popupName = "@popupName";
+    SetFieldRequired();
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {        
+        return {
+            SyncID: $('#@Html.FieldIdFor(model => model.ID)').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#'+gridName).data("kendoGrid");
+            grid.dataSource.read();
+        });
+    });
+
+    $("#btnCreateItem").click(function () {
+        var x = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var innerTable = $("#InnerTable").val();
+        var outerTable = $("#outerTable").val();
+        if (innerTable != undefined) {
+            $("#pr_innerTable").val(innerTable);
+        }
+        if (outerTable != undefined) {
+            $("#pr_outerTable").val(outerTable);
+        }
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+            $("#SyncIdCreate").val(x);            
+            PopUpCreate(popupName);
+        }
+    });
+
+    function onEditExportItemInExport(e) {
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+        var url = '@_hrm_Main_Web' + "Cat_Sync/CatSyncItemInfo/";
+        PopUpEdit(popupName, url, dataItem.ID);
+    }
+
+
+
+    function select(e) {
+        var dataItem = this.dataSource.view()[e.sender.selectedIndex];
+        var rs = dataItem.Name;
+        var objectID = dataItem.uid;
+        $('#pr_innerTable').val(rs);
+    };
+
+
+    function onSaveImport(e) {
+        //If current value is null (replace EmployeeId with your property name)
+        if (e.model.InnerField != "") {
+            //change the model value
+            e.model.InnerField = null;
+            //get the currently selected value from the DDL
+            var currentlySelectedValue = $(e.container.find('[data-role=dropdownlist]')[0]).data().kendoDropDownList.value();
+            //set the value to the model
+            e.model.set('InnerField', currentlySelectedValue);
+        }
+        if (e.model.OuterField != "") {
+            //change the model value
+            e.model.OuterField = null;
+            //get the currently selected value from the DDL
+            var currentlySelectedValue = $(e.container.find('[data-role=dropdownlist]')[1]).data().kendoDropDownList.value();
+            //set the value to the model
+            e.model.set('OuterField', currentlySelectedValue);
+        }
+    }
+
+</script>
+
+<div class="VnRMain">
+    <table style="width:100%">
+        @Html.HiddenFor(mode => mode.ID)
+        @Html.Hidden("pr_innerTable", Model == null ? string.Empty : Model.InnerTable)
+        @Html.Hidden("pr_outerTable", Model == null ? string.Empty : Model.OuterTable)
+        @Html.Hidden("SyncIdCreate", Model == null ? Guid.Empty : Model.ID)
+        @Html.HiddenFor(model => model.ID)
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div>
+                        <div style="overflow:hidden">
+                            <div style="float:left; width:530px">
+
+                                <div id="dvCode">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.Code)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @*@Html.VnrTextBoxFor(mode => mode.Code, "width:150px")*@
+
+                                        @(Html.Kendo().DropDownList()
+                                    .DataTextField("Text")
+                                    .DataValueField("Value")
+                                    .HtmlAttributes(new { style = "width:250px" })
+                                    .BindTo(new List<SelectListItem>()
+                                    {
+                                        new SelectListItem()
+                                        {
+                                            Text = "Đồng bộ mã chấm công",
+                                            Value = "Sync_Card_History"
+                                        },
+                                        new SelectListItem()
+                                        {
+                                            Text = "Đồng bộ ngày nghỉ việc",
+                                            Value = "Sync_Profile_DateQuit"
+                                        }
+
+                                    }).Name("Code"))
+
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvSyncName">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.SyncName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextBoxFor(model => model.SyncName, "width:250px"))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvIsFromInner">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.IsFromInner)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrCheckBoxFor(model => model.IsFromInner))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvServerName">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.ServerName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextBoxFor(model => model.ServerName, "width:250px"))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvUserName">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.UserName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextBoxFor(model => model.UserName, "width:250px"))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvPassWord">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.PassWord)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextBoxFor(model => model.PassWord, "width:250px"))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvDatabaseName">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.DatabaseName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextBoxFor(model => model.DatabaseName, "width:250px"))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvInnerTable">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.InnerTable)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var _innerTable = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "innerTable",
+                                                DataTextField = "Name",
+                                                DataValueField = "Name",
+                                                Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiObjectName",
+                                                Placeholder = ConstantDisplay.HRM_Category_Cat_Import_ObjectName.TranslateString(),
+                                                StyleCss = "Width:250px",
+                                                Value = Model == null ? string.Empty : Model.InnerTable,
+                                                EventChange = "select",
+                                            };
+                                        }
+                                        @(Html.VnrComboBoxFor(mode => mode.InnerTable, _innerTable))
+
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="dvOuterTable">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.OuterTable)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @*@{
+                                            var _outerTable = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "outerTable",
+                                                DataTextField = "Name",
+                                                DataValueField = "Name",
+                                                Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiObjectName",
+                                                Placeholder = ConstantDisplay.HRM_Category_Cat_Import_ObjectName.TranslateString(),
+                                                StyleCss = "Width:250px",
+                                                Value = Model == null ? string.Empty : Model.OuterTable,
+                                                EventChange = "select",
+                                            };
+                                        }
+                                        @(Html.VnrComboBoxFor(mode => mode.OuterTable, _outerTable))*@
+                                        @Html.VnrTextBoxFor(m=>m.OuterTable)
+
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+
+
+                              
+
+
+                            </div>
+                            <div style="width:550px; display:block; float:left">  
+                                <div id="div11">
+                                    <div class="FieldTitle170">
+                                        @Html.VnrLabelFor(mode => mode.Description)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @(Html.VnrTextAreaFor(model => model.Description))
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="commandToolBarWidge">
+                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        </div>
+                        <div>
+                            <!--Khai báo các thông tin cho Grid-->
+                            @using HRM.Presentation.Category.Models
+                            @using HRM.Presentation.UI.Controls.Kendo
+                            @{
+
+                                Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+                                {
+                                      {CatImportItemModel.FieldNames.ChildFieldLevel1 ,new object[]
+                                            { "Name", "Name",  new List<CatImportItemModel>(), ConstantDisplay.HRM_Category_Cat_ImportItem_ChildFieldLevel1,"ChildFieldLevel1"}},
+                                             {CatImportItemModel.FieldNames.ChildFieldLevel2 ,new object[]
+                                            { "Name", "Name",  new List<CatImportItemModel>(), ConstantDisplay.HRM_Category_Cat_ImportItem_ChildFieldLevel2,"ChildFieldLevel2"}},
+                                };
+                                //Thông tin hiển column hiển thị
+                                string[] valueFields = new string[]
+                                {
+                                  Cat_SyncItemModel.FieldNames.Code,
+                                  Cat_SyncItemModel.FieldNames.OuterField,
+                                  Cat_SyncItemModel.FieldNames.InnerField,
+                                  Cat_SyncItemModel.FieldNames.AllowNull,
+                                  Cat_SyncItemModel.FieldNames.AllowDuplicate,
+                                  Cat_SyncItemModel.FieldNames.DuplicateGroup,                                   
+                                };
+
+                                //Set độ rộng cho từng column
+                                Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                                {
+                                    {Cat_SyncItemModel.FieldNames.Code, 100},
+                                    {Cat_SyncItemModel.FieldNames.InnerField, 200},
+                                    {Cat_SyncItemModel.FieldNames.OuterField, 200},
+                                    {Cat_SyncItemModel.FieldNames.AllowNull, 100},
+                                    {Cat_SyncItemModel.FieldNames.AllowDuplicate, 100},
+                                    {Cat_SyncItemModel.FieldNames.DuplicateGroup, 200},
+                                };
+
+                                //Thông tin hiển thị được dịch
+                                Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                                {
+                                    {Cat_SyncItemModel.FieldNames.Code, ConstantDisplay.HRM_Category_Cat_SyncItem_Code},
+                                    {Cat_SyncItemModel.FieldNames.InnerField , ConstantDisplay.HRM_Category_Cat_SyncItem_InnerField },
+                                    {Cat_SyncItemModel.FieldNames.OuterField, ConstantDisplay.HRM_Category_Cat_SyncItem_OuterField },
+                                    {Cat_SyncItemModel.FieldNames.AllowNull, ConstantDisplay.HRM_Category_Cat_ImportItem_AllowNull },
+                                    {Cat_SyncItemModel.FieldNames.AllowDuplicate, ConstantDisplay.HRM_Category_Cat_ImportItem_AllowDuplicate },
+                                    {Cat_SyncItemModel.FieldNames.DuplicateGroup, ConstantDisplay.HRM_Category_Cat_ImportItem_DuplicateGroup },                                 
+                                };
+                                Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                                {
+                                    {Cat_SyncItemModel.FieldNames.DuplicateGroup, ConstantFormat.HRM_Format_Number_Double },
+                                };
+
+                                var grid = new GridBuilderInfo
+                                {
+                                    Name = gridName,
+                                    ValueFields = valueFields,
+                                    DisplayFields = displayFields,
+                                    SizeFields = sizeFields,
+                                    FormatFields = formatFields,
+                                    ShowCommand = true,
+                                    ShowDeleteButton = true,
+                                    ShowEditButton = false,
+                                    ShowEditIcon = false,
+                                    EditActionUrl = _hrm_Main_Web + "/Cat_SyncItem/Create/",
+                                    DeleteActionUrl = _hrm_Main_Web + "/Cat_SyncItem/Delete/",
+                                    AutoBind = true,
+                                    EditMode = GridEditMode.InLine,
+                                    ReadActionUrl = _hrm_Hre_Service + "Cat_GetData/GetSyncItemBySyncIDList",
+                                    ReadData = "filterFieldInfo",
+                                 //   ForeignKey = foreignKey,
+                                };
+                            }
+                            <!--Khởi tạo Grid-->
+                            @(Html.VnrGrid<Cat_SyncItemModel>(grid).Events(e => e.Save("onSaveImport"))
+                                  .HtmlAttributes(new { style = "height:400px" })
+                                  .DataSource(dataSource => dataSource
+                                      .Ajax()
+                                      .Model(model => model.Field(o => o.Code).Editable(false))
+                                  )
+                            )
+                        </div>
+
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+
+</div>
+
+
+<script type="text/javascript">
+
+    function filterinnerTable() {
+        var innerTableValue = $("#pr_innerTable").val();
+        return {
+            text: '',
+            objectName: innerTableValue,
+            objectNameRoot: innerTableValue
+        };
+    };
+    function filterouterTable() {
+        var outerTableValue = $("#pr_outerTable").val();
+        return {
+            text: '',
+            objectName: outerTableValue,
+            objectNameRoot: outerTableValue
+        };
+    };
+
+
+</script>
+

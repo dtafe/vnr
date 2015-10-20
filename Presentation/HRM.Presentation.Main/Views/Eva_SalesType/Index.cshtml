@@ -1,0 +1,242 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model Eva_SalesTypeModel
+@{
+    //ViewBag.Title = "Eval Level Index";
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Eva_Web;
+    //var _hrm_Hre_Service = ConstantPathWeb.Hrm_Eva_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    string[] valueFields = null;
+}
+@{
+    var windowSalesType = new WindowBuilderInfo
+    {
+        Name = "windowEvaSalesType",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Eva_SalesType/EvaSalesTypeInfo/",
+    };
+}
+@(Html.VnrWindow(windowSalesType))
+<script>
+    var titleEditPopUpEvaSalesType = '@Html.Raw(ConstantDisplay.HRM_Evaluation_SalesType_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpEvaSalesType = '@Html.Raw(ConstantDisplay.HRM_Evaluation_SalesType_PopUp_Create_Title.TranslateString())';
+    var gridName = "gridEvaSalesType";
+    var windowName = "windowEvaSalesType";
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            SalesTypeName: $('#@Html.FieldIdFor(mode=>mode.SalesTypeName)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Eva_SalesType/EvaSalesTypeInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Eva_SalesType', titleEditPopUpEvaSalesType);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Eva_SalesType');
+        if (!isAccess)
+        {
+            return;
+        }
+        PopUpCreate(windowName, titleCreatePopUpEvaSalesType, '@ConstantPermission.Eva_SalesType');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_SalesType/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_SalesType');
+        return false;
+    });
+    //Expoprt
+   $("#btnExportAll").click(function () {
+      
+       
+       var grid = $('#'+gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Eva_GetData/ExportSalesTypeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_SalesType');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Eva_GetData/ExportSalesTypeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_SalesType');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div14">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.SalesTypeName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.SalesTypeName)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnSalesType", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridEvaSalesType_Name + "__Eva_SalesType_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridEvaSalesType_Name,
+            ReadActionUrl = _hrm_Hre_Service + "Eva_GetData/GetSalesTypeList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+                            {
+                                Eva_SalesTypeModel.FieldNames.Code,
+                                Eva_SalesTypeModel.FieldNames.SalesTypeName,
+                                Eva_SalesTypeModel.FieldNames.SalesTypeGroup,
+                                Eva_SalesTypeModel.FieldNames.Note
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Eva_SalesTypeModel.FieldNames.Code, 130},
+                                {Eva_SalesTypeModel.FieldNames.SalesTypeName, 150},
+                                {Eva_SalesTypeModel.FieldNames.SalesTypeGroup, 150},
+                                {Eva_SalesTypeModel.FieldNames.Note, 300}
+
+                            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Eva_SalesTypeModel.FieldNames.Code, ConstantDisplay.HRM_Evaluation_Code},
+                                {Eva_SalesTypeModel.FieldNames.SalesTypeName, ConstantDisplay.HRM_Evaluation_SalesType_SalesTypeName},
+                                {Eva_SalesTypeModel.FieldNames.SalesTypeGroup, ConstantDisplay.HRM_Evaluation_SalesType_SalesTypeGroup},
+                                {Eva_SalesTypeModel.FieldNames.Note, ConstantDisplay.HRM_Evaluation_Comment}
+                            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+
+        }
+        //var grid = new GridBuilderInfo
+        //{
+
+        //    Name = "gridEvaSalesType",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _hrm_Hre_Service + "Eva_GetData/GetSalesTypeList",
+        //    ReadData = "filterFieldInfo",
+        //    AutoBind = false,
+        //    ShowDeleteButton = true,
+        //};
+    }
+    @(Html.VnrGrid<Eva_SalesTypeModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnSalesType", "Eva_SalesTypeModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

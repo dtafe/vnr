@@ -1,0 +1,177 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Training.Models;
+@using HRM.Infrastructure.Security;
+
+@model Tra_TrainerMailReminderSearchModel
+
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowTra_TrainerMailReminder",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Tra_TrainerMailReminder/TraTrainerMailReminderInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Tra_TrainerMailReminder_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Tra_TrainerMailReminder_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Tra_TrainerMailReminder_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Tra_TrainerMailReminder_Create_Title.TranslateString())';
+    var checkedNodes = [];
+
+    //Data khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            OrgStructureID: checkedNodes.join(','),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid(gridName);
+            checkedNodes = [];
+        });
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Tra_TrainerMailReminder/TraTrainerMailReminderInfo/";
+        EditGridPopUp("@ConstantControlName.HRM_Tra_TrainerMailReminder_Grid_Name", "windowTra_TrainerMailReminder", url, '@ConstantPermission.Tra_TrainerMailReminder', titleEditPopUp);
+    });
+
+    //Xử lý Create
+    $("#btnCreateTraTrainerMailReminder").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Tra_TrainerMailReminder');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate("windowTra_TrainerMailReminder", titleCreatePopUp, '@ConstantPermission.Tra_TrainerMailReminder');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Tra_TrainerMailReminder/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Tra_TrainerMailReminder');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#@ConstantControlName.HRM_Tra_TrainerMailReminder_Grid_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Cat_GetData/ExportTrainerMailReminderList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Tra_TrainerMailReminder');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.OrgStructureID) 
+                    </div>
+                    <div class="FieldValue">
+                        @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTraTrainerMailReminder", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+         @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new[]
+        {
+            Tra_TrainerMailReminderModel.FieldNames.OrgStructureName,
+            Tra_TrainerMailReminderModel.FieldNames.DateUpdate,
+            Tra_TrainerMailReminderModel.FieldNames.UserUpdate
+            
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+            {Tra_TrainerMailReminderModel.FieldNames.OrgStructureName,100},
+            {Tra_TrainerMailReminderModel.FieldNames.DateUpdate,130},
+            {Tra_TrainerMailReminderModel.FieldNames.UserUpdate,130}
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            {Tra_TrainerMailReminderModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Tra_TrainerMailReminder_OrgStructureID},
+            {Tra_TrainerMailReminderModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Attendance_DateUpdate},
+            {Tra_TrainerMailReminderModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Attendance_Overtime_UserUpdate}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Tra_TrainerMailReminder_Grid_Name,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hre_Service + "Tra_GetData/GetTrainerMailReminderList/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    @(Html.VnrGrid<Tra_TrainerMailReminderModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

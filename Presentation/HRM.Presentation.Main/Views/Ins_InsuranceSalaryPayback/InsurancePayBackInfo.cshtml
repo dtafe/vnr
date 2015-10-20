@@ -1,0 +1,537 @@
+﻿    @using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@using System.Collections
+@using HRM.Presentation.Insurance.Models
+@model  Ins_InsuranceSalaryPaybackModel
+
+@{
+    Layout = null;
+    var gridName = ConstantControlName.HRM_Ins_InsuranceSalaryPayback_Grid_Name;
+    var popupName = ConstantControlName.HRM_Ins_InsuranceSalaryPayback_PopUp_Name;   
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> InsuranceRecordType = Enum.GetValues(typeof(InsuranceRecordType))
+       .Cast<InsuranceRecordType>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+       .ToList();
+    IEnumerable profileEntity = new string[] { };
+    var typeID = Guid.Empty;
+    var typeName = string.Empty;
+    string statusName = string.Empty;
+    string comment = string.Empty;
+    string statusCode = string.Empty;
+    bool isEdit = false;
+    if (Model != null)
+    {
+        isEdit = true;
+        profileEntity = new[] { new { ID = Model.ProfileID, ProfileName = Model.ProfileName } };
+        typeID = Model.TypeID??Guid.Empty;
+        typeName = Model.TypeName;
+        comment = Model.CommentName;
+        statusCode = Model.StatusCode;
+        statusName = Model.StatusName;
+    }
+    
+}
+<script>
+    SetFieldRequired();
+    $(document).ready(function () {
+        setTimeout(function () {
+            var dtInsSalary = $("#InsSalary").data("kendoNumericTextBox");
+            var dtAmoutHDTIns = $("#AmoutHDTIns").data("kendoNumericTextBox");
+            dtInsSalary.readonly();
+            dtAmoutHDTIns.readonly();
+        }, 1000);
+
+        if ('@isEdit' == 'False') {
+            @*var data = [];
+            $("#TypeID1").kendoComboBox({
+                dataTextField: "Name",
+                dataValueField: "ID",
+                change: onChange,
+                value: '@Html.Raw(comment)',
+                dataSource: data
+            });*@
+        }
+        else {
+            setTimeout(function () {
+                var datepickerFrom = $("#FromMonthEffect").data("kendoDatePicker");
+                var datepickerTo = $("#ToMonthEffect").data("kendoDatePicker");
+                datepickerFrom.readonly();
+                datepickerTo.readonly();
+            }, 1000);
+
+            @*$.ajax({
+                url: '@_Hrm_Hre_Service' + "Ins_GetData/GetMultiTypeD02CommentCode?text=" + '@statusCode',
+                type: 'Get',
+                asyn: false,
+                success: function (data) {
+                    $("#TypeID1").kendoComboBox({
+                        dataTextField: "Name",
+                        dataValueField: "ID",
+                        change: onChange,
+                        value: '@Html.Raw(comment)',
+                        dataSource: data
+                    });
+                }
+            });*@
+        }
+    })
+
+    function evtChange() {
+        var typeCode = $("#TypeCode").data("kendoComboBox");
+        var typeName = typeCode.value();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + "Ins_GetData/GetMultiTypeD02StatusCode?text=" + typeName,
+            //data: { text: typeName },
+            type: 'Get',
+            asyn: false,
+            success: function (data) {
+                var multi = $("#StatusCode").data("kendoComboBox");
+                multi.setDataSource(data);
+            }
+        });
+    }
+
+    function evtStatusCodeChange() {
+        var statusCode = $("#StatusCode").data("kendoComboBox");
+        var statusName = statusCode.value();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + "Ins_GetData/GetMultiTypeD02CommentCode?text=" + statusName,
+            //data: { text: typeName },
+            type: 'Get',
+            asyn: false,
+            success: function (data) {
+                var multi = $("#TypeID1").data("kendoComboBox");
+                multi.setDataSource(data);
+            }
+        });
+    }
+
+
+    //sửa lương truy lĩnh
+    function salaryPayBackChanging() {
+        var salPayBack = $("#InsSalaryPayBack").getKendoNumericTextBox().value();
+        var salInsurance = $("#InsSalary").getKendoNumericTextBox().value();
+        var result = salPayBack - salInsurance;
+        $("#InsSalaryAdjust").getKendoNumericTextBox().value(result);
+    }
+
+    function dateTimeChanging() {
+        var profileObject = $("#ProfileID").getKendoMultiSelect();
+        var profileID = profileObject.value();
+        var dtFromMonthEffect = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FromMonthEffect").val())
+        //chuc nang tính toán truy lĩnh bảo hiểm
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/GetProfileMonthly',
+            data: { profileId: profileID, fromMonthEffect: dtFromMonthEffect },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+                //alert(data.SocialInsPlaceID);
+                var multi = $("#SocialInsPlaceID").data("kendoMultiSelect");
+                multi.value(data.SocialInsPlaceID);
+
+                $("#JobtitleName").val(data.JobName);
+                $("#InsSalary").getKendoNumericTextBox().value(data.InsSalary);
+                $("#AmoutHDTIns").getKendoNumericTextBox().value(data.AmoutHDTIns);
+                $("#InsSalaryPayBack").getKendoNumericTextBox().value(data.InsSalary);
+                $("#AmoutHDTInsPayBack").getKendoNumericTextBox().value(data.AmoutHDTIns);
+                $("#InsSalaryAdjust").getKendoNumericTextBox().value(0);
+                $("#IsSocialIns").attr('checked', data.IsSocialInsurance);
+                $("#IsMedicalIns").attr('checked', data.IsHealthInsurance);
+                $("#IsUnemploymentIns").attr('checked', data.IsUnEmpInsurance);
+            }
+        });
+    }
+
+    function onChange() {
+        var typeCode = $("#TypeID1").data("kendoComboBox");
+        $("#TypeID").val(typeCode.value());
+        var typeName = typeCode.text();
+        $("#Comment").val(typeName);
+    }
+
+    function onSaveInsRecord() {
+        onSaveAndContinue($('#form_Ins_InsurancePayBack'), '@_Hrm_Hre_Service', 'api/Ins_InsuranceSalaryPayback/', '@gridName', '@popupName');
+        return false;
+    }
+    function onSaveCloseInsRecord() {
+        onSaveAndClose($('#form_Ins_InsurancePayBack'), '@_Hrm_Hre_Service', 'api/Ins_InsuranceSalaryPayback/', '@gridName', '@popupName');
+        return false;
+    }
+    function onSaveDataPopUpInsRecord() {
+        onlySave($('#form_Ins_InsurancePayBack'), '@_Hrm_Hre_Service', 'api/Ins_InsuranceSalaryPayback/', '@popupName'); return false;
+    }
+
+    function checkProfileQuit() {
+        //var multi = $("#ProfileID").data("kendoMultiSelect");
+        //multi.reLoad();
+    };
+
+    function readData(e) {
+        var searchFilter = '';
+        if (e.filter != undefined && e.filter.filters.length>0) {
+            searchFilter =e.filter.filters[0].value;
+        }
+        var _isProfileQuit = $('#IsProfileQuit').is(':checked');        
+        return {
+            text: searchFilter,
+            isProfileQuit: _isProfileQuit,
+        }
+    };
+
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Ins_InsurancePayBack" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    @Html.HiddenFor(model => model.TypeID)
+    @Html.Hidden("IsCallPayBack",false)   
+    
+    <table>
+        <tr>
+            <td>
+                <div style="display:block; padding-top:10px;">
+                    <fieldset>
+                        <legend>
+                            @ConstantDisplay.HRM_InsuranceSalary_Payback.TranslateString()
+                        </legend>
+                        <div>
+                        <div id="dvProfileID" style="float:left;">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ProfileID)
+                            </div>
+                            <div class="FieldValue">
+                                <div><label><input id="IsProfileQuit" type='checkbox' onclick='checkProfileQuit();'>NV Nghỉ Việc</label></div>
+                                <div>
+                                @{
+                                var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "ProfileID",
+                                    DataTextField = "ProfileName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 1,
+                                    ServerFiltering = true,
+                                    Url = _Hrm_Hre_Service + "HrMultiSelect/GetMultiProfileOrQuit",
+                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    Value = profileEntity,
+                                    Width = 250,
+                                    ReadData = "readData"
+                                };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="dvMonthYear" style="float:left;">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.MonthYear)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var monthYear = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_HR_MonthSearch.TranslateString(),
+                                    StyleCss = "width:100px",
+                                };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthYear, monthYear).Format(ConstantFormat.HRM_Format_MonthYear)
+                            </div>
+                        </div>
+                        </div>
+
+                        <div id="dvTypeID">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_TypeID.TranslateString())
+                                @*@Html.VnrLabelFor(mode => mode.TypeID)*@
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var multiSelectTypeCode = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "TypeCode",
+                                    DataTextField = "Name",
+                                    DataValueField = "Code",
+                                    Url = _Hrm_Hre_Service + "Ins_GetData/GetMultiTypeD02TypeCode",
+                                    //  Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                    //   EventChange = "evtChange",
+                                    ServerFilter = true,
+                                    FilterType = FilterType.Contains,
+                                    Value = typeName,
+                                    StyleCss = "width:250px"
+                                };
+                                }
+                                @Html.VnrComboBox(multiSelectTypeCode)
+                            </div>
+                        </div>
+                        
+                        <div id="dvStatusCode">
+                            <div class="FieldTitle150">
+                                @*Lý Do*@
+                                @Html.VnrLabel(ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_Reasion.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                <script>
+                                    function filterTypeCode() {
+                                                return {
+                                                    text: $("#TypeCode").val(),
+                                                };
+                                            }
+                                </script>
+                                @{
+                                var cmbStatusCode = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "StatusCode",
+                                    DataTextField = "Name",
+                                    DataValueField = "Code",
+                                    ServerFilter = true,
+                                    FilterType = FilterType.Contains,
+                                    Url = _Hrm_Hre_Service + "Ins_GetData/GetMultiTypeD02StatusCode",
+                                //    EventChange = "evtStatusCodeChange",
+                                    CascadeFrom = "TypeCode",
+                                    Data = "filterTypeCode",
+                                    //  Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                    Value = statusName,
+                                    StyleCss = "width:250px"
+                                }; 
+                                }
+                                @Html.VnrComboBox(cmbStatusCode)
+                            </div>
+                        </div>
+                        
+                        <div id="dvTypeID1111">
+                            <div class="FieldTitle150">
+                                @*Mô Tả*@
+                                @Html.VnrLabel(ConstantDisplay.HRM_Ins_TypeD02_Comment.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                <script>
+                                    function filterStatusCode() {
+                                                return {
+                                                    text: $("#StatusCode").val(),
+                                                };
+                                            }
+                                </script>
+                               @* <input id="TypeID1" style="width: 250px;" />*@
+                                @{
+                                var cmbTypeID = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "TypeID1",
+                                    DataTextField = "Name",
+                                    DataValueField = "ID",
+                                    Url = _Hrm_Hre_Service + "Ins_GetData/GetMultiTypeD02CommentCode",
+                                    ServerFilter = true,
+                                    FilterType = FilterType.Contains,
+                                    CascadeFrom = "StatusCode",
+                                    Data = "filterStatusCode",
+                                    EventChange = "onChange",
+                                    Value = comment,
+                                    StyleCss = "width:250px"
+                                };
+                                }
+                                @Html.VnrComboBox(cmbTypeID)
+
+                                @Html.VnrTextBoxFor(mode => mode.Comment,"width:270px;")
+                            </div>
+                        </div>
+
+                        <div id="dvToMonthEffect">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.FromMonthEffect)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var fromMonthEffect = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_From.TranslateString(),
+                                    StyleCss = "width:80px",
+                                    EventSelect = "dateTimeChanging"
+                                };
+                                }
+                                @Html.VnrDatePickerFor(model => model.FromMonthEffect, fromMonthEffect).Format(ConstantFormat.HRM_Format_MonthYear)
+
+                                @{
+                                var toMonthEffect = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_To.TranslateString(),
+                                    StyleCss = "width:86px",
+
+                                };
+                                }
+                                @Html.VnrDatePickerFor(model => model.ToMonthEffect, toMonthEffect).Format(ConstantFormat.HRM_Format_MonthYear)
+                            </div>
+                        </div>
+
+                        <div style="display:inline-block;">
+                            <div id="dvInsSalary" style="float:left;">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.InsSalary)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                    var insSalary = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        Name = "InsSalary",
+                                        StyleCss = "width:170px;"
+                                    };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(p => p.InsSalary, insSalary)
+                                </div>
+                            </div>
+
+                            <div id="dvAmoutHDTIns" style="float:left;">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AmoutHDTIns)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                    var amoutHDTIns = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        Name = "AmoutHDTIns",
+                                        StyleCss="width:170px;"
+                                    };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(p => p.AmoutHDTIns, amoutHDTIns)
+
+                                </div>
+                            </div>
+                        </div>
+
+
+                        <div>
+                            <div id="dvInsSalaryPayBack" style="float: left;">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.InsSalaryPayBack)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                    var insSalaryPayBack = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        Name = "InsSalaryPayBack",
+                                        EvenChange = "salaryPayBackChanging",
+                                        StyleCss = "width:170px;"
+                                    };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(p => p.InsSalaryPayBack, insSalaryPayBack)
+                                </div>
+                            </div>
+                            <div id="dvAmoutHDTInsPayBack" style="float:left;">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AmoutHDTInsPayBack)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                    var amoutHDTInsPayBack = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        Name = "AmoutHDTInsPayBack",
+                                        StyleCss = "width:170px;"
+                                    };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(p => p.AmoutHDTInsPayBack, amoutHDTInsPayBack)
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="dvInsSalaryAdjust">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.InsSalaryAdjust)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var insSalaryAdjust = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Name = "InsSalaryAdjust",
+                                    Min = double.MinValue,
+                                    StyleCss = "width:170px;"
+                                };
+                                }
+                                @Html.VnrNumericTextBoxFor(p => p.InsSalaryAdjust, insSalaryAdjust)
+                            </div>
+                        </div>
+
+                        <div id="dvJobtitleName">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.JobtitleName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(mode => mode.JobtitleName,"width:530px;height:35px;")
+                            </div>
+                        </div>
+
+                        <div id="dvIsCallPayBack">
+                            <div class="FieldTitle150">
+                            </div>
+                            <div class="FieldValue">
+                                @ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsSocialIns.TranslateString() @Html.VnrCheckBoxFor(p => p.IsSocialIns)
+                                @ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsMedicalIns.TranslateString() @Html.VnrCheckBoxFor(p => p.IsMedicalIns)
+                                @ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsUnemploymentIns.TranslateString() @Html.VnrCheckBoxFor(p => p.IsUnemploymentIns)
+                            </div>
+                        </div>
+
+                        <div id="dvProfileID">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.SocialInsPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var multiSelectSocialInsPlaceID = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "ProvinceName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 1,
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                    Placeholder = ConstantDisplay.HRM_Ins_SelectWorkPlace.TranslateString(),
+                                    Width = 200
+                                };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.SocialInsPlaceID, multiSelectSocialInsPlaceID)
+                            </div>
+                        </div>
+
+
+
+                        <div id="dvNote">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Note)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(mode => mode.Note,"width:530px;")
+                            </div>
+                        </div>
+
+</fieldset>
+                </div>
+
+            </td>
+
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUpInsRecord", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveInsRecord", Name = "save-continue", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveCloseInsRecord", Name = "save-close", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+

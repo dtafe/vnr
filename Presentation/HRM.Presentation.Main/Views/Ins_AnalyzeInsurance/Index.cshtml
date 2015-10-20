@@ -1,0 +1,430 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Insurance.Models
+@using HRM.Infrastructure.Security
+@model Ins_ProfileInsuranceMonthlyModel
+@{
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    string[] valueFields = null;
+    var gridName = "gridAnalyzeInsurance";
+
+    IList<SelectListItem> listPeriodInsurance = Enum.GetValues(typeof(PeriodInsurance))
+.Cast<PeriodInsurance>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+
+
+}
+
+
+<script>
+    var checkedNodes = [];
+    SetFieldRequired();
+    var gridName = '@gridName';
+
+    function filterFieldInfo(isExportDDL) {
+
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            MonthYear: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthYear").val()),
+            CodeEmp: $("#CodeEmp").val(),
+            SocialInsPlaceIDs: $('#@Html.FieldIdFor(model => model.SocialInsPlaceID)').val() ? $('#@Html.FieldIdFor(model => model.SocialInsPlaceID)').val() : null,
+            ValueFields: $('#valueFieldsGrid').val(),
+            PeriodInsurance: $("#PeriodInsurance").val(),
+        };
+        if (isExportDDL != true) {
+            elementPara["ExportId"] = "";
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            //validate
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/AnalyzeInsuranceValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                CloseHre_ProgressBar();
+                return;
+            }
+
+            //Chức năng tìm kiếm
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            ReadGrid(gridName);
+            selectedIds = [];
+            checkedNodes = [];
+            return false;
+        });
+
+        $("#btnCompute").click(function () {
+            ShowHre_ProgressBar();
+            //validate
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/AnalyzeInsuranceValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+
+            //chuc nang phan tich bao hiem
+            $.ajax({
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/AnalyzeInsurance',
+                data: filterFieldInfo(),
+                type: 'POST',
+                traditional:true,
+                success: function (data) {
+                    CloseHre_ProgressBar();
+                    if (data == "IsProcessing") {
+                        ShowNotificationProcessor("Có Người Đang Xử Lý Phân Tích Bảo Hiểm.Vui Lòng Đợi Trong Giây Lát và Phân Tích Trở Lại");
+                    }
+                    else {
+                        ShowNotificationProcessor("Phân Tích Bảo Hiểm Thành Công");
+                    }
+                    ReadGrid(gridName);
+                }
+            });
+            return false;
+        });
+    });
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportAnalyzeInsuranceList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Ins_AnalyzeInsurance');
+    });
+
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportAnalyzeInsuranceSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Ins_AnalyzeInsurance');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "220px",
+                                    Name = "treeviewOrg",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+
+
+                    @*<div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue" id="test">
+                                @Html.VnrTextBoxFor(model => model.ProfileName, "width:250px")
+                            </div>
+                        </div>*@
+
+                </div>
+
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.MonthYear)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var RecordDateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_HR_MonthSearch.TranslateString(),
+                                    StyleCss = "width:100px",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.MonthYear, RecordDateFrom).Format(ConstantFormat.HRM_Format_MonthYear)
+                        </div>
+                    </div>
+
+                    <div style="display:none;">
+                        <div class="FieldTitle">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Insurance_AnalyzeInsurance_PeriodInsurance.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @(Html.Kendo().DropDownList()
+                                    .DataTextField("Text")
+                                    .DataValueField("Value")
+                                    .HtmlAttributes(new { style = "width:120px" })
+                                    .BindTo(listPeriodInsurance)
+                                    .Name("PeriodInsurance"))
+                        </div>
+                    </div>
+
+                    <div id="dvProfileID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var multiSelectSocialInsPlaceID = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "ProvinceName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 10,
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                    Placeholder = ConstantDisplay.HRM_Ins_SelectWorkPlace.TranslateString(),
+                                    Width = 200
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.SocialInsPlaceID, multiSelectSocialInsPlaceID)
+                        </div>
+                    </div>
+
+
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCompute", Content = ConstantDisplay.HRM_Insurance_AnalyzeInsurance_Compute.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+                        {
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.ProfileName,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.CodeEmp,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYear,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYearEffect,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.IsHealthInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.IsSocialInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.IsUnEmpInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyHealthInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneySocialInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyUnEmpInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryHealthInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryUnEmpInsurance,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance1,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance2,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance3,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance4,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.AmountChargeIns,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComRate,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComAmount,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.IsDecreaseWorkingDays,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.JobName,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsPlaceName,
+                            Ins_ProfileInsuranceMonthlyModel.FieldNames.IsPayback,
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.ProfileName, 250},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.CodeEmp, 60},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYear, 80},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYearEffect, 130},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsHealthInsurance, 60},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsSocialInsurance, 60},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsUnEmpInsurance, 60},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyHealthInsurance, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneySocialInsurance, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyUnEmpInsurance, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryInsurance, 130},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryHealthInsurance, 130},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryUnEmpInsurance, 130},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance1, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance2, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance3, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance4, 100},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.AmountChargeIns, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComRate, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComAmount, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsDecreaseWorkingDays, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.JobName, 250},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsPlaceName, 150},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsPayback, 100}
+                        };
+
+        var displayFields = new Dictionary<string, string>()
+                        {
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYear, ConstantDisplay.HRM_HR_MonthSearch},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYearEffect, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MonthYearEffect},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsHealthInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsHealthInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsSocialInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsSocialInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsUnEmpInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsUnEmpInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyHealthInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneyHealthInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneySocialInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneySocialInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.MoneyUnEmpInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneyUnEmpInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SalaryInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryHealthInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SalaryHealthInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SalaryUnEmpInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SalaryUnEmpInsurance},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance1, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_Allowance1},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance2, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_Allowance2},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance3, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_Allowance3},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.Allowance4, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_Allowance4},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.AmountChargeIns, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_AmountChargeIns},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsEmpRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsEmpAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsComRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsComAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsEmpRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsEmpAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsComRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsComAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployEmpRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployEmpAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComRate, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployComRate},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployComAmount},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsDecreaseWorkingDays, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsDecreaseWorkingDays},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.JobName, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_JobName},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsPlaceName, ConstantDisplay.HRM_HR_Profile_SocialInsPlaceID},
+                            {Ins_ProfileInsuranceMonthlyModel.FieldNames.IsPayback, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsPayback},
+                            
+                        };
+        var formatFields = new Dictionary<string, string>()
+        {
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYear, ConstantFormat.HRM_Format_Grid_MonthYear},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.MonthYearEffect, ConstantFormat.HRM_Format_Grid_MonthYear},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsEmpRate, ConstantFormat.HRM_Format_Grid_Percent},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.SocialInsComRate, ConstantFormat.HRM_Format_Grid_Percent},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsEmpRate, ConstantFormat.HRM_Format_Grid_Percent},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.HealthInsComRate, ConstantFormat.HRM_Format_Grid_Percent},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployEmpRate, ConstantFormat.HRM_Format_Grid_Percent},
+              {Ins_ProfileInsuranceMonthlyModel.FieldNames.UnemployComRate, ConstantFormat.HRM_Format_Grid_Percent},
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,            
+            ShowEditIcon = false,
+            ReadActionUrl = _Hrm_Hre_Service + "Ins_GetData/AnalyzeInsuranceList",
+            ReadData = "filterFieldInfo",
+        };
+    }
+    @(Html.VnrGrid<Ins_ProfileInsuranceMonthlyModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

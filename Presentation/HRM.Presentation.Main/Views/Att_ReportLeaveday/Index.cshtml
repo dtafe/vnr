@@ -1,0 +1,286 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ReportLeavedayModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExport) {
+        debugger;
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _leaveDayTypeIDs = $('#@Html.FieldIdFor(model=>model.LeaveDayTypeIDs)').val() != null ? $('#@Html.FieldIdFor(model=>model.LeaveDayTypeIDs)').val().join(',') : $('#@Html.FieldIdFor(model=>model.LeaveDayTypeIDs)').val();
+        var _shiftIDs = $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val() != null ? $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val().join(',') : $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val();
+        var elementPara = {
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            FromDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FromDate").val()),
+            ToDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ToDate").val()),
+            ShiftIDs: _shiftIDs,
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            LeaveDayTypeIDs: _leaveDayTypeIDs,
+            isIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeQuitEmp)').checked,
+            isIncludeReasonMissFromWorkday: document.getElementById('@Html.FieldIdFor(model => model.isIncludeReasonMissFromWorkday)').checked,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportLeavedayListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        CloseHre_ProgressBar();
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        $.ajax({
+                            url: '@_hrm_Hr_Service' + "Att_GetData/GetReportLeavedayList",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            success: function (data) {
+                                CloseHre_ProgressBar();
+                                
+                                var grid = VnrGridDynamic;
+                                grid.gridName = 'gridAtt_ReportLeaveday';
+                                grid.DataSource = data.Data;
+                                grid.PageSize = 50;
+                                VnrGridDynamicControl(grid);
+                            }
+                        });
+                        checkedNodes = [];
+
+                    }
+                }
+            });
+            return false;
+
+        });
+    });
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportLeaveday');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportLeavedayList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportLeavedayList', filterFieldInfo(true));
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:430px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.FromDate)
+                            @Html.HiddenFor(model => model.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.FromDate, DateFrom)
+                            @{
+                                var DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.ToDate, DateTo)
+                        </div>
+                    </div>
+
+                    <div id="div3">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(mode => mode.CodeEmp)
+                        </div>
+                    </div>
+
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ShiftIDs)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @{
+                                    var _ShiftIDs = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ShiftName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                        Value = @Html.DisplayFor(mode => mode.ShiftID).ToString(),
+                                        Enable = true,
+                                        Placeholder = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ShiftIDs, _ShiftIDs))
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="width:550px; display:block; float:left">
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.LeaveDayTypeIDs)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @{
+                                    var _LeaveDayTypeIDs = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "LeaveDayTypeName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiLeaveDayType",
+                                        Value = @Html.DisplayFor(mode => mode.LeaveDayTypeIDs).ToString(),
+                                        Enable = true,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectLeaveDayType.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.LeaveDayTypeIDs, _LeaveDayTypeIDs))
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+                            @{
+                                var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                            }
+                            @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp)
+                            @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                        </div>
+
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+                            @{
+                                var isIncludeReasonMissFromWorkday = new CheckBoxBuilderInfo() { };
+                            }
+
+                            @Html.VnrCheckBoxFor(model => model.isIncludeReasonMissFromWorkday, isIncludeReasonMissFromWorkday)
+                            @Html.VnrLabelFor(mode => mode.isIncludeReasonMissFromWorkday)
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float: right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+    </div>
+</div>
+@*<div>*@
+<div id="gridAtt_ReportLeaveday">
+
+</div>
+<!--Khai báo các thông tin cho Grid-->

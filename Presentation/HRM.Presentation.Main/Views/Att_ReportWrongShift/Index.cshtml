@@ -1,0 +1,407 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ReportWrongShiftModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL) {
+        
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _profileID = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+        var _shiftIDs = $('#@Html.FieldIdFor(model => model.ShiftIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ShiftIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ShiftIDs)').val();
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ProfileIDs: _profileID,
+            ShiftIDs: _shiftIDs,
+            ExportId: $('#ddlScreenName').val(),
+            isIncludeQuitEmp: $('#@Html.FieldIdFor(model => model.isIncludeQuitEmp)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+
+        };
+        if (isExportDDL != true) {
+            elementPara["ExportId"] = "";
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportWrongShiftListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridAtt_ReportWrongShift').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            return false;
+        });
+
+        $("#btnExport").click(function () {
+
+            var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportWrongShift');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+
+            var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportWrongShiftList';
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true);
+            ExportAll(urlGetData, dataParameter, urlDownload);
+            return false;
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        var window1 = window;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Att_GetData/GetReportWrongShiftList',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var index = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (index > 0) {
+                    status = returnValue.substring(0, index);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(index + 1, returnValue.length);
+                        window1.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                        $.when(kendo.ui.ExtOkCancelDialog.show({
+                            title: "Thông Báo",
+                            message: "Bạn có muốn tải template vừa tạo lên không?",
+                            icon: "k-ext-warning"
+                        })
+                        ).done(function (response) {
+                            if (response.button == "OK") {
+                                var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                window2.center().open().title("Tạo mới mẫu template");
+                            }
+                        });
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+            }
+        });
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div style="float:left; width:500px">
+                            <div id="dvDateFrom">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.DateFrom)
+                                    @Html.HiddenFor(m => m.UserExport)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateFrom = new DatePickerBuilderInfo()
+                                        {
+                                            // Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                            Value = DateTime.Today.ToShortDateString(),
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                        };
+
+                                    }
+                                    @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                                    @{
+                                        var DateTo = new DatePickerBuilderInfo()
+                                        {
+                                            // Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                            Value = DateTime.Today.ToShortDateString(),
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                        };
+
+                                    }
+                                    @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                                </div>
+                            </div>
+                            <div id="dvProfileIDs">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "ProfileName",
+                                            DataValueField = "ID",
+                                            Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                            Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                            Width = 200
+                                        };
+                                    }
+                                    @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+
+                        </div>
+
+                        <div style="display: block; float: left; width: 600px">
+                            <div id="div8">
+                                <div class="FieldTitle150" style="width: 100px">
+                                    @Html.VnrLabelFor(mode => mode.ShiftIDs)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _ShiftType = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Placeholder = ConstantDisplay.HRM_Att_SelectShift.TranslateString(),
+                                        };
+                                    }
+
+                                    @(Html.VnrMultiSelectFor(mode => mode.ShiftIDs, _ShiftType))
+                                </div>
+                            </div>
+                            <div id="dvOrgStructureID">
+                                <div class="FieldTitle150" style="width: 100px">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+
+                            <div id="dvisIncludeQuitEmp">
+                                <div class="FieldTitle150" style="width: 100px">
+                                    @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    <div class="FieldValue">
+                                        @{
+                                            var IsIncludeQuitEmp = new CheckBoxBuilderInfo()
+                                            {
+
+                                            };
+                                        }
+
+                                        @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+
+
+        </div>
+    </div>
+</div>
+@*<div style="overflow:hidden">*@
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        IList<SelectListItem> listSrcType = Enum.GetValues(typeof(EnumDropDown.StatusOT))
+.Cast<EnumDropDown.StatusOT>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_ReportWrongShiftModel.FieldNames.Status,new object[]
+               { "Value", "Text", listSrcType, ConstantDisplay.HRM_Attendance_ReportWrongShift_Status,""}},
+        };
+        string[] valueFields = new string[]
+                            {
+                                Att_ReportWrongShiftModel.FieldNames.CodeEmp,
+                                Att_ReportWrongShiftModel.FieldNames.ProfileName,
+                                Att_ReportWrongShiftModel.FieldNames.OrgCode,
+                                Att_ReportWrongShiftModel.FieldNames.Date,
+                                Att_ReportWrongShiftModel.FieldNames.ScheduleShift,
+                                Att_ReportWrongShiftModel.FieldNames.ActualShift,
+                                Att_ReportWrongShiftModel.FieldNames.TimeIn,
+                                Att_ReportWrongShiftModel.FieldNames.TimeOut,
+                                Att_ReportWrongShiftModel.FieldNames.ApprovedShift,
+                                Att_ReportWrongShiftModel.FieldNames.Status,
+                                Att_ReportWrongShiftModel.FieldNames.Notes,
+                                       Att_ReportWrongShiftModel.FieldNames.DateFrom,
+                                Att_ReportWrongShiftModel.FieldNames.DateTo,
+                                     Att_ReportWrongShiftModel.FieldNames.UserExport,
+                                Att_ReportWrongShiftModel.FieldNames.DateExport
+                            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                            {Att_ReportWrongShiftModel.FieldNames.CodeEmp,70},
+                            {Att_ReportWrongShiftModel.FieldNames.ProfileName,135},
+                                {Att_ReportWrongShiftModel.FieldNames.OrgCode,105},
+                                {Att_ReportWrongShiftModel.FieldNames.Date,85},
+                                {Att_ReportWrongShiftModel.FieldNames.ScheduleShift,92},
+                                {Att_ReportWrongShiftModel.FieldNames.ActualShift,90},
+                                {Att_ReportWrongShiftModel.FieldNames.TimeIn,68},
+                                {Att_ReportWrongShiftModel.FieldNames.TimeOut,68},
+                                {Att_ReportWrongShiftModel.FieldNames.ApprovedShift,105},
+                                {Att_ReportWrongShiftModel.FieldNames.Status,84},
+                                {Att_ReportWrongShiftModel.FieldNames.Notes,200},
+                                {Att_ReportWrongShiftModel.FieldNames.DateFrom,84},
+                                {Att_ReportWrongShiftModel.FieldNames.DateTo,200},
+                                {Att_ReportWrongShiftModel.FieldNames.UserExport,84},
+                                {Att_ReportWrongShiftModel.FieldNames.DateExport,200}
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                            {Att_ReportWrongShiftModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                            {Att_ReportWrongShiftModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                                {Att_ReportWrongShiftModel.FieldNames.OrgCode,ConstantDisplay.HRM_Attendance_DepartmentCode},
+                                {Att_ReportWrongShiftModel.FieldNames.Date,ConstantDisplay.HRM_Attendance_Date},
+                                {Att_ReportWrongShiftModel.FieldNames.ScheduleShift,ConstantDisplay.HRM_Attendance_ReportWrongShift_ScheduleShift},
+                                {Att_ReportWrongShiftModel.FieldNames.ActualShift,ConstantDisplay.HRM_Attendance_ReportWrongShift_ActualShift},
+                                {Att_ReportWrongShiftModel.FieldNames.TimeIn,ConstantDisplay.HRM_Attendance_InTime},
+                                {Att_ReportWrongShiftModel.FieldNames.TimeOut,ConstantDisplay.HRM_Attendance_OutTime},
+                                {Att_ReportWrongShiftModel.FieldNames.ApprovedShift,ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift},
+                                {Att_ReportWrongShiftModel.FieldNames.Status,ConstantDisplay.HRM_Attendance_ReportWrongShift_Status},
+                                {Att_ReportWrongShiftModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_Notes},
+                                {Att_ReportWrongShiftModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+                                {Att_ReportWrongShiftModel.FieldNames.Notes,ConstantDisplay.HRM_Attendance_Notes},
+                                 {Att_ReportWrongShiftModel.FieldNames.UserExport,ConstantDisplay.HRM_Attendance_DateFrom},
+                                {Att_ReportWrongShiftModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport}
+                            };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+                                {Att_ReportWrongShiftModel.FieldNames.TimeIn,"{0:HH:mm:ss}"},
+                                {Att_ReportWrongShiftModel.FieldNames.TimeOut,"{0:HH:mm:ss}"},
+        };
+        string[] hiddenFields = new string[]
+        {
+                       Att_ReportWrongShiftModel.FieldNames.DateFrom,
+                       Att_ReportWrongShiftModel.FieldNames.DateTo,
+                       Att_ReportWrongShiftModel.FieldNames.UserExport,
+                       Att_ReportWrongShiftModel.FieldNames.DateExport
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportWrongShift",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportWrongShiftList",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            ForeignKey = foreignKey,
+            HiddenFields = hiddenFields
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportWrongShiftModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

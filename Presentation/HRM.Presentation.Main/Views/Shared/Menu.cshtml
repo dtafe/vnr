@@ -1,0 +1,122 @@
+﻿@using System.Web.Caching
+@using HRM.Infrastructure.Utilities;
+@{
+    var siteMap = new HRM.Presentation.UI.Controls.Menu.XmlSiteMap();
+    if (Cache.Get("siteMap") == null)
+    {
+        siteMap.LoadFrom("~/Mvc.sitemap");
+        Cache.Insert("siteMap", siteMap);
+    }
+    else if (Cache["ChangeLanguage"] != null && Cache["ChangeLanguage"].ToString() == bool.TrueString)
+    {
+        siteMap.LoadFrom("~/Mvc.sitemap");
+        Cache["SiteMap"] = siteMap;
+
+        Cache["ChangeLanguage"] = false;
+    }
+    else
+    {
+        siteMap = (HRM.Presentation.UI.Controls.Menu.XmlSiteMap)Cache.Get("siteMap");
+    }
+
+}
+
+<script>
+        $(document).ready(function () {
+            $('.vnr-class-menu').mousedown(function (event) {
+                if (event.ctrlKey == false && event.which == 1) {
+                    
+                    var hrefs = this.href.split("#");
+                    if (hrefs.length > 1) {
+                        var str = "#" + hrefs[1] + "|" + this.name + "|" + this.lang;
+                        $("#CurrentLinkForClickBack").val(str);
+                        onMenuClick("#" + hrefs[1], this.name, this.lang);
+                    }
+                }
+            });
+        });
+</script>
+@helper RenderMenuItem(HRM.Presentation.UI.Controls.Menu.SiteMapNode item)
+{
+        var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+
+    string url = null;
+    string customCss = "";
+    if (!string.IsNullOrEmpty(item.Url))
+    {
+        url = item.Url;
+    }
+    else
+    {
+        if (!string.IsNullOrEmpty(item.ControllerName) && !string.IsNullOrEmpty(item.ActionName))
+        {
+            url = Url.Action(item.ActionName, item.ControllerName, null, null, null);
+        }
+    }
+
+    url += "#NewTab";
+    if (item.Parent != null && item.Parent == "True")
+    {
+        customCss = "k_link_parent";
+    }
+    <li>
+        @if (!String.IsNullOrEmpty(url))
+        {
+        <!--<a href="javascript:onMenuClick('url', 'item.HrmWebSite','item.Alias');" parent="Url.Content(item.HrmWebSite)" class="customCss">-->
+
+            <a href="@url" name="@item.HrmWebSite" lang="@item.Alias" class="vnr-class-menu @customCss" parent="@Url.Content(item.HrmWebSite)">
+                @if (!String.IsNullOrEmpty(item.ImageUrl))
+                {
+                    <text>
+                        <img alt="" src="@Url.Content(item.ImageUrl)" title="@Url.Content(item.Title)" parent="@Url.Content(item.HrmWebSite)" />
+                    </text>
+                }
+                @item.Title
+            </a>
+        }
+        else
+        {
+            if (!String.IsNullOrEmpty(item.ImageUrl))
+            {
+                <text>
+                    <img src="@Url.Content(item.ImageUrl)" title="@Url.Content(item.Title)" parent="@Url.Content(item.HrmWebSite)"/>
+                </text>
+            }
+            @item.Title
+        }
+        @if (item.ChildNodes.Any(x => x.Visible))
+        {
+            <ul>
+                @{
+                    var lstChildNodes = item.ChildNodes.Where(x => x.Visible);
+                    foreach (var childItem in lstChildNodes)
+                    {
+                        @RenderMenuItem(childItem)
+                    }
+                }
+            </ul>
+        }
+</li>
+}
+
+<ul id="admin-menu">
+
+    @{
+        if (Session["userId"] == null)
+        {
+            return;
+        }
+        var lstSiteMapNodes = siteMap.RootNode.ChildNodes.Where(x => x.Visible);
+        foreach (var item in lstSiteMapNodes)
+        {
+            
+            @RenderMenuItem(item)
+        } 
+    }
+</ul>
+<script>
+    $(document).ready(function () {
+        $("#admin-menu").kendoMenu();
+    });
+</script>
+

@@ -1,0 +1,210 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Category.Models;
+@using HRM.Infrastructure.Security;
+
+@model Cat_DataGroupSearchModel
+
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+
+}
+
+<script>
+
+    //Data khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            DataGroupName: $('#CatDataGroup_DataGroupName').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid("grid_Cat_DataGroup");
+        });
+        EditGridNewPage("grid_Cat_DataGroup", '#Hrm_Main_Web/Cat_DataGroup/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_DataGroup');
+        if (!isAccess) {
+            return;
+        }
+        KendoRouteMapping('#Hrm_Main_Web/Cat_DataGroup/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử Lý grid
+    GridCheckbox("grid_Cat_DataGroup");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("grid_Cat_DataGroup", '@_hrm_Main_Web' + "Cat_DataGroup/RemoveSelected/", selectedIds, '@ConstantPermission.Cat_DataGroup');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportDataGroupSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_DataGroup');
+    });
+
+    $("#btnExportAll").click(function () {
+
+        var grid = $('#grid_Cat_DataGroup').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllDataGroupList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_DataGroup');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div class="hrm_box">
+                        <div style="float:left">
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.DataGroupName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _DataGroupName = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "CatDataGroup_DataGroupName",
+                                    };
+                                    }
+                                    @Html.VnrTextBoxFor(mode => mode.DataGroupName, _DataGroupName)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        string[] valueFields = new[]
+        {
+
+            Cat_DataGroupModel.FieldNames.DataGroupName,
+            Cat_DataGroupModel.FieldNames.OrderNumber,
+            Cat_DataGroupModel.FieldNames.Notes,
+            Cat_DataGroupModel.FieldNames.UserCreate,
+            Cat_DataGroupModel.FieldNames.DateUpdate
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+
+            {Cat_DataGroupModel.FieldNames.DataGroupName,140},
+            {Cat_DataGroupModel.FieldNames.OrderNumber,100},
+            {Cat_DataGroupModel.FieldNames.Notes,140},
+            {Cat_DataGroupModel.FieldNames.UserCreate,100},
+            {Cat_DataGroupModel.FieldNames.DateUpdate,107}
+        };
+
+        var filterable = new Dictionary<string, bool>()
+        {
+            {Cat_DataGroupModel.FieldNames.DataGroupName,true},
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+
+            {Cat_DataGroupModel.FieldNames.DataGroupName,ConstantDisplay.HRM_Category_DataGroup_DataGroupName},
+            {Cat_DataGroupModel.FieldNames.OrderNumber,ConstantDisplay.HRM_Category_DataGroup_OrderNumber},
+            {Cat_DataGroupModel.FieldNames.Notes,ConstantDisplay.HRM_Category_DataGroup_Notes},
+            {Cat_DataGroupModel.FieldNames.UserCreate,ConstantDisplay.HRM_Category_OvertimeType_UserCreate},
+            {Cat_DataGroupModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Category_LeaveDayType_DateUpdate},
+
+
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_Cat_DataGroup",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetDataGroupList/",
+            ReadData = "filterFieldInfo"
+        };
+    }
+
+    @(Html.VnrGrid<Cat_DataGroupModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

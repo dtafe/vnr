@@ -1,0 +1,448 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_TAMScanLogSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Attendance_TAMScanLog.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> listSrcType = Enum.GetValues(typeof(EnumDropDown.TamScanLogSrcType))
+        .Cast<EnumDropDown.TamScanLogSrcType>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+        .ToList();
+
+    IList<SelectListItem> listType = Enum.GetValues(typeof(EnumDropDown.TamScanLogType))
+    .Cast<EnumDropDown.TamScanLogType>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+    .ToList();
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_gridAtt_TAMScanLog_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Att_TAMScanLog/TAMScanLogInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+    var titleCreate = '@Html.Raw(ConstantDisplay.HRM_Attendance_TAMScanLog_AddNew.TranslateString())';
+    var titleUpdate = '@Html.Raw(ConstantDisplay.HRM_Attendance_TAMScanLog_Edit.TranslateString())';
+    //Khởi tạo điều kiện tìm kiếm
+
+    function filterFieldInfo(isExport) {
+
+        var _DateFrom = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val());
+        var _DateTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val());
+        return {
+            CardCode: $("#sCardCode").val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            Type: $('#@Html.FieldIdFor(model => model.Type)').val(),
+            Status: $('#@Html.FieldIdFor(model => model.Status)').val(),
+            DateFrom: _DateFrom,
+            DateTo: _DateTo,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetTAMScanLogListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor("Error," + data[1]);
+                        return true;
+                    }
+                    var grid = $('#gridAtt_TAMScanLog').data("kendoGrid");
+                    grid.dataSource.read();
+                    selectedIds = [];
+                    checkedNodes = [];
+                }
+            });
+        });
+
+        //Xử lý nút Edit
+        //Xử lý nút Edit
+
+
+        var url = '@_hrm_Main_Web' + "Att_TAMScanLog/TAMScanLogInfo/";
+        EditGridPopUp("gridAtt_TAMScanLog", '@ConstantControlName.HRM_gridAtt_TAMScanLog_PopUp_Name', url, '@ConstantPermission.Att_TAMScanLog', titleUpdate);
+    });
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*KendoRouteMapping('#Hrm_Main_Web/Hre_StopWorking/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');*@
+        PopUpCreate('@ConstantControlName.HRM_gridAtt_TAMScanLog_PopUp_Name', titleCreate, '@ConstantPermission.Cat_Unit');
+    });
+
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_TAMScanLog");
+
+
+    //Xử lý nút Delete
+    $('#btnDelete').click(function (e) {
+
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        //DeleteSelected("gridAtt_TAMScanLog", '@_hrm_Main_Web' + "Att_TAMScanLog/RemoveSelected/", selectedIds, '@ConstantPermission.Att_TAMScanLog');
+        DeleteSelectedConfirm("gridAtt_TAMScanLog", '@_hrm_Main_Web' + "Att_TAMScanLog/RemoveSelected/", selectedIds, '@ConstantPermission.Att_TAMScanLog');
+        return false;
+    });
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        Search("btnSearch", "treeviewOrg", "gridAtt_TAMScanLog");
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_TAMScanLog').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportTAMScanLogList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_TAMScanLog');
+
+
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportTAMScanLogSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_TAMScanLog');
+        // selectedIds = [];
+        var grid = $('#gridAtt_TAMScanLog').data("kendoGrid");
+        grid.dataSource.read();
+    });
+
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            
+                <div class="contendSearchWidge" style="overflow:visible">
+                    <form action="#" method="POST" id="form-search">
+                        <div>
+                            <div style="float:left; width:400px">
+                                <div id="div2">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelFor(model => model.CardCode)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var tbCardCode = new TextBoxBuilderInfo()
+                                            {
+                                                Name = "sCardCode",
+                                                CssStyle = "width:200px"
+                                            };
+                                        }
+                                        @Html.VnrTextBoxFor(model => model.CardCode, tbCardCode)
+                                    </div>
+                                </div>
+                                <div id="div3">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelFor(model => model.CodeEmp)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(model => model.CodeEmp, "width:200px")
+                                    </div>
+                                </div>
+                                <div id="div4">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelFor(mode => mode.Type)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var Type = new DropDownListBuilderInfo()
+                                            {
+                                                DataTextField = "Text",
+                                                DataValueField = "Value",
+                                                BindTo = listType,
+                                                OptionLabel = ConstantDisplay.HRM_Category_SelectType.TranslateString(),
+                                                StyleCss = "width:200px"
+                                            };
+                                        }
+                                        @Html.VnrDropDownListFor(mode => mode.Type, Type)
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                
+                            </div>
+                            <div style="width:650px; display:block; float:left">
+
+                                        <div id="div3">
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(mode => mode.DateFrom)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var dateFrom = new DatePickerBuilderInfo()
+                                                    {
+                                                        //Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                                        StyleCss = "width:100px;",
+                                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(mode => mode.DateFrom, dateFrom)
+                                                @{
+                                                    var dateTo = new DatePickerBuilderInfo()
+                                                    {
+                                                        //Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                                        StyleCss = "width:100px;",
+                                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(mode => mode.DateTo, dateTo)
+                                            </div>
+                                            <div style="clear: both;"></div>
+                                        </div>
+                               
+                                <div id="div6">
+                                    <div class="FieldTitle">
+                                        @Html.Label(ConstantDisplay.HRM_Attendance_WorkDay_SrcType.TranslateString())
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var status = new DropDownListBuilderInfo()
+                                            {
+                                                DataTextField = "Text",
+                                                DataValueField = "Value",
+                                                BindTo = listSrcType,
+                                                OptionLabel = ConstantDisplay.HRM_Attendance_SelectSrcType.TranslateString(),
+                                                StyleCss = "width:202px"
+                                            };
+                                        }
+                                        @Html.VnrDropDownListFor(mode => mode.Status, status)
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                @*<div id="div8">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelFor(mode => mode.MachineNo)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.MachineNo)
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>*@
+                            </div>
+                        </div>
+                    </form>
+
+            </div>
+            
+            <br />
+            </div>
+</div>
+    <div class="commandToolBarWidge">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <div class="btn-group">
+                <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                    <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                    @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                    <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu pull-right" role="menu">
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                </ul>
+            </div>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnTAMScanLog", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+    </div>
+</div>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id,'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridAtt_TAMScanLog_Name + "__Att_TAMScanLog_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridAtt_TAMScanLog_Name,
+            AutoBind = false,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetTAMScanLogList",
+            ReadData = "filterFieldInfo",
+            EventDataBound = "changePageGird",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ForeignKey = new Dictionary<object, object[]>()
+            {
+                  {Att_TAMScanLogModel.FieldNames.Type,new object[]
+                   { "Value", "Text", listType, ConstantDisplay.HRM_Attendance_TAMScanLog_Type,""}},
+
+                    {Att_TAMScanLogModel.FieldNames.Status,new object[]
+                   { "Value", "Text", listSrcType, ConstantDisplay.HRM_Attendance_WorkDay_SrcType,""}},
+            };
+
+            grid.ValueFields = new string[]
+            {
+                Att_TAMScanLogModel.FieldNames.CodeEmp,
+                Att_TAMScanLogModel.FieldNames.ProfileName,
+                Att_TAMScanLogModel.FieldNames.CardCode,
+                Att_TAMScanLogModel.FieldNames.Type,
+                //Att_TAMScanLogModel.FieldNames.SrcType,
+                Att_TAMScanLogModel.FieldNames.TimeLog,
+                Att_TAMScanLogModel.FieldNames.Status,
+                //Att_TAMScanLogModel.FieldNames.MachineNo,
+                //Att_TAMScanLogModel.FieldNames.Comment,
+                Att_TAMScanLogModel.FieldNames.UserUpdate,
+                Att_TAMScanLogModel.FieldNames.DateUpdate,
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Att_TAMScanLogModel.FieldNames.CodeEmp, 70},
+                {Att_TAMScanLogModel.FieldNames.ProfileName, 135},
+                {Att_TAMScanLogModel.FieldNames.CardCode, 113},
+                {Att_TAMScanLogModel.FieldNames.Type, 88},
+                {Att_TAMScanLogModel.FieldNames.Status, 100},
+                {Att_TAMScanLogModel.FieldNames.TimeLog, 135},
+                {Att_TAMScanLogModel.FieldNames.MachineNo, 105},
+                {Att_TAMScanLogModel.FieldNames.UserUpdate, 110},
+                {Att_TAMScanLogModel.FieldNames.DateUpdate, 135},
+                {Att_TAMScanLogModel.FieldNames.Comment, 200}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                  {Att_TAMScanLogModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Att_TAMScanLogModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+
+                {Att_TAMScanLogModel.FieldNames.CardCode, ConstantDisplay.HRM_Attendance_TAMScanLog_CardCode},
+                {Att_TAMScanLogModel.FieldNames.Type, ConstantDisplay.HRM_Attendance_TAMScanLog_Type},
+                {Att_TAMScanLogModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_WorkDay_SrcType},
+                {Att_TAMScanLogModel.FieldNames.TimeLog, ConstantDisplay.HRM_Attendance_TAMScanLog_DateFrom},
+                {Att_TAMScanLogModel.FieldNames.MachineNo, ConstantDisplay.HRM_Attendance_TAMScanLog_MachineNo},
+                {Att_TAMScanLogModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Attendance_TAMScanLog_UserUpdate},
+                {Att_TAMScanLogModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_TAMScanLog_DateUpdate},
+                {Att_TAMScanLogModel.FieldNames.Comment, ConstantDisplay.HRM_Attendance_TAMScanLog_Comment}
+            };
+
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Att_TAMScanLogModel.FieldNames.TimeLog, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+                {Att_TAMScanLogModel.FieldNames.DateUpdate, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            };
+
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Att_TAMScanLogModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridAtt_TAMScanLog",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    FormatFields = formatFields,
+        //    AutoBind = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetTAMScanLogList",
+        //    ReadData = "filterFieldInfo",
+        //    EventDataBound = "changePageGird",
+        //    ForeignKey = foreignKey,
+        //    HyperlinkFields = hyperlinkFields
+        //};
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_TAMScanLogModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnTAMScanLog", "Att_TAMScanLogModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

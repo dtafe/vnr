@@ -1,0 +1,252 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Payroll.Models;
+@using HRM.Presentation.Training.Models;
+@model Tra_PlanDetailSearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Att_Grade.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Services = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windownTra_PlanDetail",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Tra_PlanDetail/TraPlanDetailInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+    var checkedNodes = [];
+    var titleUpdatePopup = '@Html.Raw(ConstantDisplay.HRM_Tra_PlanDetail_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Tra_PlanDetail_Create_Title.TranslateString())';
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            PlanID: $("#SPlanID").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return dataParameter;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#gridTra_PlanDetail').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+
+        //Xử Lý Grid
+        GridCheckbox("gridTra_PlanDetail");
+
+        //Xử lý nút Delete
+        $('#btnDelete').click(function (e) {
+
+            if (selectedIds.length == 0) {
+                DeleteFail();
+                return;
+            }
+            //  e.preventDefault();
+            DeleteSelected("gridTra_PlanDetail", '@_hrm_Main_Web' + "Tra_PlanDetail/RemoveSelected/", selectedIds, '@ConstantPermission.Tra_Course');
+            //selectedIds = [];
+        });
+
+        $("#btnCreate").click(function () {
+            PopUpCreate("windownTra_PlanDetail", titleCreatePopUp, '@ConstantPermission.Tra_Course');
+        });
+        //Xử lý nút Edit
+        var url = '@_hrm_Main_Web' + "Tra_PlanDetail/TraPlanDetailInfo/";
+        EditGridPopUp("gridTra_PlanDetail", "windownTra_PlanDetail", url, '@ConstantPermission.Tra_Course', titleUpdatePopup);
+    });
+
+
+
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            traditional: true,
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('@ConstantDisplay.HRM_Payroll_ErrorInProcessing');
+            }
+        });
+    }
+
+    $("#btnExportAll").click(function () {
+
+        //var grid = $('#gridSal_Grade').data("kendoGrid");
+        //if (grid.dataSource.total() == 0) {
+        //    ExportAllFail();
+        //    return;
+        //}
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportAllSalGradeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_Grade');
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportSalGradeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_Grade');
+
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form id="form-search">
+                    <div>
+                       
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.PlanID)
+                                @*@Html.HiddenFor(model => model.Id)*@
+                            </div>
+                            <div class="FieldValue">
+                               @{
+                                   var planID = new ComboBoxBuilderInfo
+                                   {
+                                       Name = "SPlanID",
+                                       DataTextField = "PlanName",
+                                       DataValueField = "ID",
+                                       Url = _hrm_Cat_Service + "Tra_GetData/GetMultiPlanName",
+                                       StyleCss = "width:200px;",
+                                       ServerFilter = true
+                                   };
+                               }
+                                @Html.VnrComboBoxFor(mode => mode.PlanID, planID)
+                            </div>
+                        </div>
+                        
+                        
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })*@
+        @*<div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Payroll.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new string[]
+        {
+            Tra_PlanDetailModel.FieldNames.PlanName,
+            Tra_PlanDetailModel.FieldNames.OrgStructureName,
+            Tra_PlanDetailModel.FieldNames.Quantity,
+            Tra_PlanDetailModel.FieldNames.UserCreate,
+            Tra_PlanDetailModel.FieldNames.DateCreate
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Tra_PlanDetailModel.FieldNames.PlanName, 135},
+            {Tra_PlanDetailModel.FieldNames.OrgStructureName, 120},
+            {Tra_PlanDetailModel.FieldNames.Quantity, 100},
+            {Tra_PlanDetailModel.FieldNames.UserCreate, 110},
+            {Tra_PlanDetailModel.FieldNames.DateCreate, 110},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+
+            {Tra_PlanDetailModel.FieldNames.PlanName, ConstantDisplay.HRM_Tra_Plan_PlanName},
+            {Tra_PlanDetailModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Tra_PlanDetail_OrgStructureName},
+            {Tra_PlanDetailModel.FieldNames.Quantity, ConstantDisplay.HRM_Tra_PlanDetail_Quantity},
+            {Tra_PlanDetailModel.FieldNames.UserCreate, ConstantDisplay.HRM_Tra_PlanDetail_UserCreate},
+            {Tra_PlanDetailModel.FieldNames.DateCreate, ConstantDisplay.HRM_Tra_PlanDetail_DateCreate},
+
+        };
+     
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridTra_PlanDetail",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hr_Services + "Tra_GetData/GetPlanDetailList/",
+            ReadData = "filterFieldInfo",
+            //EventDataBound = "changePageGird",
+            //HyperlinkFields = hyperlinkFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Tra_PlanDetailModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

@@ -1,0 +1,248 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_AnalysysLeaveAndLateEarlyModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_AnalysysLeaveAndLateEarly;
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    string[] valueFields = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var checkedNodes = [];
+    function filterFieldInfo(isExport) {
+        return {
+            OrgStructureIds: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show hide panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/AnalysysLeaveAndLateEarlyValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+
+                        var treeView = $("#treeviewOrg").data("kendoTreeView");
+                        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+                        var grid = $('#gridAtt_AnalysysLeaveAndLateEarly').data("kendoGrid");
+                        grid.dataSource.read();
+                        checkedNodes = [];
+                    }
+                }
+            });
+            return false;
+        });
+    });
+    
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_AnalysysLeaveAndLateEarly').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/AnalysysLeaveAndLateEarly/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_AnalysysLeaveAndLateEarly');
+    });
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div style="float:left; width:800px;" class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(m => m.DateFrom)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                // Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                Value = DateTime.Today.ToShortDateString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                        @{
+                            var DateTo = new DatePickerBuilderInfo()
+                            {
+                                //Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                Value = DateTime.Today.ToShortDateString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                    </div>
+                </div> 
+                <div id="div4">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.OrgStructureIds)
+                    </div>
+                    <div class="FieldValue">
+                       @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                    </div>
+
+                    <div style="clear: both;"></div>
+                </div>
+            </div>
+           
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        </div>
+    </div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        IList<SelectListItem> lstudLeavedayStatus1 = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+.Cast<EnumDropDown.OverTimeStatus>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayStatus1,new object[]
+               { "Value", "Text", lstudLeavedayStatus1, ConstantDisplay.HRM_Attendance_Leaveday_Status,""}},
+        };
+
+        valueFields = new string[]
+        {
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.CodeEmp,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ProfileName,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.WorkDate,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ShiftName,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.InTime,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.OutTime,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayCode1,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayStatus1,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Late,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Early,
+           Att_AnalysysLeaveAndLateEarlyModel.FieldNames.LateEarly
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.CodeEmp,75},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ProfileName,135},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.WorkDate,81},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ShiftName,90},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.InTime,65},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.OutTime,60},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayCode1,125},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayStatus1,80},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Late,65},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Early,65},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.LateEarly,105}
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDate},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_ShiftId},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.InTime,ConstantDisplay.HRM_Attendance_InTime},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.OutTime,ConstantDisplay.HRM_Attendance_OutTime},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayCode1,ConstantDisplay.HRM_Category_LeaveDayType_CodeLeaveDayType},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.udLeavedayStatus1,ConstantDisplay.HRM_Attendance_Leaveday_Status},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Late,ConstantDisplay.HRM_Attendance_Late},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.Early,ConstantDisplay.HRM_Attendance_Early},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.LateEarly,ConstantDisplay.HRM_Attendance_LateEarly}
+            };
+
+        Dictionary<string, string>
+        formatFields = new Dictionary<string, string>
+            ()
+        {
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.InTime,ConstantFormat.HRM_Format_HourMin},
+            {Att_AnalysysLeaveAndLateEarlyModel.FieldNames.OutTime,ConstantFormat.HRM_Format_HourMin}
+        };
+       
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_AnalysysLeaveAndLateEarly",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCheckbox=true,
+            ReadActionUrl = _hrm_Hre_Service + "Att_GetData/AnalysysLeaveAndLateEarly",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon=false,
+            EventDataBound = "changePageGird",
+            ForeignKey=foreignKey
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_AnalysysLeaveAndLateEarlyModel>(grid))
+</div>
+
+
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,218 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Fin_ApprovedPurchaseRequestSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Contract.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var screen = controller + "/" + action;
+}
+@{
+    var windowApproved = new WindowBuilderInfo
+    {
+        Name = "windowPurchaseRequest",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Fin_ApprovedPurchaseRequest/PurchaseRequestApprovedInfo/",
+    };
+}
+@(Html.VnrWindow(windowApproved))
+
+@{
+    var windowReject = new WindowBuilderInfo
+    {
+        Name = "windowPurchaseRequest_Reject",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Fin_ApprovedPurchaseRequest/PurchaseRequestRejectInfo/",
+    };
+}
+@(Html.VnrWindow(windowReject))
+
+<script type="text/javascript">
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            UserApproveID: $("#UserLoginId").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+    GridCheckbox("gridHre_Contract");
+
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        var grid = $('#grid_ApprovedPurchaseRequest').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("grid_ApprovedPurchaseRequest", '@_hrm_Main_Web' + "Hre_Contract/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Contract');
+        return false;
+    });
+
+    $('#btnApproved').click(function (e) {
+        
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Đơn Hàng Để Duyệt");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "Fin_ApprovedPurchaseRequest/PurchaseRequestApprovedInfo/";
+        PopUpEdit("windowPurchaseRequest", url, selectedIds[0], "Duyệt Đơn Hàng");
+
+    });
+
+    $('#btnReject').click(function (e) {
+        
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Đơn Hàng Để Từ Chối");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "Fin_ApprovedPurchaseRequest/PurchaseRequestRejectInfo/";
+        PopUpEdit("windowPurchaseRequest_Reject", url, selectedIds[0], "Từ Chối Đơn Hàng");
+
+    });
+
+    $("#btnViewPurchase").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Profile');
+        if (!isAccess) {
+            return;
+        }
+        
+       @*var x = '@Model.ID';*@
+
+        var x = selectedIds;
+
+        KendoRouteMapping('#Hrm_Main_Web/Fin_ApprovedPurchaseRequest/DetailPurchaseRequest/' + x, 'Hrm_Main_Web', '@_hrm_Main_Web', true);
+    });
+
+    
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnViewPurchase", Content = ConstantAction.HRM_Common_ViewDetail.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApproved", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new[]
+        {
+            Fin_PurchaseRequestModel.FieldNames.FunctionName,
+            Fin_PurchaseRequestModel.FieldNames.BudgetOwnerName,
+            Fin_PurchaseRequestModel.FieldNames.ChannelName,
+            Fin_PurchaseRequestModel.FieldNames.BudgetChargedIn,
+            Fin_PurchaseRequestModel.FieldNames.From,
+            Fin_PurchaseRequestModel.FieldNames.To,
+            Fin_PurchaseRequestModel.FieldNames.SupplierName,
+            Fin_PurchaseRequestModel.FieldNames.Description,
+            Fin_PurchaseRequestModel.FieldNames.Status,
+            Fin_PurchaseRequestModel.FieldNames.UserApprovedName,
+
+
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Fin_PurchaseRequestModel.FieldNames.FunctionName, 80},
+            {Fin_PurchaseRequestModel.FieldNames.BudgetOwnerName, 140},
+            {Fin_PurchaseRequestModel.FieldNames.ChannelName, 70},
+            {Fin_PurchaseRequestModel.FieldNames.BudgetChargedIn, 120},
+            {Fin_PurchaseRequestModel.FieldNames.From, 110},
+            {Fin_PurchaseRequestModel.FieldNames.To, 110},
+            {Fin_PurchaseRequestModel.FieldNames.SupplierName, 140},
+            {Fin_PurchaseRequestModel.FieldNames.Description , 100},
+            {Fin_PurchaseRequestModel.FieldNames.Status, 155},
+            {Fin_PurchaseRequestModel.FieldNames.UserApprovedName, 125},
+
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Fin_PurchaseRequestModel.FieldNames.FunctionName, "Function"},
+            {Fin_PurchaseRequestModel.FieldNames.BudgetOwnerName, "Budget Owner"},
+            {Fin_PurchaseRequestModel.FieldNames.ChannelName, "Channel"},
+            {Fin_PurchaseRequestModel.FieldNames.BudgetChargedIn, "Budget Charged In"},
+            {Fin_PurchaseRequestModel.FieldNames.From, "From"},
+            {Fin_PurchaseRequestModel.FieldNames.To, "To"},
+            {Fin_PurchaseRequestModel.FieldNames.SupplierName, "Supplier Name"},
+            {Fin_PurchaseRequestModel.FieldNames.Description, "Description"},
+            {Fin_PurchaseRequestModel.FieldNames.Status, "Status"},
+            {Fin_PurchaseRequestModel.FieldNames.UserApprovedName, "User Approved Name"},
+        };
+
+
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_ApprovedPurchaseRequest",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            AutoBind = true,
+            DisplayFields = displayFields,
+            ShowEditIcon = false,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetApprovedPurchaseRequestList",
+            ReadData = "filterFieldInfo",
+
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Hr.Models.Fin_PurchaseRequestModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+

@@ -1,0 +1,386 @@
+﻿@model HRM.Presentation.Attendance.Models.Att_AnnualDetailSearchModel
+@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+@{
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var permissionMessages = string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Attendance_ComputeAnnualLeave.TranslateString());
+
+    IList<SelectListItem> listType = Enum.GetValues(typeof(AnnualLeaveDetailType))
+     .Cast<AnnualLeaveDetailType>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+}
+
+@Html.Hidden("Screen", screen)
+
+@if (1 == 2)
+{
+    <script src="~/Scripts/hrm-data.js"></script>
+}
+<script>
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    var checkedNodes = [];
+    //Lay tham so search
+    function filterFieldInfo(isExportDDL) {
+        debugger;
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var orgs = checkedNodes.join(",");
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(","),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            Year: $('#@Html.FieldIdFor(model => model.Year)').val(),
+            PayrollGroup: $('#@Html.FieldIdFor(model => model.PayrollGroup)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnComputeAnnualLeaveDetail").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_AnnualLeaveDetail_Compute', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@permissionMessages');
+            return;
+        }
+        ShowHre_ProgressBar();
+
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'Att_GetData/ComputeAnnualDetailList/',
+            data: filterFieldInfo(),
+            datatype: 'json',
+            type: 'Post',
+            success: function (data) {
+                CloseHre_ProgressBar();
+                if (data) {
+                    var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+                    notificationWidget.show('Tính Phép Năm Thành Công');
+
+                    // reload lai lưới
+                    var grid = $('#gridAtt_AnnualDetail').data("kendoGrid");
+                    grid.dataSource.read();
+                    checkedNodes = [];
+                } else {
+                    var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+                    notificationWidget.show('Tính Phép Năm Thất Bại');
+                }
+            },
+            error: function () {
+                CloseHre_ProgressBar();
+
+            }
+        });
+    });
+
+    var data = SetCharacteFieldRequired();
+    //event nut search
+    $("#btnSearch").click(function () {
+        var year = filterFieldInfo().Year;
+        if (year == '') {
+            ShowNotificationProcessor('Error,Vui Lòng Nhập Năm');
+            return;
+        }
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var grid = $('#gridAtt_AnnualDetail').data("kendoGrid");
+        grid.dataSource.read();
+        checkedNodes = [];
+    });
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_AnnualDetail");
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+
+    $("#btnExport").click(function () {
+        var grid = $('#gridAtt_AnnualDetail').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/GetAnnualDetailList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        if (dataParameter.ExportId == '') {
+            alert('Chưa Chọn Template!');
+            return;
+        }
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + 'Att_GetData/GetAnnualDetailList', filterFieldInfo(true));
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div id="dvYear">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Year)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var year = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Value = int.Parse(DateTime.Now.Year.ToString()),
+                                    Format = ConstantFormat.HRM_Format_Number_Integer,
+                                    StyleCss = "width:80px"
+                                };
+                            }
+                            @(Html.VnrNumericTextBoxFor(model => model.Year, year))
+                        </div>
+                    </div>
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => Model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => Model.CodeEmp)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div id="dvOrgStructureID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.PayrollGroup)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _PayrollGroup = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "PayrollGroupName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectGroupPayroll.TranslateString()
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.PayrollGroup, _PayrollGroup))
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeAnnualLeaveDetail", Content = ConstantAction.HRM_Common_ComputeAnnualLeave.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Attendance.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            //{Att_AnalyzeAnnualModel.FieldNames.Type,new object[]
+            //   { "Value", "Text", listType, ConstantDisplay.HRM_Attendance_AnnualLeaveDetail_LeaveType,""}},
+        };
+
+        valueFields = new string[]
+        {
+            Att_AnnualDetailModel.FieldNames.CodeEmp,
+            Att_AnnualDetailModel.FieldNames.ProfileName,
+            Att_AnnualDetailModel.FieldNames.OrgStructureName,
+            Att_AnnualDetailModel.FieldNames.DateHire,
+            Att_AnnualDetailModel.FieldNames.Year,
+            Att_AnnualDetailModel.FieldNames.MonthYear,
+            Att_AnnualDetailModel.FieldNames.MonthBeginInYear,
+            Att_AnnualDetailModel.FieldNames.MonthResetInitAvailable,
+            Att_AnnualDetailModel.FieldNames.MonthStartProfile,
+            Att_AnnualDetailModel.FieldNames.Available,
+            Att_AnnualDetailModel.FieldNames.LeaveInMonth,
+            Att_AnnualDetailModel.FieldNames.TotalLeaveBef,
+            Att_AnnualDetailModel.FieldNames.Remain,
+            Att_AnnualDetailModel.FieldNames.InitAvailable,
+            Att_AnnualDetailModel.FieldNames.LeaveInMonthFromInitAvailable,
+            Att_AnnualDetailModel.FieldNames.TotalLeaveBefFromInitAvailable,
+            Att_AnnualDetailModel.FieldNames.IsHaveResetInitAvailable,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_AnnualDetailModel.FieldNames.CodeEmp, 70},
+            {Att_AnnualDetailModel.FieldNames.ProfileName, 140},
+            {Att_AnnualDetailModel.FieldNames.OrgStructureName, 100},
+            {Att_AnnualDetailModel.FieldNames.DateHire, 110},
+            {Att_AnnualDetailModel.FieldNames.MonthYear, 80},
+            {Att_AnnualDetailModel.FieldNames.Year, 60},
+            {Att_AnnualDetailModel.FieldNames.MonthBeginInYear, 105},
+            {Att_AnnualDetailModel.FieldNames.MonthResetInitAvailable, 120},
+            {Att_AnnualDetailModel.FieldNames.MonthStartProfile, 120},
+            {Att_AnnualDetailModel.FieldNames.Available, 125},
+            {Att_AnnualDetailModel.FieldNames.LeaveInMonth, 125},
+            {Att_AnnualDetailModel.FieldNames.TotalLeaveBef, 130},
+            {Att_AnnualDetailModel.FieldNames.Remain, 65},
+            {Att_AnnualDetailModel.FieldNames.InitAvailable, 100},
+            {Att_AnnualDetailModel.FieldNames.LeaveInMonthFromInitAvailable, 110},
+            {Att_AnnualDetailModel.FieldNames.TotalLeaveBefFromInitAvailable, 140},
+            {Att_AnnualDetailModel.FieldNames.IsHaveResetInitAvailable, 110},
+
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_AnnualDetailModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Att_AnnualDetailModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+            {Att_AnnualDetailModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_HR_Profile_OrgStructureName},
+            {Att_AnnualDetailModel.FieldNames.DateHire, ConstantDisplay.HRM_HR_Profile_DateHire},
+            {Att_AnnualDetailModel.FieldNames.Year, ConstantDisplay.HRM_Attendance_AnnualDetail_Year},
+            {Att_AnnualDetailModel.FieldNames.MonthYear, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthYear},
+            {Att_AnnualDetailModel.FieldNames.MonthBeginInYear, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthBeginInYear},
+            {Att_AnnualDetailModel.FieldNames.MonthResetInitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthStartProfile},
+            {Att_AnnualDetailModel.FieldNames.MonthStartProfile, ConstantDisplay.HRM_Attendance_AnnualDetail_Available},
+            {Att_AnnualDetailModel.FieldNames.Available, ConstantDisplay.HRM_Attendance_AnnualDetail_Available},
+            {Att_AnnualDetailModel.FieldNames.LeaveInMonth, ConstantDisplay.HRM_Attendance_AnnualDetail_LeaveInMonth},
+            {Att_AnnualDetailModel.FieldNames.TotalLeaveBef, ConstantDisplay.HRM_Attendance_AnnualDetail_TotalLeaveBef},
+            {Att_AnnualDetailModel.FieldNames.Remain , ConstantDisplay.HRM_Attendance_AnnualDetail_Remain},
+            {Att_AnnualDetailModel.FieldNames.InitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_InitAvailable},
+            {Att_AnnualDetailModel.FieldNames.LeaveInMonthFromInitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_LeaveInMonthFromInitAvailable},
+            {Att_AnnualDetailModel.FieldNames.TotalLeaveBefFromInitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_TotalLeaveBefFromInitAvailable},
+            {Att_AnnualDetailModel.FieldNames.IsHaveResetInitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_IsHaveResetInitAvailable},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+             {Att_AnnualDetailModel.FieldNames.Year, ConstantFormat.HRM_Format_Number_Integer},
+             {Att_AnnualDetailModel.FieldNames.MonthBeginInYear , ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.MonthResetInitAvailable, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.MonthStartProfile, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.Available , ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.LeaveInMonth, ConstantFormat.HRM_Format_Number_Double},
+             {Att_AnnualDetailModel.FieldNames.TotalLeaveBef, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.Remain , ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.InitAvailable, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.LeaveInMonthFromInitAvailable, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.TotalLeaveBefFromInitAvailable, ConstantFormat.HRM_Format_Int},
+             {Att_AnnualDetailModel.FieldNames.IsHaveResetInitAvailable, ConstantFormat.HRM_Format_Int},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_AnnualDetail",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hre_Service + "Att_GetData/GetAnnualDetailList/",
+            ShowCommand = false,
+            ShowEditIcon = false,
+            ReadData = "filterFieldInfo",
+            EventDataBound = "changePageGird",
+            ForeignKey = foreignKey
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_AnnualDetailModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

@@ -1,0 +1,316 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Training.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model Tra_ReportTraineeUnAttendModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    SetFieldRequired();
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _courseID = $('#@Html.FieldIdFor(model => model.CourseID)').val() != null ? $('#@Html.FieldIdFor(model => model.CourseID)').val().join(',') : $('#@Html.FieldIdFor(model => model.CourseID)').val();
+        var _classID = $('#@Html.FieldIdFor(model => model.ClassID)').val() != null ? $('#@Html.FieldIdFor(model => model.ClassID)').val().join(',') : $('#@Html.FieldIdFor(model => model.ClassID)').val();
+        var _RequirementTrainID = $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val() != null ? $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val().join(',') : $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val();
+        var elementPara = {
+            CodeEmp: $("#SCodeEmp").val(),
+            ProfileName: $("#SProfileName").val(),
+            OrgStructureID: checkedNodes.join(','),
+            CourseID: _courseID,
+            ClassID: _classID,
+            StartDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#StartDate").val()),
+            EndDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#EndDate").val()),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            RequirementTrainID: _RequirementTrainID,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#gridTra_ReportTransferTrainee').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+
+        });
+    });
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Tra_ReportTraineeByMonth');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Tra_GetData/GetReportTraineeUnAttend";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + '/Tra_GetData/GetReportTraineeUnAttend', filterFieldInfo(true));
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div style="float:left">
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+
+                                @Html.VnrTextBox("SCodeEmp","width:200px")
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+
+                                @Html.VnrTextBox("SProfileName", "width:200px")
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="float:left; margin-left:20px">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CourseID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var CourseID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "CourseName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Tra_GetData/GetMultiTraCourse",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectCourse.TranslateString(),
+                                        Autobind = false
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.CourseID, CourseID))
+                            </div>
+                        </div>
+
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ClassID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ClassID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ClassName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Tra_GetData/GetMultiClass",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectClass.TranslateString(),
+                                        Autobind = false
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ClassID, ClassID))
+                            </div>
+                        </div>
+                        <div id="div10">
+                            <div class="FieldTitle">
+                                @ConstantDisplay.HRM_HR_DateLearn.TranslateString()
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _StartDate = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss="width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Category_UnAllowCfgAmount_FromDate.TranslateString()
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.StartDate, _StartDate)
+                                @{
+                                    var _EndDate = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Category_UnAllowCfgAmount_ToDate.TranslateString()
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.EndDate, _EndDate)
+                            </div>
+                        </div>
+                       
+                    </div>
+                    <div style="float:left; margin-left:20px">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.RequirementTrainID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _RequirementTrainID = new MultiSelectBuilderInfo
+                                    {
+
+                                        DataTextField = "RequirementTrainName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Tra_GetData/GetMultiRequirementTrain",
+                                        //  MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Training_TrainingRequirements_Select.TranslateString(),
+                                        Autobind = true
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.RequirementTrainID, _RequirementTrainID)
+                            </div>
+                        </div>
+
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+                            {
+                                Tra_ReportTraineeUnAttendModel.FieldNames.CodeEmp,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.ProfileName,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.E_DEPARTMENT,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.E_DIVISION,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.E_SECTION,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.E_TEAM,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.E_UNIT,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.RequirementTrainName,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.CourseName,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.ClassName,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.WorkPlace,
+                                Tra_ReportTraineeUnAttendModel.FieldNames.Notes,
+
+                            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.CodeEmp,100},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.ProfileName,130},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_DEPARTMENT,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_DIVISION,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_SECTION,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_TEAM,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_UNIT,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.RequirementTrainName,135},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.CourseName,100},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.ClassName,100},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.WorkPlace,130},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.Notes,100},
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.ProfileName,ConstantDisplay.HRM_Att_Report_ProfileName},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.RequirementTrainName, ConstantDisplay.HRM_Tra_RequirementTrain_RequirementTrainName},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.CourseName,ConstantDisplay.HRM_Tra_Course_CourseName},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.ClassName,ConstantDisplay.HRM_Tra_Class_ClassName},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.WorkPlace,ConstantDisplay.HRM_HR_Profile_WorkingPlace},
+                                {Tra_ReportTraineeUnAttendModel.FieldNames.Notes,ConstantDisplay.HRM_Recruitment_Notes},
+                            };
+                           
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridTra_ReportTransferTrainee",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowNextPrevious = true,
+            PageSize = 20,
+            ShowPageNumber = true,
+            ReadActionUrl = _hrm_Hre_Service + "Tra_GetData/GetReportTraineeUnAttend",
+            ReadData = "filterFieldInfo",
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+           // FormatFields = formatFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Tra_ReportTraineeUnAttendModel>(grid))
+</div>
+

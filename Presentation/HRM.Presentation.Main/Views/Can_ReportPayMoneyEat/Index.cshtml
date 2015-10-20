@@ -1,0 +1,367 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.Canteen.Models;
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Canteen.Models.Can_ReportPayMoneyEatSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Canteen_Report_PayMoneyEat.TranslateString();
+    Layout = null;
+    var _hrm_Can_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Can_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Lau_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;        
+    
+}
+
+<script>
+    var checkedNodes = [];
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes,
+            CateringID: $('#SCateringName').val(),
+            CanteenID: $('#SCanteenName').val(),
+            LineID: $('#SLineName').val(),
+            CountryID: $('#SCountryName').val(),
+            @*EmpTypes: $('#@Html.FieldIdFor(model => model.EmpTypes)').val(),*@
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsIncludeQuitEmp: $('@Html.FieldIdFor(mode => mode.IsIncludeQuitEmp)').val()
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+    var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            if (CheckValidate(data)) {
+                checkedNodes = [];
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+                var grid = $('#grid_ReportPayMoneyEat').data("kendoGrid");
+                grid.dataSource.read();
+            }
+        });
+    });
+
+    $("#btnExport").click(function () {
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Can_ReportPayMoneyEat');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Can_Service' + "Canteen_GetData/GetReportPayMoneyEat/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        //hideAjaxLoading()
+    });
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div style="width:550px; display:block; float:left">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        Format = ConstantFormat.HRM_Format_DayMonthYear,
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        Format = ConstantFormat.HRM_Format_DayMonthYear,
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                            </div>
+                        </div>
+
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(mode => mode.CodeEmp)
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                @*@{
+                                    var buildInfo = new VnrOrgStructureInfo()
+                                    {
+
+                                    };
+                                }
+                                @Html.VnrOrgStructure(buildInfo)*@
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.IsIncludeQuitEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrCheckBoxFor(mode => mode.IsIncludeQuitEmp)
+                            </div>
+                        </div>
+
+
+                    </div>
+                    <div style="float:left; width:700px">
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CateringID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Scatering = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "SCateringName",
+                                        DataTextField = "CateringName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Can_Service + "Canteen_GetData/GetMultiCatering",
+                                        Placeholder = ConstantDisplay.HRM_Canteen_SelectCatering.TranslateString(),
+                                        StyleCss = "width: 250px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(mode => mode.CateringID, _Scatering)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CanteenID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Scanteen = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "SCanteenName",
+                                        DataTextField = "CanteenName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Can_Service + "Canteen_GetData/GetMultiCanteen",
+                                        Placeholder = ConstantDisplay.HRM_Canteen_SelectCanteen.TranslateString(),
+                                        StyleCss = "width: 250px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(mode => mode.CanteenID, _Scanteen)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.LineID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Sline = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "SLineName",
+                                        DataTextField = "LineName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Can_Service + "Canteen_GetData/GetMultiLine",
+                                        Placeholder = ConstantDisplay.HRM_Canteen_SelectLine.TranslateString(),
+                                        StyleCss = "width: 250px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(mode => mode.LineID, _Sline)
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CountryID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _SCountry = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "SCountryName",
+                                        DataTextField = "CountryName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Can_Service + "Cat_GetData/GetMultiCountry",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectCountry.TranslateString(),
+                                        StyleCss = "width: 250px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(mode => mode.CountryID, _SCountry)
+                            </div>
+                        </div>
+
+                        @*<div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.EmpTypes)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var empTypeID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "EmployeeTypeName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Cat_Service + "Cat_GetData/GetEmpType",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectEmployeeType.TranslateString(),
+                                        StyleCss = "width: 250px"
+                                    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.EmpTypes, empTypeID))
+                            </div>
+                        </div>*@
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]{
+           Can_ReportPayMoneyEatModel.FieldNames.ProfileName,
+           Can_ReportPayMoneyEatModel.FieldNames.CodeEmp,
+           Can_ReportPayMoneyEatModel.FieldNames.BranchName,
+           Can_ReportPayMoneyEatModel.FieldNames.DepartmentName,
+           Can_ReportPayMoneyEatModel.FieldNames.TeamName,
+           Can_ReportPayMoneyEatModel.FieldNames.SectionName,
+           Can_ReportPayMoneyEatModel.FieldNames.CateringName,
+           Can_ReportPayMoneyEatModel.FieldNames.DateFrom,
+           Can_ReportPayMoneyEatModel.FieldNames.DateTo,
+           Can_ReportPayMoneyEatModel.FieldNames.CountEat,
+           Can_ReportPayMoneyEatModel.FieldNames.SubtractSalary
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>(){
+            {Can_ReportPayMoneyEatModel.FieldNames.ProfileName,150},
+            {Can_ReportPayMoneyEatModel.FieldNames.CodeEmp,80},
+            {Can_ReportPayMoneyEatModel.FieldNames.BranchName,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.DepartmentName,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.TeamName,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.SectionName,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.CateringName,200},
+            {Can_ReportPayMoneyEatModel.FieldNames.DateFrom,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.DateTo,100},
+            {Can_ReportPayMoneyEatModel.FieldNames.CountEat,150},
+            {Can_ReportPayMoneyEatModel.FieldNames.SubtractSalary,150}
+        };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>(){
+            {Can_ReportPayMoneyEatModel.FieldNames.ProfileName,ConstantDisplay.HRM_Canteen_Report_ProfileName},
+            {Can_ReportPayMoneyEatModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Canteen_Report_CodeEmp},
+            {Can_ReportPayMoneyEatModel.FieldNames.BranchName,ConstantDisplay.HRM_Attendance_BranchName1},
+            {Can_ReportPayMoneyEatModel.FieldNames.DepartmentName,ConstantDisplay.HRM_Attendance_DepartmentName1},
+            {Can_ReportPayMoneyEatModel.FieldNames.TeamName,ConstantDisplay.HRM_Attendance_TeamName1},
+            {Can_ReportPayMoneyEatModel.FieldNames.SectionName,ConstantDisplay.HRM_Attendance_SectionName1},
+            {Can_ReportPayMoneyEatModel.FieldNames.CateringName,ConstantDisplay.HRM_Canteen_Report_Catering},
+            {Can_ReportPayMoneyEatModel.FieldNames.DateFrom,ConstantDisplay.HRM_Canteen_Report_DateFrom},
+            {Can_ReportPayMoneyEatModel.FieldNames.DateTo,ConstantDisplay.HRM_Canteen_Report_DateTo},
+            {Can_ReportPayMoneyEatModel.FieldNames.CountEat,ConstantDisplay.HRM_Canteen_Report_CountEat},
+            {Can_ReportPayMoneyEatModel.FieldNames.SubtractSalary,ConstantDisplay.HRM_Canteen_Report_SubtractSalary}
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "grid_ReportPayMoneyEat",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Can_Service + "Canteen_GetData/GetReportPayMoneyEat",
+            ReadData = "filterFieldInfo",
+            ServerOperation = false
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Can_ReportPayMoneyEatModel>(grid))
+</div>
+

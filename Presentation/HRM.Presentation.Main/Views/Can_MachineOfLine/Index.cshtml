@@ -1,0 +1,218 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Canteen.Models;
+@using HRM.Infrastructure.Security;
+@model Can_MachineOfLineSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Canteen_MachineOfLine_List.TranslateString();
+    var _hrm_Can_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Can_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Canteen_MachineOfLine_PopUp_Name,
+        Visible = false,
+
+        LoadContentFrom = _hrm_Can_Web + "Can_MachineOfLine/CreateOrUpdate/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+     
+    var gridName = '@ConstantControlName.HRM_Canteen_MachineOfLine_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Canteen_MachineOfLine_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Canteen_MachineOfLine_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Canteen_MachineOfLine_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+             
+            ReadGrid(gridName);
+        });
+        //Chỉnh sửa
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Can_MachineOfLine');
+        if (!isAccess) {
+            return;
+        }
+        EditGridPopUp(gridName, popUpName, '@_hrm_Can_Web' + "Can_MachineOfLine/CreateOrUpdate/", titleEditPopUp);
+
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            MachineCode: $('#MachineCode').val(),
+            LineId: $('#Line').val(),
+            DateFrom: $('#FromDate').val(),
+            DateTo: $('#ToDate').val(),
+            //Gán tạm vì các Cat chưa xử lý Export
+            IsExport: false
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridName);
+    //Tạo mới
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_MachineOfLine');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(popUpName, titleCreatePopUp);
+    });
+    
+    //Xóa
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Can_MachineOfLine');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Can_Web' + "Can_MachineOfLine/RemoveSelected/", selectedIds.join(","));
+        return false;
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.MachineOfLineMachineCode)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBox("MachineCode", "width:300px")
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.LineID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var catering = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "Line",
+                                    DataTextField = Can_ReportMealTimeDetailModel.FieldNames.LineName,
+                                    DataValueField = "ID",
+                                    Url = _hrm_Can_Service + "Canteen_GetData/GetMultiLine",
+                                    Placeholder = ConstantDisplay.HRM_Canteen_Canteen_SelectLine.TranslateString(),
+                                    MaxSelectedItems = 1,
+                                    Value = @Html.DisplayFor(mode => mode.LineID).ToString()
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.LineID, catering))
+                        </div>
+                    </div>
+                    <div id="div3">
+                        <div class="FieldTitle">
+                            @ConstantDisplay.HRM_Common_Search_Duration.TranslateString()
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    Name = "FromDate",
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Name = "ToDate",
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new[]
+        {
+
+            Can_MachineOfLineModel.FieldNames.Code,
+            Can_MachineOfLineModel.FieldNames.LineName,
+            Can_MachineOfLineModel.FieldNames.DateFrom,
+            Can_MachineOfLineModel.FieldNames.DateTo,
+            Can_MachineOfLineModel.FieldNames.Note
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+
+            {Can_MachineOfLineModel.FieldNames.Code,140},
+            {Can_MachineOfLineModel.FieldNames.LineName,150},
+            {Can_MachineOfLineModel.FieldNames.DateFrom,120},
+            {Can_MachineOfLineModel.FieldNames.DateTo,100},
+            {Can_MachineOfLineModel.FieldNames.Note,200}
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+             
+            {Can_MachineOfLineModel.FieldNames.Code,ConstantDisplay.HRM_Canteen_MachineOfLine_MachineCode},
+            {Can_MachineOfLineModel.FieldNames.LineName,ConstantDisplay.HRM_Canteen_Line_LineName},
+            {Can_MachineOfLineModel.FieldNames.DateFrom,ConstantDisplay.HRM_Canteen_MachineOfLine_DateFrom},
+            {Can_MachineOfLineModel.FieldNames.DateTo,ConstantDisplay.HRM_Canteen_MachineOfLine_DateTo},
+            {Can_MachineOfLineModel.FieldNames.Note,ConstantDisplay.HRM_Canteen_MachineOfLine_Note}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Canteen_MachineOfLine_Grid_Name,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Can_Service + "Canteen_GetData/GetMachineOfLineList/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    @(Html.VnrGrid<Can_MachineOfLineModel>(grid))
+</div>

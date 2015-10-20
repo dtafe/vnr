@@ -1,0 +1,258 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Category.Models;
+@using HRM.Infrastructure.Security;
+
+@model Cat_ModelModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Category_RelativeType.TranslateString();
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    // va_hrm_Main_WebWeb = ConstantPathWeb.Hrm_Cat_Web;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowCatVehicle",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_Model/Cat_ModelInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+    //Dieu kien tim kiem
+    function filterFieldInfo(isExport) {
+        return {
+            ModelType: $('#Model_ModelType').val(),
+            ModelCode: $('#Model_ModelCode').val(),
+            ModelName: $('#Model_ModelName').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        EditGridNewPage('@ConstantControlName.HRM_Category_Model_Grid_Name', '#Hrm_Main_Web/Cat_Model/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    $("#btnSearch").click(function () {
+        debugger;
+        ReadGrid('@ConstantControlName.HRM_Category_Model_Grid_Name');
+    });
+
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Model_Create');
+        if (!isAccess) {
+            return;
+        }
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Model/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    GridCheckbox("gridCatDisciplinedTypes");
+    $('#btnDelete').click(function (e) {
+        debugger;
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("@ConstantControlName.HRM_Category_Model_Grid_Name", '@_hrm_Main_Web' + "Cat_Model/RemoveSelected/", selectedIds, '@ConstantPermission.cat_Model_Delete');
+        return false;
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="div2">
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(m => m.ModelType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ModelVehicleType = new TextBoxBuilderInfo()
+                                {
+                                    Name = "Model_ModelType"
+                                };
+                            }
+                            @Html.VnrTextBox(_ModelVehicleType)
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(m => m.ModelCode)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ModelCode= new TextBoxBuilderInfo()
+                                {
+                                    Name = "Model_ModelCode"
+                                };
+                            }
+                            @Html.VnrTextBox(_ModelCode)
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(m => m.ModelName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ModelName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "Model_ModelName"
+                                };
+                            }
+                            @Html.VnrTextBox(_ModelName)
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnCat_Model", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Category_Model_Grid_Name + "__Cat_ModelVehicle";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_Model_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/Cat_GetModelModel/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Cat_ModelModel.FieldNames.ModelName,
+                Cat_ModelModel.FieldNames.ModelCode,
+                Cat_ModelModel.FieldNames.ModelType,
+                Cat_ModelModel.FieldNames.NormalPrice,
+                Cat_ModelModel.FieldNames.SpecialPrice,
+                Cat_ModelModel.FieldNames.DateApply,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Cat_ModelModel.FieldNames.ModelName,200},
+                {Cat_ModelModel.FieldNames.ModelCode,220},
+                {Cat_ModelModel.FieldNames.ModelType,120},
+                {Cat_ModelModel.FieldNames.NormalPrice,200},
+                {Cat_ModelModel.FieldNames.SpecialPrice,200},
+                {Cat_ModelModel.FieldNames.DateApply,200},
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Cat_ModelModel.FieldNames.ModelCode,true},
+                {Cat_ModelModel.FieldNames.ModelName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+              {Cat_ModelModel.FieldNames.ModelName,ConstantDisplay.HRM_Cat_Model_ModelName},
+                {Cat_ModelModel.FieldNames.ModelCode,ConstantDisplay.HRM_Cat_Model_ModelCode},
+                {Cat_ModelModel.FieldNames.ModelType,ConstantDisplay.HRM_Cat_Model_ModelType},
+                {Cat_ModelModel.FieldNames.NormalPrice,ConstantDisplay.HRM_Cat_Model_NormalPrice},
+                {Cat_ModelModel.FieldNames.SpecialPrice,ConstantDisplay.HRM_Cat_Model_SpecialPrice},
+                {Cat_ModelModel.FieldNames.DateApply,ConstantDisplay.HRM_Cat_Model_DateApply},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = ConstantControlName.HRM_Category_SourceAds_Grid_Name,
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    Filterable = filterable,
+    //    ShowCommand = false,
+    //    ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetSourceAdsList/",
+    //    ReadData = "filterFieldInfo",
+    //};
+    }
+
+    @(Html.VnrGrid<Cat_ModelModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnCat_Model", "Cat_ModelModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+
+
+
+
+
+
+
+
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

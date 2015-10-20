@@ -1,0 +1,258 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.HrmSystem.Models
+@using System.Collections
+
+@model HRM.Presentation.Payroll.Models.Sal_UnusualAllowanceModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+
+
+}
+
+<script>
+    SetFieldRequired();
+
+
+    function PagrameterAnnualLeave() {
+        var UnusualEDTypeID = $("#AnnualLeave_UnusualEDTypeID").data("kendoComboBox").value();
+        var CurrencyID = $("#AnnualLeave_CurrencyID").data("kendoComboBox").value();
+        //var Element = $("#AnnualLeaveAllowance_Element").data("kendoMultiSelect");
+        var Element = $("#AnnualLeaveAllowance_Element").data("kendoComboBox").value();
+        var checkedNodes = [];
+        var treeView = $("#OrgStructure").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        return {
+            OrgStructureID: checkedNodes.join(','),
+            MonthStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#AnnualLeave_MonthStart").val()),
+            // MonthEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Bonus_MonthEnd").val()),
+            //Element: Element.value()[0],
+            Element:Element,
+            UnusualEDTypeID: UnusualEDTypeID,
+            CurrencyID: CurrencyID,
+        };
+    };
+
+    function onSaveAnnualLeave() {
+        ShowHre_ProgressBarForElement('WindowAnnualLeaveAllowance');
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComputeAnnualLeaveAllowanceInfo',
+            data: PagrameterAnnualLeave(),
+            type: 'POST',
+            async: false,
+            success: function (data) {
+                ShowNotificationProcessor('@ConstantDisplay.Hrm_Succeed.TranslateString()');
+                ReadGrid('@ConstantControlName.HRM_Payroll_UnusualED_Grid_Name');
+                CloseHre_ProgressBarForElement('WindowAnnualLeaveAllowance');
+            },
+            error: function (data) {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_UpdateFail.TranslateString()');
+                ReadGrid('@ConstantControlName.HRM_Payroll_UnusualED_Grid_Name');
+                CloseHre_ProgressBarForElement('WindowAnnualLeaveAllowance');
+            }
+        });
+    };
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Sal_AnnualLeaveAllowance" }))
+{
+    <table>
+        <tr>
+            <td>
+
+                <div id="div4">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var org = new TreeViewDropdDownBuilderInfo()
+    {
+        Name = "OrgStructure",
+
+    };
+                        }
+                        @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Month.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var _ds = new DatePickerBuilderInfo()
+    {
+        Name = "AnnualLeave_MonthStart",
+        StyleCss = "Width: 100px",
+
+        //Placeholder = ConstantDisplay.HRM_Att_Report_DateFrom.TranslateString()
+    };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.MonthStart, _ds).Format(ConstantFormat.HRM_Format_MonthYear)
+
+                        @*@{
+                            var _de = new DatePickerBuilderInfo()
+                            {
+                                Name = "Bonus_MonthEnd",
+                                StyleCss = "Width: 100px",
+                                Placeholder = ConstantDisplay.HRM_Att_Report_DateTo.TranslateString()
+                            };
+                                                }
+                                                @Html.VnrDatePickerFor(mode => mode.MonthEnd, _de)*@
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.UnusualEDTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlUnusualEDType = new ComboBoxBuilderInfo()
+    {
+        Name = "AnnualLeave_UnusualEDTypeID",
+        DataTextField = "UnusualAllowanceCfgName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUnusualAllowanceCfgPaidLeave",
+        Autobind=true
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.UnusualEDTypeID, ddlUnusualEDType).SelectedIndex(0))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.CurrencyID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlCurrency = new ComboBoxBuilderInfo()
+    {
+        Name = "AnnualLeave_CurrencyID",
+        StyleCss = "width:60px;",
+        DataTextField = "CurrencyName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrencyVND",
+        ServerFilter=true
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.CurrencyID, ddlCurrency))
+                    </div>
+                </div>
+                @*<div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Formula)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var AnnualLeave_Formula = new TextAreaBuilderInfo()
+                                {
+                                    Name = "AnnualLeave_Formula",
+                                };
+                            }
+                            @Html.VnrTextAreaFor(m => m.Formula, AnnualLeave_Formula)
+                        </div>
+                    </div>*@
+                @*<div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.Element)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    IEnumerable valueElementName = new string[] { };
+    if (Model != null)
+    {
+        valueElementName = new[] { new { ElementName = "AAAA", ID = Model.ProfileID } };
+    }
+                        }
+
+                        @{
+    var _ElementName = new MultiSelectBuilderInfo
+    {
+        Name = "AnnualLeaveAllowance_Element",
+        DataTextField = "ElementName",
+        DataValueField = "ID",
+        Url = @_hrm_Cat_Service + "Cat_GetData/GetElementType",
+        MaxSelectedItems = 1,
+        Placeholder = ConstantDisplay.HRM_Category_SelectElementType.TranslateString(),
+        Value=valueElementName
+        
+    };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.Element, _ElementName)
+                    </div>
+                </div>*@
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.Element)
+                    </div>
+                    <div class="FieldValue">
+
+                        @{
+                            var _ElementName = new ComboBoxBuilderInfo()
+                            {
+                                Name = "AnnualLeaveAllowance_Element",
+                                DataTextField = "ElementName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Cat_Service + "Cat_GetData/GetElementTypePaidLeave",
+                                Placeholder = ConstantDisplay.HRM_Category_SelectElementType.TranslateString(),
+                                StyleCss = "Width:260px;background-color:WhiteSmoke",
+                                Autobind=true,
+                            };
+                        }
+                        @Html.VnrComboBoxFor(mode => mode.Element, _ElementName).SelectedIndex(0)
+                    </div>
+
+                </div>
+
+                @*<div>
+                        <div class="FieldTitle">
+                            <label>Các Phần Tử</label>
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextArea("AnnualLeaveAllowance_Example")
+                        </div>
+                    </div>*@
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <hr />
+                <div>
+                    <div class="FieldTitle">
+                    </div>
+                    <div class="FieldValue">
+                        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-ConfigElement", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveAnnualLeave", Name = "save-continue-AnnualLeave", Content = ConstantAction.HRM_Common_ComputeAnnualLeave.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+                        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-ConfigElement", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+
+}
+<div>
+    <script>
+        //var comboboxUnusualEDTypeID = $("#AnnualLeave_UnusualEDTypeID").data("kendoComboBox");
+        //// Set a valid value
+        //comboboxUnusualEDTypeID.value("PaidLeave");
+        //combobox.select(function (dataItem) {
+        //    return dataItem.text === "Paid Leave";
+        //});
+        var comboboxCurrencyID = $("#AnnualLeave_CurrencyID").data("kendoComboBox");
+        comboboxCurrencyID.value("VND");
+        var comboboxselectElement = $("#AnnualLeaveAllowance_Element").data("kendoComboBox");
+        comboboxselectElement.readonly(true);
+        //multiselectElement.value("PaidLeave");
+
+    </script>
+</div>

@@ -1,0 +1,123 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.HrmSystem.Models
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Main_Web;
+
+
+}
+@model Sys_AsynTaskComputeModel
+
+<script type="text/javascript">
+    function GetValueComputeCommission(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _profile = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+
+        var WorkPlacecombobox = $("#WorkPlaceID").data("kendoComboBox");
+        var workPlaceValue = WorkPlacecombobox.value();
+
+        return {
+            CutOffDurationID: $('#ddlCutOffDuration').val(),
+            CutOffDuration2ID: $('#ddlCutOffDuration2').val(),
+            OrgStructureID: checkedNodes.join(','),
+            ProfileIDs: _profile,
+            isIncludeWorkingEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeWorkingEmp)').checked,
+            PaymentQuit: document.getElementById('@Html.FieldIdFor(model => model.PaymentQuit)').checked,
+            WorkPlaceID: workPlaceValue,
+            MethodPayroll: '@MethodPayroll.E_COMMISSION_PAYMENT.ToString()',
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    };
+
+    function EvenOnSaveComputeCommission() {
+       var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_ComputePayroll_ComputeAdvance', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_MsgSalaryAdvance);
+            return;
+        }
+        if ($('#ddlCutOffDuration').val() == "") {
+            window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_NotSelectCutOffDuration"); //Chưa Dịch!
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComputeCommission',
+            data: GetValueComputeCommission(false),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                CloseWindows('PopUpPayCommission');
+                IsActiveProgress = true;
+                ShowProgressBar(data);
+            },
+            error: function (data) {
+                window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");//Chưa Dịch!
+                IsActiveProgress = false;
+            }
+        });
+    };
+
+</script>
+
+<table>
+    <tr>
+        <td>
+            <div>
+                <div class="FieldTitle">
+                    @Html.VnrLabelFor(mode => mode.CutOffDuration2ID)
+                </div>
+                <div class="FieldValue">
+                    @{
+                        var cutOffDurationName = new DropDownListBuilderInfo()
+                        {
+                            Name = "ddlCutOffDuration2",
+                            DataTextField = "CutOffDurationName",
+                            DataValueField = "ID",
+                            Url = _hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                            StyleCss = "width:200px",
+                        };
+                    }
+                    @(Html.VnrDropDownListFor(m=>m.CutOffDuration2ID,cutOffDurationName))
+                </div>
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding-top:2px; padding-bottom:10px;">
+            <div class="LineFooterCommandEdit">
+            </div>
+        </td>
+    </tr>
+    <tr>
+        <td>
+            <div>
+                <div class="FieldTitle">
+
+                </div>
+
+                <div class="FieldValue">
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenOnSaveComputeCommission", Name = "OnSaveComputeCommission", Content = ConstantDisplay.HRM_Payroll_Compute_CommissionPayment.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+                </div>
+            </div>
+        </td>
+    </tr>
+</table>
+
+
+
+
+
+
+

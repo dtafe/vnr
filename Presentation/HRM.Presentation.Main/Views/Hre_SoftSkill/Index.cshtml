@@ -1,0 +1,408 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+
+@model Hre_SoftSkillModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_HR_SoftSkill.TranslateString();
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //string[] valueFields = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_gridHre_SoftSkill_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_SoftSkill/SoftSkillInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+    var titleCreate = '@Html.Raw(ConstantDisplay.HRM_HR_SoftSkill_AddNew.TranslateString())';
+    var titleUpdate = '@Html.Raw(ConstantDisplay.HRM_HR_SoftSkill_Update.TranslateString())';
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var gridName = '@ConstantControlName.HRM_gridHre_SoftSkill_Grid_Name';
+    var windowName = '@ConstantDisplay.HRM_HR_SoftSkill_AddNew';
+    var isCreateTemplateForDynamicGrid = false;
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var profileName = $('#@Html.FieldIdFor(model => model.ProfileName)').val();
+        var codeEmp = $('#@Html.FieldIdFor(model => model.CodeEmp)').val();
+        var orgStructureID = checkedNodes.join(',');
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        jobTitleID = jobTitleID != null ? jobTitleID[0] : jobTitleID;
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+        positionID = positionID != null ? positionID[0] : positionID;
+        return {
+            ProfileName: profileName,
+            CodeEmp: codeEmp,
+            OrgStructureID: orgStructureID,
+            JobTitleID: jobTitleID,
+            PositionID: positionID,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#@ConstantControlName.HRM_gridHre_SoftSkill_Grid_Name').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+            //ReadGrid(gridName);
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }*@
+        var url = '@_hrm_Main_Web' + "Hre_SoftSkill/SoftSkillInfo/";
+        EditGridPopUp(gridName, '@ConstantControlName.HRM_gridHre_SoftSkill_PopUp_Name', url, '@ConstantPermission.Hre_SoftSkill', titleUpdate);
+    });
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*KendoRouteMapping('#Hrm_Main_Web/Hre_StopWorking/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');*@
+        PopUpCreate('@ConstantControlName.HRM_gridHre_SoftSkill_PopUp_Name', titleCreate, '@ConstantPermission.Cat_Unit');
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+    GridCheckbox("gridHre_SoftSkill");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_SoftSkill');
+        if (!isAccess) {
+            return;
+    }*@
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+
+        DeleteSelected("gridHre_SoftSkill", '@_hrm_Main_Web' + "Hre_SoftSkill/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_SoftSkill');
+
+        return false;
+    });
+
+    // Nút export all
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_SoftSkill');
+        if (!isAccess) {
+            return;
+    }*@
+        var grid = $('#gridHre_SoftSkill').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportSoftSkillList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_SoftSkill');
+    });
+
+    // Nút export selected
+    $("#btnExportSelected").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_SoftSkill');
+        if (!isAccess) {
+            return;
+    }*@
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportSoftSkillSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_SoftSkill');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form action="#" method="POST" id="form-search">
+                    <div>
+                        <div class="hrm_box">
+                            <div id="div2">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.ProfileName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.ProfileName)
+                                </div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.CodeEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.CodeEmp)
+                                </div>
+                            </div>
+                            <div id="div14">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hrm_box">
+                            <div id="div4">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.PositionID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var Position = new MultiSelectBuilderInfo()
+                                         {
+                                             DataTextField = Hre_ContractModel.FieldNames.PositionName,
+                                             DataValueField = Hre_ContractModel.FieldNames.ID,
+                                             Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                             Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                             ServerFiltering = true,
+                                             MaxSelectedItems = 1,
+                                             Autobind = true,
+                                             Value = new string[] { @Html.DisplayFor(mode => mode.PositionID).ToString() }
+                                         };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.PositionID, Position))
+                                </div>
+                            </div>
+                            <div id="5">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.JobTitleID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _JobTitle = new MultiSelectBuilderInfo()
+                                         {
+                                             DataTextField = Hre_ContractModel.FieldNames.JobTitleName,
+                                             DataValueField = Hre_ContractModel.FieldNames.ID,
+                                             Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                             Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                             MaxSelectedItems = 1,
+                                             Autobind = true,
+                                             Value = new string[] { @Html.DisplayFor(mode => mode.JobTitleID).ToString() }
+                                         };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.JobTitleID, _JobTitle))
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeSoftSkill", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridHre_SoftSkill_Grid_Name + "__Hre_SoftSkillIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridHre_SoftSkill_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetSoftSkillList/",
+            ReadData = "filterFieldInfo",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Hre_SoftSkillModel.FieldNames.CodeEmp,
+                Hre_SoftSkillModel.FieldNames.ProfileName,
+                          Hre_SoftSkillModel.FieldNames.E_UNIT,
+                       Hre_SoftSkillModel.FieldNames.E_DIVISION,
+                Hre_SoftSkillModel.FieldNames.E_DEPARTMENT,
+                 Hre_SoftSkillModel.FieldNames.E_TEAM,
+                Hre_SoftSkillModel.FieldNames.E_SECTION,
+
+                Hre_SoftSkillModel.FieldNames.PositionName,
+                Hre_SoftSkillModel.FieldNames.JobTitleName,
+
+
+                Hre_SoftSkillModel.FieldNames.SoftSkillName,
+                Hre_SoftSkillModel.FieldNames.SoftSkillType,
+                Hre_SoftSkillModel.FieldNames.SoftSkillLevel,
+                Hre_SoftSkillModel.FieldNames.TrainingPlace,
+                Hre_SoftSkillModel.FieldNames.TrainingFrom,
+                Hre_SoftSkillModel.FieldNames.TrainingTo,
+                Hre_SoftSkillModel.FieldNames.Certificate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Hre_SoftSkillModel.FieldNames.ProfileName, 140},
+                {Hre_SoftSkillModel.FieldNames.CodeEmp, 80},
+                              {Hre_SoftSkillModel.FieldNames.E_UNIT,135},
+                {Hre_SoftSkillModel.FieldNames.E_DIVISION,135},
+
+                {Hre_SoftSkillModel.FieldNames.E_TEAM,135},
+                {Hre_SoftSkillModel.FieldNames.E_DEPARTMENT,135},
+                {Hre_SoftSkillModel.FieldNames.E_SECTION,135},
+
+                {Hre_SoftSkillModel.FieldNames.PositionName, 100},
+                {Hre_SoftSkillModel.FieldNames.JobTitleName, 100},
+
+
+                {Hre_SoftSkillModel.FieldNames.SoftSkillName, 130},
+                {Hre_SoftSkillModel.FieldNames.SoftSkillType, 95},
+                {Hre_SoftSkillModel.FieldNames.SoftSkillLevel, 70},
+                {Hre_SoftSkillModel.FieldNames.TrainingPlace, 110},
+                {Hre_SoftSkillModel.FieldNames.TrainingFrom, 120},
+                {Hre_SoftSkillModel.FieldNames.TrainingTo, 100},
+                {Hre_SoftSkillModel.FieldNames.Certificate, 110}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Hre_SoftSkillModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_SoftSkill_ProfileID},
+                {Hre_SoftSkillModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                   {Hre_SoftSkillModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_SoftSkillModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_SoftSkillModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_SoftSkillModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_SoftSkillModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+
+                {Hre_SoftSkillModel.FieldNames.JobTitleName, ConstantDisplay.HRM_Attendance_JobTitle},
+                {Hre_SoftSkillModel.FieldNames.PositionName, ConstantDisplay.HRM_Category_JobTitle_PositionID},
+                {Hre_SoftSkillModel.FieldNames.SoftSkillName, ConstantDisplay.HRM_HR_SoftSkill_SoftSkillName},
+                {Hre_SoftSkillModel.FieldNames.SoftSkillType, ConstantDisplay.HRM_HR_SoftSkill_SoftSkillType},
+                {Hre_SoftSkillModel.FieldNames.SoftSkillLevel, ConstantDisplay.HRM_HR_SoftSkill_SoftSkillLevel},
+                {Hre_SoftSkillModel.FieldNames.TrainingPlace, ConstantDisplay.HRM_HR_SoftSkill_TrainingPlace},
+                {Hre_SoftSkillModel.FieldNames.TrainingFrom, ConstantDisplay.HRM_HR_SoftSkill_TrainingFrom},
+                {Hre_SoftSkillModel.FieldNames.TrainingTo, ConstantDisplay.HRM_HR_SoftSkill_TrainingTo},
+                {Hre_SoftSkillModel.FieldNames.Certificate, ConstantDisplay.HRM_HR_SoftSkill_Certificate}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridHre_SoftSkill",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetSoftSkillList/",
+        //    ShowCommand = false,
+        //    ReadData = "filterFieldInfo"
+        //};
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Hr.Models.Hre_SoftSkillModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeSoftSkill", "Hre_SoftSkillModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+

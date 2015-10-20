@@ -1,0 +1,264 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model HRM.Presentation.Hr.Models.Hre_ReportProfileHDTNotWorkModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    SetFieldRequired();
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureIDs: checkedNodes.join(','),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Hre_GetData/GetReportProfileHDTNotWork',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    CloseHre_ProgressBar();
+                    debugger;
+                    if (data[0] == "error" && data[1] != "") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = VnrGridDynamic;
+                        grid.gridName = 'gridHre_ReportProfileHDTNotWork';
+                        grid.DataSource = data.Data;
+                        grid.PageSize = 50;
+                        VnrGridDynamicControl(grid);
+                        return false;
+                    }
+                },
+                error: function () {
+                    CloseHre_ProgressBar();
+                }
+            });
+            checkedNodes = [];
+            return false;
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportProfileHDTNotWork');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Hre_GetData/GetReportProfileHDTNotWork";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+        $("#btnCreateTemplate").click(function () {
+            isCreateTemplate = true;
+            isCreateTemplateForDynamicGrid = true;
+            CreateTemplate('@_hrm_Hre_Service' + '/Hre_GetData/GetReportProfileHDTNotWork', filterFieldInfo(true));
+        });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div2">
+                    <div class="FieldTitle150">
+                        @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                        @{
+                            var DateTo = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                    </div>
+                    <div id="div14">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+
+                        </div>
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.CodeEmp,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.ProfileName,
+              Hre_ReportProfileHDTNotWorkModel.FieldNames.E_UNIT,
+                       Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DIVISION,
+                Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DEPARTMENT,
+                 Hre_ReportProfileHDTNotWorkModel.FieldNames.E_TEAM,
+                Hre_ReportProfileHDTNotWorkModel.FieldNames.E_SECTION,
+
+
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobGroupCode,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobTypeCode,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.Price,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.FirstIntime,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.LastOutTime,
+           Hre_ReportProfileHDTNotWorkModel.FieldNames.LeaveDayTypeCode,
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.CodeEmp,80},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.ProfileName,140},
+              {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DEPARTMENT,100},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DIVISION,100},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_SECTION,100},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_TEAM,100},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_UNIT,100},
+
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobTypeCode,140},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobGroupCode,140},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.Price,140},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.FirstIntime,140},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.LastOutTime,140},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.LeaveDayTypeCode,140},
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_ReportBirthday_ProfileName},
+                            {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_ReportProfileHDTNotWorkModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobGroupCode,ConstantDisplay.HRM_Category_HDTJobGroup_Code},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.HDTJobTypeCode,ConstantDisplay.HRM_Category_HDTJobType_Code},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.Price,ConstantDisplay.HRM_Category_HDTJobTypePrice_Price},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.FirstIntime,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.LastOutTime,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime},
+            {Hre_ReportProfileHDTNotWorkModel.FieldNames.LeaveDayTypeCode,ConstantDisplay.HRM_Category_LeaveDayType_Code},
+            };
+
+
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "gridHre_ReportProfileHDTNotWork",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportProfileHDTNotWork",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_ReportProfileHDTNotWorkModel>(grid))
+</div>
+

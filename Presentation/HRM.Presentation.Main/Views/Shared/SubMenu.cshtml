@@ -1,0 +1,159 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Utilities
+@{
+    var _hrm_Sys_Services = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string enumKey = AppConfig.HRM_SYS_USERSETTING_SUBMENU.ToString();
+}
+<div class="navbar navbar-default navbar-default" role="navigation" style="z-index: 1">
+    @*<div id="subMenuId" class="navbar-collapse collapse">  </div>*@
+</div>
+
+@*<script type="text/javascript">
+    VnrString.isNullOrEmpty = function (value) {
+        try {
+            value = value.toString();
+        } catch (e) {
+            return true;
+        }
+        return (!value || value == undefined || value == "" || value.length == 0);
+    }
+    $(document).ready(function () {
+        $("#admin-menu li .k-link").click(function () {
+            var site = this.getAttribute("resource");
+            //var site = this.attributes.getNamedItem("Parent").nodeValue.trim();
+            if (site != undefined)
+            {
+                LoadSubMenu(site.trim());
+            }
+           
+        })
+    }
+    )
+    function LoadSubMenu(site)
+    {
+        if (site != null) {
+            // Ajax kiểm tra có lưu Sub Menu trong database chưa
+            $.ajax({
+                url: '@_hrm_Sys_Services' + 'Sys_GetData/GetSubmenu',
+                data: { siteName: site },
+                type: 'POST',
+                async: true,
+                success: function (checkSub) {
+                    if (checkSub.str == "")
+                    {
+                        // Ajax lấy Sub trong MVCSiteMap khi chưa có
+                        $.ajax({
+                            url: '@_hrm_Main_Web'+'Home/GetSubOfMenu',
+                            data: { siteName: site },
+                            type: 'POST',
+                            dataType: "json",
+                            async: true,
+                            success: function (data) {
+                                debugger;
+                                var strHTML = "<script>$('.vnr-class-sub-menu').mousedown(function (event) {if (event.ctrlKey == false && event.which == 1) {var hrefs = this.href.split('#'); if (hrefs.length > 1) {" +
+                                           " onMenuClick('#' + hrefs[1], this.name, this.lang);}}});<\/script> <ul class='nav navbar-nav'>";
+                                //var strHTML = "<ul class='nav navbar-nav'>";
+                                var strHTMLTemp = strHTML;
+                                var returndata = ShowSubMenu(strHTML, data);
+                                strHTML = returndata[0];
+                                $("#subMenuId").html(strHTML);
+
+
+},
+                            error: function (error) {
+                                //alert(error);
+                            }
+                        });
+                    } else {
+                        var strHtmlSub = unescape(checkSub.str);
+                        $("#subMenuId").html(strHtmlSub);
+                    }
+                },
+                error: function (data) {
+                    //alert('error kiểm tra có Sub trong database chưa');
+                }
+            });
+        }
+    }
+
+    //[Chuc.Nguyen] - Xử lý hiển thị menu con 
+    //moduleSiteName: là alias của module hiển thị trên address ví dụ: #Hrm_Hre_Web/Hre_Profile/ thì moduleSiteName là Hrm_Hre_Web
+    //listSubMenu: danh sách các menu con được tìm thấy
+    //iTemp: Giữ lại giá trị của node cha khi chuyển qua tìm node con
+    //strHTML: chuổi html gen ra menu giá trị phải có: <ul class='nav navbar-nav'>
+    // var strHTML = "<ul class='nav navbar-nav'>";
+    function ShowSubMenu(strHTML, listSubMenu, iTemp) {
+        var sublenght = listSubMenu.length;
+        if (sublenght > 9)
+            sublenght = 9;
+        for (var i = 0; i < sublenght; i++) {
+            var title = listSubMenu[i].Title;
+            if (listSubMenu[i].ChildNodes.length > 0) {
+                strHTML += "<li class='dropdown'><a class='dropdown-toggle' data-toggle='dropdown' href='#' title='" + title + "'>" + Truncate(title, 15, "..") + "<span class='caret'></span></a>";
+                strHTML += "<ul class='dropdown-menu' role='menu'>";
+                var dataReturn = ShowSubMenu(strHTML,listSubMenu[i].ChildNodes, i);
+                strHTML = dataReturn[0];
+                if (dataReturn[1] != undefined) {
+                    i = dataReturn[1];
+                }
+                strHTML += "</li>";
+            }
+            else {
+                var urlMenu = listSubMenu[i].Url;
+                urlMenu += "#NewTab";
+                if (!VnrString.isNullOrEmpty(urlMenu)) {
+                    //strHTML += "<li><a href=\"javascript:onMenuClick('" + urlMenu + "', '" + listSubMenu[i].HrmWebSite + "','" + listSubMenu[i].Alias + "');\"  title='" + title + "'>" + CutString(title, 3, false) + "</a></li>";
+                    strHTML += "<li><a href='" + urlMenu + "' name='" + listSubMenu[i].HrmWebSite + "' lang='" + listSubMenu[i].Alias + "' class='vnr-class-sub-menu' title='" + title + "'>" + Truncate(title, 15, "..") + "</a></li>";
+                }
+                else {
+                    strHTML += "<li><a href='#' title='" + title + "'>" + Truncate(title, 15, "..") + "</a></li>";
+                }
+            }
+        }
+        var arrayData = [strHTML + "</ul>", iTemp]
+        return arrayData;
+    }
+    //[Hien.Pham] - Hàm xử lý cắt chuổi
+    function CutString(strSource, count, isAlias)
+    {
+        return strSource;
+        var titleSubmenu = "";
+        if (strSource.indexOf(' ') > 0) {
+            var res = strSource.split(" ");
+            if (res.length <= count && isAlias)
+                return "";
+            else if (res.length > count && isAlias)
+            {
+                return strSource;
+            }
+
+            for (var k = 0; k < res.length; k++) {
+                if (k >= count) {
+                    titleSubmenu += "..."
+                    break;
+                }
+                titleSubmenu += " " + res[k];
+            }
+        }
+        else
+        {
+            titleSubmenu = strSource;
+        }
+        return titleSubmenu;
+    }
+    function Truncate(str, maxLength, suffix) {
+        if (str.length > maxLength) {
+            str = str.substring(0, maxLength + 1);
+            str = str.substring(0, Math.min(str.length, str.lastIndexOf(" ")));
+            str = str + suffix;
+        }
+        return str;
+    }
+    
+</script>*@
+
+
+
+

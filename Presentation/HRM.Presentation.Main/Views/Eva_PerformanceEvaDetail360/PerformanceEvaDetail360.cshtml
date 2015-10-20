@@ -1,0 +1,905 @@
+﻿@using HRM.Infrastructure.Utilities
+@using System.Collections
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Evaluation.Models;
+@model Eva_PerformanceEvaModel
+
+@{
+    Layout = null;
+    var ID = Model == null ? Guid.Empty : Model.ID;
+    var PerformanceID = Model == null ? Guid.Empty : Model.PerformanceID.Value;
+    string Order = Model != null && Model.OrderEva != null ? Model.OrderEva.Value.ToString() : "0";
+
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    string Formula = Model != null ? Model.FormulaOfPerformanceTemplate : "";
+    //IList<SelectListItem> IlEDType = Enum.GetValues(typeof(EDType)).Cast<EDType>().Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).ToList();
+    //IList<SelectListItem> IlFormula = Enum.GetValues(typeof(EFormula)).Cast<EFormula>().Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).ToList();
+    string attatchFile = (Model != null && !string.IsNullOrEmpty(Model.AttachFile)) ? Model.AttachFile : "";
+
+}
+
+
+
+
+<script>
+
+
+    var gridName = 'gridPerformanceEvaDetail';
+    var popUpName = 'PopUpPerformanceEvaDetail';
+
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_PerformanceEvaWaitingEva.TranslateString())';
+
+
+    SetFieldRequired();
+    @*function LoadAuto() {
+        var performanceEvaID = '@ID';
+
+        $.ajax({
+            url: '@_hrm_Eva_Service' + "Eva_GetData/GetPerformanceEvaDynamicByPerformanceEvaID/",
+            data: { PerformanceID: '@PerformanceID', PerformanceEvaID: performanceEvaID, OrderEva: '@Order' },
+            type: 'POST',
+            asyn: false,
+            datatype: 'json',
+            success: function (data) {
+                GridDynamicColum('gridPerformanceEvaDetailHisory', data.Data);
+
+            }
+        });
+
+    }*@
+    $(document).ready(function () {
+        //  $("#gridPerformanceEvaDetailHisory").width($(window).width()*99/100);
+
+        $('#TotalMark').attr('disabled', true);
+        $("#TotalMark").val("0");
+        //$("#TotalMark").val("0");
+        //$('#Strengths').attr('disabled', true);
+        //$('#Weaknesses').attr('disabled', true);
+        //$('#ResultNote').attr('disabled', true);
+        //$('#Proportion').attr('disabled', true);
+        ShowHidePanel();
+        //LoadAuto();
+
+
+
+    });
+
+    @*function download() {
+        var attachFileName = '@attatchFile';
+        if (attachFileName != undefined) {
+            window.location = "/Templates/" + attachFileName;
+        }
+    }*@
+
+
+    function getData() {
+        var id = $("#ID").val();
+        var status = $("#Status1").val();
+        var strengths = $("#Strengths").val();
+        var weaknesses = $("#Weaknesses").val();
+        var resultNote = $("#ResultNote").val();
+        var levelID = $("#LevelID").val();
+        var proportion = $("#Proportion").val();
+        //  var attachFile = $("#AttachFile").val();
+        var attachFiles = $("#AttachFile").val().split(",");
+        var totalMark = $("#TotalMark").val();
+
+
+        return {
+            ID: id,
+            Status: status,
+            Proportion: proportion,
+            Strengths: strengths,
+            Weaknesses: weaknesses,
+            ResultNote: resultNote,
+            LevelID: levelID,
+            //   AttachFile: attachFile,
+            AttachFiles: attachFiles,
+            TotalMark: totalMark
+        };
+    }
+    var doSave = function () {
+
+        var check = CheckMark();
+        if (check === false) {
+            return;
+        }
+        else {
+
+            var performamceEvaData = getData();
+
+            //lay data cua luoi post len
+            var grid = $("#gridPerformanceEvaDetail").data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentData = grid.dataSource.view();
+            var PevadetailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                PevadetailData.push(currentData[i].toJSON());
+            }
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: PevadetailData, performanceEvaModel: performamceEvaData }));
+            if ($("#TotalMark").val() == 0) {
+                ShowNotificationProcessor("Mời Bạn Tính Toán.");
+                return;
+            }
+            else {
+                //save
+                $.ajax({
+                    traditional: true,
+                    url: '@_hrm_Main_Web' + 'Eva_PerformanceEvaWaitingEva/Save',
+                    data: lstModel,
+                    type: 'POST',
+                    success: function (data) {
+                        ReadGrid(gridName);
+                        if (data.ActionStatus != undefined) {
+                            ShowNotificationProcessor(data.ActionStatus);
+                            return;
+                        }
+                        ShowNotificationProcessor("Cập Nhật Thành Công");
+
+                    },
+                    error: function (data) { }
+                });
+            }
+        }
+
+    };
+    function CheckMark() {
+
+        var list = $("#gridPerformanceEvaDetail").data("kendoGrid").dataSource.data();
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].Mark == null) {
+                ShowNotificationProcessor("Bạn Chưa Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Trong Bản Đánh Giá.");
+                return false;
+            }
+            if (list[i].Mark > list[i].MaximumRating || list[i].Mark < list[i].MinimumRating) {
+                ShowNotificationProcessor("Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Nằm Trong Khoảng Giữa Của " + '@ConstantDisplay.HRM_Evaluation_MinimumRating.TranslateString()' + " Và " + '@ConstantDisplay.HRM_Evaluation_MaximumRating.TranslateString()');
+                return false;
+            }
+
+
+        }
+        return true;
+    }
+    function calculate() {
+
+        var check = CheckMark();
+        if (check === false) {
+            return;
+        }
+        else {
+            var list = $("#gridPerformanceEvaDetail").data("kendoGrid").dataSource.data();
+            var TotalMark = 0;
+            var TotalRate = 0;
+            var TotalKPI = list.length;
+            var Formula = '@Formula';
+            for (var i = 0; i < list.length; i++) {
+                TotalMark += list[i].Mark;
+                TotalRate += list[i].Rate;
+
+            }
+            //Todo: tam thoi hot fix cong thuc.Sau nay xoa di
+            //var result = (TotalMark * TotalRate) / TotalKPI;
+            //$("#TotalMark").val(result);
+
+            //Todo: tam thoi khoa lai vi chua publish duoc
+            $.ajax({
+                url: '@_hrm_Hr_Service' + "Eva_GetData/GetTotalMarkByFormula",
+                data: { Formula: Formula, TOTALMARK: TotalMark, TOTALRATE: TotalRate, TOTALKPI: TotalKPI },
+                async: false,
+                datatype: 'json',
+                type: 'POST',
+                success: function (data) {
+                    $("#TotalMark").val(data);
+                }
+            });
+
+            $.ajax({
+                url: '@_hrm_Hr_Service' + "Eva_GetData/GetTotalMark",
+                data: { TotalMark: TotalMark },
+                async: false,
+                datatype: 'json',
+                type: 'POST',
+                success: function (data) {
+
+                    var datas = [{ LevelName: data.LevelName, ID: data.ID }];
+
+                    var ddl = $("#LevelID").data("kendoDropDownList")
+                    ddl.value(data.ID);
+
+
+
+                }
+            });
+
+        }
+
+    }
+
+</script>
+<!--Form dùng cho edit và update-->
+<form action="#" method="POST">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    @if (string.IsNullOrEmpty(ViewBag.IsActive))
+                    {
+                        <div class="title">
+                            <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                            @ConstantDisplay.HRM_Evaluation_PerformanceEvaDetail.TranslateString()
+                            @Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_Back_To_PerformanceEvaDetail_List.TranslateString() + ")", "/Index")
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="title">
+                            <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                            @ConstantDisplay.HRM_Evaluation_PerformanceEvaActive.TranslateString()
+                            @Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_Back_To_PerformanceEvaActive.TranslateString() + ")", "/Index", "Eva_PerformanceEvaActive")
+                        </div>
+                    }
+                </div>
+                @if (Model != null && Model.IsSuperiorHasPerformance.HasValue && Model.IsSuperiorHasPerformance == false && Model.IsEvaluator.HasValue && Model.IsEvaluator == true)
+                {
+                    <div class="commandToolBarWidge">
+                        <div class="options">
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</form>
+@if (Model != null && Model.IsSuperiorHasPerformance.HasValue && Model.IsSuperiorHasPerformance == false && Model.IsEvaluator.HasValue && Model.IsEvaluator == true)
+{
+    <div>
+        @Html.HiddenFor(model => model.ID)
+
+        <div style="display:block; padding-top:10px;">
+            <fieldset>
+                <legend>
+                    @ConstantDisplay.HRM_Evaluation_PerformanceTemplateProfile.TranslateString()
+                </legend>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.PerformancePlanName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.PerformancePlanName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.DatePerformOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.DatePerformOfProfile)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.TemplateName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.TemplateName)
+                        </div>
+                    </div>
+
+
+
+
+
+
+                </div>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ProfileName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.ProfileName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.JobTitleNameOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.JobTitleNameOfProfile)
+                        </div>
+
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureNameOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.OrgStructureNameOfProfile)
+
+                        </div>
+
+                    </div>
+
+                </div>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.EvaluatorName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.EvaluatorName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.JobTitleNameOfEvaluator)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.JobTitleNameOfEvaluator)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureNameOfEvaluator)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.OrgStructureNameOfEvaluator)
+
+
+                        </div>
+                    </div>
+
+                </div>
+            </fieldset>
+
+            <div style=" display: block; padding-top: 10px;">
+                <fieldset>
+                    <legend>
+                        @ConstantDisplay.HRM_Evaluation.TranslateString()
+                    </legend>
+                    <div>
+                        <!--Khai báo các thông tin cho Grid-->
+                        @{
+    string[] valueFields = new string[]
+                            {
+                                Eva_PerformanceEvaDetailModel.FieldNames.KPIName,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Scale,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Rate,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Mark,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,
+
+                            };
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Eva_PerformanceEvaDetailModel.FieldNames.KPIName,180},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,150},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,250},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark,80},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate,60},
+
+                            };
+    string[] disabledFields = new[]
+        {
+         Eva_PerformanceEvaDetailModel.FieldNames.KPIName,
+         Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,
+         Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,
+         Eva_PerformanceEvaDetailModel.FieldNames.Scale,
+         Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,
+         Eva_PerformanceEvaDetailModel.FieldNames.Rate,
+        };
+
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Eva_PerformanceEvaDetailModel.FieldNames.KPIName, ConstantDisplay.HRM_Evaluation_KPIName},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating, ConstantDisplay.HRM_Evaluation_MinimumRating},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating, ConstantDisplay.HRM_Evaluation_MaximumRating},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale, ConstantDisplay.HRM_Evaluation_KPI_Scale},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource, ConstantDisplay.HRM_Evaluation_KPI_MeasuredSource},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation, ConstantDisplay.HRM_Evaluation_PerformanceDetail_Evaluation},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark, ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate, ConstantDisplay.HRM_Evaluation_Rate},
+                            };
+    var filterable = new Dictionary<string, bool>()
+                            {
+                               {Eva_PerformanceEvaDetailModel.FieldNames.KPIName,true},
+                               {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,true},
+                               {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate,true},
+
+                            };
+
+    var grid = new GridBuilderInfo
+    {
+
+        Name = "gridPerformanceEvaDetail",
+        ReadActionUrl = _hrm_Hr_Service + "Eva_GetData/GetPerformanceEvaDetailByPerformanceEvaID?PerfomanceEvaID=" + ID,
+        ReadData = "filterFieldInfo",
+        DisableFields = disabledFields,
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        EditMode = GridEditMode.InCell,
+        PageSize = 10,
+        GridHeight = 220,
+        AutoBind = true,
+        Navigatable = true,
+        ShowDeleteButton = true,
+        ShowEditIcon = false
+
+    };
+                        }
+
+                        <!--Khởi tạo Grid-->
+                        @(Html.VnrGrid<Eva_PerformanceEvaDetailModel>(grid))
+                    </div>
+
+                    <div style="float: right; text-align: right; padding-top:10px;">
+                        @{
+    var TotalMark = new TextBoxBuilderInfo()
+    {
+        Width = 80
+
+    };
+                        }
+                        @Html.VnrTextBoxFor(mode => mode.TotalMark, TotalMark)
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "calculate", Name = "Calculate", Content = ConstantAction.HRM_Common_Calculate.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+                    </div>
+                </fieldset>
+            </div>
+
+            @*@if (Model != null && Model.OrderEva > 1)
+                {
+
+                    <div style=" display: block; padding-top: 10px;">
+                        <fieldset>
+                            <legend>
+                                @ConstantDisplay.HRM_Evaluation_HistoryPerformance.TranslateString()
+                            </legend>
+                            <div id="gridPerformanceEvaDetailHisory" style="overflow-x:scroll; width:1200px;"></div>
+                        </fieldset>
+                    </div>
+                }*@
+        </div>
+        <div style="display:block; padding-top:10px;">
+            <fieldset>
+                <legend>
+                    @ConstantDisplay.HRM_Evaluation_GeneralPerformance.TranslateString()
+                </legend>
+                <div style="float:left; padding-right:100px">
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.HiddenFor(mode => mode.ID)
+                            @Html.HiddenFor(model => model.Status, new { id = "Status1" })
+                            @Html.VnrLabelFor(mode => mode.Strengths)
+                        </div>
+                        <div class="FieldValue">
+
+                            @Html.VnrTextAreaFor(mode => mode.Strengths)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Weaknesses)
+                        </div>
+                        <div class="FieldValue">
+
+                            @Html.VnrTextAreaFor(mode => mode.Weaknesses)
+                        </div>
+                    </div>
+                </div>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ResultNote)
+                        </div>
+                        <div class="FieldValue">
+
+                            @Html.VnrTextAreaFor(mode => mode.ResultNote)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.LevelName)
+                        </div>
+                        <div class="FieldValue">
+
+                            @{
+    var LevelID = new DropDownListBuilderInfo()
+    {
+        DataTextField = "LevelName",
+        DataValueField = "ID",
+        Url = @_hrm_Hr_Service + "Eva_GetData/GetMultiLevel",
+        OptionLabel = ConstantDisplay.HRM_Evaluation_SelectLevel.TranslateString(),
+        Value = Model != null && !string.IsNullOrEmpty(Model.LevelName) ? Model.LevelName : null
+
+    };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.LevelID, LevelID)
+
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Proportion)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+    var Proportion = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "Width:70px"
+    };
+                            }
+                            @Html.VnrNumericTextBoxFor(mode => mode.Proportion, Proportion)
+                        </div>
+                    </div>
+                    <div id="dvAttachFile">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.AttachFile)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.HiddenFor(model => model.AttachFile)
+                            <input type="file" name="files" id="UploadAttachFile" />
+                            <script>
+                                var vnrUpload = VnrUploadBuilder;
+                                vnrUpload.Id = "UploadAttachFile";
+                                vnrUpload.Host = '@_hrm_Main_Web';
+                                vnrUpload.Multiple = true,
+                                vnrUpload.Field = "AttachFile",
+                                vnrUpload.FileType = "*.xls*.xlsx*.txt*.pdf*.doc*.docx*.jpg",
+                                vnrUpload.Files = '@Html.DisplayFor(model => model.AttachFile)';
+                                vnrUpload.AutoUpload = true;
+                                vnrUpload.AutoReNameFile = true;
+                                VnrUpload(vnrUpload);
+                            </script>
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+            </fieldset>
+        </div>
+        <hr style="padding:5px;" />
+    </div>
+}
+else
+{
+    <div>
+        @Html.HiddenFor(model => model.ID)
+
+        <div style="display:block; padding-top:10px;">
+            <fieldset>
+                <legend>
+                    @ConstantDisplay.HRM_Evaluation_PerformanceTemplateProfile.TranslateString()
+                </legend>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.PerformancePlanName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.PerformancePlanName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.DatePerformOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.DatePerformOfProfile)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.TemplateName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.TemplateName)
+                        </div>
+                    </div>
+
+
+
+
+
+
+                </div>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ProfileName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.ProfileName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.JobTitleNameOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.JobTitleNameOfProfile)
+                        </div>
+
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureNameOfProfile)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+                            @Html.DisplayFor(mode => mode.OrgStructureNameOfProfile)
+
+                        </div>
+
+                    </div>
+
+                </div>
+                <div style="float:left;">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.EvaluatorName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.EvaluatorName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.JobTitleNameOfEvaluator)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.JobTitleNameOfEvaluator)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureNameOfEvaluator)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.DisplayFor(mode => mode.OrgStructureNameOfEvaluator)
+
+
+                        </div>
+                    </div>
+
+                </div>
+            </fieldset>
+
+            <div style=" display: block; padding-top: 10px;">
+                <fieldset>
+                    <legend>
+                        @ConstantDisplay.HRM_Evaluation.TranslateString()
+                    </legend>
+                    <div>
+                        <!--Khai báo các thông tin cho Grid-->
+                        @{
+    string[] valueFields = new string[]
+                            {
+                                Eva_PerformanceEvaDetailModel.FieldNames.KPIName,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Scale,
+                                Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Rate,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Mark,
+                                Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,
+
+                            };
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Eva_PerformanceEvaDetailModel.FieldNames.KPIName,180},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale,120},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,150},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,150},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark,80},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate,60},
+
+                            };
+    string[] disabledFields = new[]
+        {
+         Eva_PerformanceEvaDetailModel.FieldNames.KPIName,
+         Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,
+         Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,
+         Eva_PerformanceEvaDetailModel.FieldNames.Scale,
+         Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,
+         Eva_PerformanceEvaDetailModel.FieldNames.Rate,
+        };
+
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Eva_PerformanceEvaDetailModel.FieldNames.KPIName, ConstantDisplay.HRM_Evaluation_KPIName},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating, ConstantDisplay.HRM_Evaluation_MinimumRating},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating, ConstantDisplay.HRM_Evaluation_MaximumRating},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale, ConstantDisplay.HRM_Evaluation_KPI_Scale},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource, ConstantDisplay.HRM_Evaluation_KPI_MeasuredSource},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation, ConstantDisplay.HRM_Evaluation_PerformanceDetail_Evaluation},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark, ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate, ConstantDisplay.HRM_Evaluation_Rate},
+                            };
+    var filterable = new Dictionary<string, bool>()
+                            {
+                               {Eva_PerformanceEvaDetailModel.FieldNames.KPIName,true},
+                               {Eva_PerformanceEvaDetailModel.FieldNames.MinimumRating,true},
+                               {Eva_PerformanceEvaDetailModel.FieldNames.MaximumRating,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Scale,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.MeasuredSource,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Evaluation,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Mark,true},
+                                {Eva_PerformanceEvaDetailModel.FieldNames.Rate,true},
+
+                            };
+
+    var grid = new GridBuilderInfo
+    {
+
+        Name = "gridPerformanceEvaDetail",
+        ReadActionUrl = _hrm_Hr_Service + "Eva_GetData/GetPerformanceEvaDetailByPerformanceEvaID?PerfomanceEvaID=" + ID,
+        ReadData = "filterFieldInfo",
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        PageSize = 10,
+        // GridHeight =220,
+        AutoBind = true,
+        Navigatable = true,
+        ShowEditIcon = false,
+        ShowDeleteButton = true,
+
+    };
+                        }
+
+                        <!--Khởi tạo Grid-->
+                        @(Html.VnrGrid<Eva_PerformanceEvaDetailModel>(grid))
+                    </div>
+
+
+                </fieldset>
+            </div>
+
+            @*@if (Model != null && Model.OrderEva > 1)
+                {
+
+                    <div style=" display: block; padding-top: 10px;">
+                        <fieldset>
+                            <legend>
+                                @ConstantDisplay.HRM_Evaluation_HistoryPerformance.TranslateString()
+                            </legend>
+                            <div id="gridPerformanceEvaDetailHisory" style="overflow-x:scroll; width:1200px"></div>
+                        </fieldset>
+                    </div>
+                }*@
+        </div>
+        <div style="display:none; padding-top:10px;">
+            <fieldset>
+                <legend>
+                    @ConstantDisplay.HRM_Evaluation_GeneralPerformance.TranslateString()
+                </legend>
+                <div style="float:left; padding-right:100px">
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.HiddenFor(mode => mode.ID)
+                            @Html.HiddenFor(model => model.Status, new { id = "Status1" })
+                            @Html.VnrLabelFor(mode => mode.Strengths)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.VnrDisplayFor(mode => mode.Strengths)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Weaknesses)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.VnrDisplayFor(mode => mode.Weaknesses)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ResultNote)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.VnrDisplayFor(mode => mode.ResultNote)
+                        </div>
+                    </div>
+                </div>
+                <div style="float:left;">
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.LevelName)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+
+                            @Html.VnrDisplayFor(mode => mode.LevelName)
+
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Proportion)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+                            @Html.VnrDisplayFor(mode => mode.Proportion)
+                        </div>
+                    </div>
+                    <div id="dvAttachFile">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.TotalMark)
+                        </div>
+                        <div class="FieldValueView" style="min-height:24px">
+
+
+                            @Html.VnrDisplayFor(mode => mode.TotalMark)
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.AttachFile)
+                        </div>
+                        <div class="FieldValue">
+
+
+                            @Html.HiddenFor(model => model.AttachFile)
+                            <input type="file" name="files1" id="UploadAttachFile2" />
+                            <script>
+
+                                var vnrUpload2 = VnrUploadBuilder;
+                                vnrUpload2.Id = "UploadAttachFile2";
+                                vnrUpload2.Host = '@_hrm_Main_Web';
+                                vnrUpload2.Multiple = true,
+                            vnrUpload2.Field = "AttachFile",
+                            vnrUpload2.FileType = "*.xls*.xlsx*.doc*.docx",
+                            vnrUpload2.Files = '@Html.DisplayFor(model => model.AttachFile)';
+                                vnrUpload2.AutoUpload = false;
+                                vnrUpload2.AutoReNameFile = false;
+                                vnrUpload2.Enable = false;
+                                VnrUpload(vnrUpload2);
+                            </script>
+
+
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+
+
+                </div>
+            </fieldset>
+        </div>
+        <hr style="padding:5px;" />
+    </div>
+
+}

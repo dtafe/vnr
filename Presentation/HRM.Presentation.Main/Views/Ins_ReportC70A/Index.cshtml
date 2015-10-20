@@ -1,0 +1,405 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Insurance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model  Ins_SearchC70AReportModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var gridName = "gridIns_ReportC70A";
+
+    IList<SelectListItem> listSta = Enum.GetValues(typeof(InsuranceRecordType))
+        .Cast<InsuranceRecordType>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+}
+@Html.Hidden("Screen", screen)
+<script type="text/javascript">
+    var checkedNodes = [];
+    var isCreateTemplate = true;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    var gridName = '@gridName';
+
+    function filterFieldInfo(isExportDDL) {
+
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        //var re = /-?\d+/;
+        //var m = re.exec($("#DateMonth").val());
+        //var d = new Date(parseInt(m[0]));
+        debugger;
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            CutOffDurationName: $('#@Html.FieldIdFor(mode => mode.CutOffDurationID)').val() != null ? $('#@Html.FieldIdFor(mode => mode.CutOffDurationID)').data("kendoDropDownList").text() : null,
+            DateStart : ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            DateMonth: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateMonth").val()),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //document.getElementById("MonthYear").style.display = "none";
+                //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Ins_GetData/GetReportC70AValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            ReadGrid(gridName);
+            selectedIds = [];
+            checkedNodes = [];
+            return false;
+        });
+
+        $("#btnExport").click(function () {
+            isCreateTemplate = false;
+
+            var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportC70A');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+
+            var urlGetData = '@_hrm_Hre_Service' + 'Ins_GetData/GetReportC70A';
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true);
+            ExportAll(urlGetData, dataParameter, urlDownload);
+            return false;
+        });
+    });
+
+    $(document).ready(function () {
+
+        ShowHidePanel();
+        $("#btnCreateTemplate").click(function () {
+            isCreateTemplate = true;
+            isCreateTemplateForDynamicGrid = true;
+            CreateTemplate('@_hrm_Hre_Service' + 'Ins_GetData/GetReportC70A', filterFieldInfo(true));
+
+        });
+    });
+
+    function onSelectDate(e) {
+        var dtMonthYear = $('#MonthYear').data("kendoDatePicker");
+
+    }
+
+    function getStartEnd() {
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Att_GetData/GetStartEndOfCutOffDuration',
+            data: { cutoffID: $('#@Html.FieldIdFor(model => model.CutOffDurationID)').val() },
+            dataType: 'json',
+            async: false,
+            success: function (strResponse) {
+
+                if (strResponse != null) {
+                    var dStart = strResponse.DateStart;
+                    var dEnd = strResponse.DateEnd;
+                    var Month = strResponse.Month;
+                    $("#DateStart").data("kendoDatePicker").value(dStart);
+                    $("#DateEnd").data("kendoDatePicker").value(dEnd);
+                    $("#DateMonth").data("kendoDatePicker").value(Month);
+                    //$("#DateMonth").val(Month);
+                }
+            }
+        });
+    };
+
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div class="hrm_box">
+                            <div id="div4">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.CutOffDurationID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _CutOff = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "CutOffDurationName",
+                                            DataValueField = "ID",
+                                            Url = _hrm_Hre_Service + "Att_GetData/GetMultiCutOffDuration",
+                                            StyleCss = "Width:120px",
+                                            EventChange = "getStartEnd"
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.CutOffDurationID, _CutOff))
+                                        
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                                
+                            <div id="div5">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                        <div class="hrm_box">
+                            <div id="div5">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Month.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _month = new DatePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Common_Search_Month.TranslateString(),
+                                            StyleCss = "width:100px"
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateMonth, _month)
+
+                                </div>
+                            </div>
+                            <div id="div5">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.DateStart)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateStart = new DatePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Att_AllowLimitOvertime_DateStart.TranslateString(),
+                                            StyleCss = "width:100px"
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateStart, DateStart)
+
+                                    @{
+                                        var _DateEnd = new DatePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                            StyleCss = "width:100px"
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateEnd, _DateEnd)
+                                </div>
+                            </div>
+
+                        </div>
+
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = "Tạo temlate", ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+@*<div style="overflow:hidden">*@
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+                            {
+                                Ins_C70aReportModel.FieldNames.Stt,
+                                Ins_C70aReportModel.FieldNames.CodeEmp,
+                                Ins_C70aReportModel.FieldNames.ProfileName,
+                                Ins_C70aReportModel.FieldNames.SocialInsNo,
+                                Ins_C70aReportModel.FieldNames.Birthday,
+                                Ins_C70aReportModel.FieldNames.SalaryInsurance,
+                                Ins_C70aReportModel.FieldNames.MonthJoinInsurance,
+                                Ins_C70aReportModel.FieldNames.LeaveInMonth,
+                                Ins_C70aReportModel.FieldNames.LeaveInYear,
+                                Ins_C70aReportModel.FieldNames.Money,
+                                Ins_C70aReportModel.FieldNames.StatusGroup,
+                                Ins_C70aReportModel.FieldNames.DateStart,
+                                Ins_C70aReportModel.FieldNames.DateEnd,
+                                Ins_C70aReportModel.FieldNames.Notes,
+                                Ins_C70aReportModel.FieldNames.Notes1,
+                                Ins_C70aReportModel.FieldNames.FemaleBirthYear,
+                                Ins_C70aReportModel.FieldNames.MaleBirthYear,
+                                Ins_C70aReportModel.FieldNames.Status,
+                                Ins_C70aReportModel.FieldNames.GroupName,
+                                Ins_C70aReportModel.FieldNames.BeginSocialInsIssueDate,
+                                Ins_C70aReportModel.FieldNames.CodeParentOrgLevel
+                            };
+
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Ins_C70aReportModel.FieldNames.Stt,50},
+                                {Ins_C70aReportModel.FieldNames.CodeEmp,220},
+                                {Ins_C70aReportModel.FieldNames.ProfileName,165},
+                                {Ins_C70aReportModel.FieldNames.SocialInsNo,90},
+                                {Ins_C70aReportModel.FieldNames.Birthday,95},
+                                {Ins_C70aReportModel.FieldNames.SalaryInsurance,120},
+                                {Ins_C70aReportModel.FieldNames.MonthJoinInsurance,130},
+                                {Ins_C70aReportModel.FieldNames.LeaveInMonth,150},
+                                {Ins_C70aReportModel.FieldNames.LeaveInYear,130},
+                                {Ins_C70aReportModel.FieldNames.Money,100},
+                                {Ins_C70aReportModel.FieldNames.StatusGroup,120},
+                                {Ins_C70aReportModel.FieldNames.DateStart,100},
+                                {Ins_C70aReportModel.FieldNames.DateEnd,100},
+                                {Ins_C70aReportModel.FieldNames.Notes,120},
+                                {Ins_C70aReportModel.FieldNames.Notes1,120},
+                                {Ins_C70aReportModel.FieldNames.FemaleBirthYear,110},
+                                {Ins_C70aReportModel.FieldNames.MaleBirthYear,110},
+                                {Ins_C70aReportModel.FieldNames.Status,120},
+                                {Ins_C70aReportModel.FieldNames.GroupName,120},
+                                {Ins_C70aReportModel.FieldNames.BeginSocialInsIssueDate,120},
+                                {Ins_C70aReportModel.FieldNames.CodeParentOrgLevel,120},
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Ins_C70aReportModel.FieldNames.Stt,ConstantDisplay.HRM_INS_RptD02TS_STT},
+                                {Ins_C70aReportModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Ins_C70aReportModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                                {Ins_C70aReportModel.FieldNames.SocialInsNo,ConstantDisplay.HRM_HR_Profile_SocialInsNo},
+                                {Ins_C70aReportModel.FieldNames.Birthday,ConstantDisplay.HRM_Attendance_Pregnancy_DateOfBirth},
+                                {Ins_C70aReportModel.FieldNames.Money,ConstantDisplay.HRM_HR_AppendixContract_Amount},
+                                {Ins_C70aReportModel.FieldNames.DateStart,ConstantDisplay.HRM_Common_DateStart},
+                                {Ins_C70aReportModel.FieldNames.DateEnd,ConstantDisplay.HRM_Common_DateEnd},
+                                {Ins_C70aReportModel.FieldNames.Notes,ConstantDisplay.HRM_Attendance_Notes},
+                                {Ins_C70aReportModel.FieldNames.Status,ConstantDisplay.HRM_Attendance_Status},
+                                {Ins_C70aReportModel.FieldNames.GroupName,ConstantDisplay.HRM_System_Group_GroupName},
+                                
+                                {Ins_C70aReportModel.FieldNames.SalaryInsurance,ConstantDisplay.HRM_Insurance_SalaryInsurance},
+                                {Ins_C70aReportModel.FieldNames.MonthJoinInsurance,ConstantDisplay.HRM_Insurance_MonthJoinInsurance},
+                                {Ins_C70aReportModel.FieldNames.LeaveInMonth,ConstantDisplay.HRM_Insurance_LeaveInMonth},
+                                {Ins_C70aReportModel.FieldNames.LeaveInYear,ConstantDisplay.HRM_Insurance_LeaveInYear},
+                                {Ins_C70aReportModel.FieldNames.StatusGroup,ConstantDisplay.HRM_Insurance_StatusGroup},
+                                {Ins_C70aReportModel.FieldNames.Notes1,ConstantDisplay.HRM_Insurance_Notes1},
+                                {Ins_C70aReportModel.FieldNames.FemaleBirthYear,ConstantDisplay.HRM_Insurance_FemaleBirthYear},
+                                {Ins_C70aReportModel.FieldNames.MaleBirthYear,ConstantDisplay.HRM_Insurance_MaleBirthYear},
+                                {Ins_C70aReportModel.FieldNames.BeginSocialInsIssueDate,ConstantDisplay.HRM_Insurance_BeginSocialInsIssueDate},
+                                {Ins_C70aReportModel.FieldNames.CodeParentOrgLevel,ConstantDisplay.HRM_Insurance_CodeParentOrgLevel}
+                              };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                            {
+                                {Ins_C70aReportModel.FieldNames.DateStart,"{0:dd/MM/yyyy}"},
+                                {Ins_C70aReportModel.FieldNames.DateEnd,"{0:dd/MM/yyyy}"},
+                              };
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+               {Ins_C70aReportModel.FieldNames.Status,new object[]
+               { "Value", "Text", listSta, ConstantDisplay.HRM_Attendance_Status,""}},
+               {Ins_C70aReportModel.FieldNames.CodeEmp,new object[]
+               { "Value", "Text", listSta, ConstantDisplay.HRM_HR_Profile_CodeEmp,""}},
+               {Ins_C70aReportModel.FieldNames.GroupName,new object[]
+               { "Value", "Text", listSta, ConstantDisplay.HRM_System_Group_GroupName,""}},
+        };
+
+        var groupFields = new[]
+        {
+            Ins_C70aReportModel.FieldNames.GroupName,
+            Ins_C70aReportModel.FieldNames.Status,
+        };
+        
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ForeignKey = foreignKey,
+            ReadActionUrl = _hrm_Hre_Service + "Ins_GetData/GetReportC70A",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            GroupFields = groupFields
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Ins_C70aReportModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

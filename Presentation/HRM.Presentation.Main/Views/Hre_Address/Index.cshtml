@@ -1,0 +1,265 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+@using HRM.Infrastructure.Security
+
+@model Hre_AddressSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Address.TranslateString();
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    string[] valueFields = null;
+}
+<script type="text/javascript">
+     
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var countryID = $('#@Html.FieldIdFor(model => model.CountryID)').val();
+        countryID = countryID != null ? countryID[0] : countryID;
+        var provinceID = $('#@Html.FieldIdFor(model => model.ProvinceID)').val();
+        provinceID = provinceID != null ? provinceID[0] : provinceID;
+        var districtID = $('#@Html.FieldIdFor(model => model.DistrictID)').val();
+        districtID = districtID != null ? districtID[0] : districtID;
+        return {
+            CountryID: countryID,
+            ProvinceID: provinceID,
+            DistrictID: districtID,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {        
+        $("#btnSearch").click(function () {
+            var grid = $('#gridHre_Address').data("kendoGrid");
+            grid.dataSource.read();
+        });
+        //Xử lý nút Edit
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Hre_Address');
+        if (isAccess) {
+           
+        }*@
+        EditGridNewPage("gridHre_Address", '#Hrm_Main_Web/Hre_Address/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Address');
+        if (!isAccess) {
+            return;
+        }*@
+        KendoRouteMapping('#Hrm_Main_Web/Hre_Address/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    GridCheckbox("gridHre_Address");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_Address');
+        if (!isAccess) {
+            return;
+        }*@
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        var r = confirm("Bạn có chắc chắn muốn xóa?");
+        if (r == true) {
+            DeleteSelected("gridHre_Address", '@_hrm_Main_Web' + "Hre_Address/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Hre_Address');
+        }
+        return false;
+    });
+
+    // Nút export all
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_Address');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#gridHre_Address').data("kendoGrid");       
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAddressList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Address');
+    });
+
+    // Nút export selected
+    $("#btnExportSelected").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_Address');
+        if (!isAccess) {
+            return;
+        }*@
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAddressSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Address');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form action="#" method="POST" id="form-search">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CountryID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var mts2 = new HRM.Presentation.UI.Controls.Kendo.MultiSelect.MultiSelectInformation()
+                                    {
+                                        Name = Hre_AddressModel.FieldNames.CountryID,
+                                        DataTextField = Hre_AddressModel.FieldNames.CountryName,
+                                        DataValueField = Hre_AddressModel.FieldNames.ID,
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiCountry",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectCountry.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        //ValueMultiselect = @Html.DisplayFor(mode => mode.CountryID).ToString()
+                                    };
+                                }
+                                @(Html.MultiSelectListControl(mts2))
+                            </div>
+                        </div>
+                        <div id="5">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProvinceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var mts3 = new MultiSelectInformation()
+                                    {
+                                        Name = Hre_AddressModel.FieldNames.ProvinceID,
+                                        DataTextField = Hre_AddressModel.FieldNames.ProvinceName,
+                                        DataValueField = Hre_AddressModel.FieldNames.ID,
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiProvince",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProvinve.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        ValueMultiselect = @Html.DisplayFor(mode => mode.ProvinceID).ToString()
+                                    };
+                                }
+                                @(Html.MultiSelectListControl(mts3))
+                            </div>
+                        </div>
+                        <div id="5">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.DistrictID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var mts4 = new MultiSelectInformation()
+                                    {
+                                        Name = Hre_AddressModel.FieldNames.DistrictID,
+                                        DataTextField = Hre_AddressModel.FieldNames.DistrictName,
+                                        DataValueField = Hre_AddressModel.FieldNames.ID,
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiDistrict",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectDistrict.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        ValueMultiselect = @Html.DisplayFor(mode => mode.DistrictID).ToString()
+                                    };
+                                }
+                                @(Html.MultiSelectListControl(mts4))
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new[]
+        {
+            Hre_AddressModel.FieldNames.CountryName,
+            Hre_AddressModel.FieldNames.ProvinceName,
+            Hre_AddressModel.FieldNames.DistrictName,
+            Hre_AddressModel.FieldNames.AddressName
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Hre_AddressModel.FieldNames.CountryName, 80},
+            {Hre_AddressModel.FieldNames.ProvinceName, 90},
+            {Hre_AddressModel.FieldNames.DistrictName, 90},
+            {Hre_AddressModel.FieldNames.AddressName, 110}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Hre_AddressModel.FieldNames.CountryName, ConstantDisplay.HRM_HR_Address_CountryID},
+            {Hre_AddressModel.FieldNames.ProvinceName, ConstantDisplay.HRM_HR_Address_ProvinceID},
+            {Hre_AddressModel.FieldNames.DistrictName, ConstantDisplay.HRM_HR_Address_DistrictID},
+            {Hre_AddressModel.FieldNames.AddressName, ConstantDisplay.HRM_HR_Address_AddressName}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_Address",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetAddressList/",
+            ShowCommand = false,
+            GridHeight = 800,
+            ReadData = "filterFieldInfo"
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Hr.Models.Hre_AddressModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

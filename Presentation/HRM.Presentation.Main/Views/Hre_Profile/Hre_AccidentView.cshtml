@@ -1,0 +1,222 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+@{
+    var profileID = Guid.Empty;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+    }
+}
+<div style="padding-top:3px">
+    <!--Tai nạn-->
+    <div>
+        @{
+            var windowAcci = new WindowBuilderInfo
+            {
+                Name = "windowAccident",
+                Visible = false,
+                Width=700,
+                LoadContentFrom = @_hrm_Main_Web + "Hre_Accident/CreateOrUpdateProfile?profileID=" + profileID,
+            };
+        }
+        @(Html.VnrWindow(windowAcci))
+        <script>
+            var titleEditPopUpAccident = '@Html.Raw(ConstantDisplay.HRM_HR_Accident_Update.TranslateString())';
+            var titleCreatePopUpAccident = '@Html.Raw(ConstantDisplay.HRM_HR_Accident_AddNew.TranslateString())';
+            var selectedIds = [];
+
+            //Xử lý sự kiện click button tìm kiếm
+            $(document).ready(function () {
+
+                $("#btnSearchAccident").click(function () {
+                    ReadGrid("gridAccident");
+                });
+
+                //Show Hide Panel
+                ShowHidePanel();
+
+                //Xử lý Edit
+                var url = '@_hrm_Main_Web' + "Hre_Accident/CreateOrUpdateProfile/";
+                EditGridPopUp("gridAccident", "windowAccident", url, '@ConstantPermission.Hre_Accident', titleEditPopUpAccident);
+            });
+
+            //Xử lý tạo mới
+            $("#btnCreateAccident").click(function () {
+                
+                var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Accident');
+                if (!isAccess) {
+                    return;
+                }
+                var x = '@profileID';
+                if (x == '') {
+                    PopUpCreate("windowError");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + "Hre_Accident/CreateOrUpdateProfile/";
+                    PopUpEdit("windowAccident", url, SelectID, titleCreatePopUpAccident);
+                }
+            });
+
+            //Xử Lý grid
+            GridCheckbox("gridAccident");
+
+            //Xử lý delete
+            $('#btnDeleteAccident').click(function (e) {
+                if (selectedIds == "") {
+                    DeleteFail();
+                    return;
+                }
+                e.preventDefault();
+                DeleteSelected("gridAccident", '@_hrm_Main_Web' + "Hre_Accident/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Accident');
+                return false;
+            });
+
+            //Expoprt
+            $("#btnExportAllAccident").click(function () {
+                var grid = $('#gridAccident').data("kendoGrid");
+                if (grid.dataSource.total() == 0) {
+                    ExportAllFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                var urlDownload = '@_hrm_Main_Web';
+                var dataParameter = filterFieldInfo(true);
+                ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Accident');
+            });
+
+            $("#btnExportSelectedAccident").click(function () {
+                if (selectedIds == "") {
+                    ExportSelectedFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                var urlDownload = '@_hrm_Main_Web';
+                var listIds = selectedIds.join(",");
+                var listFields = $('#valueFieldsGridAcc').val();
+                ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Reward');
+            });
+
+        </script>
+        <div class="commandToolBarWidge">
+            <div class="GridTitle">
+                @Html.VnrLabel(ConstantDisplay.HRM_HR_Accident.TranslateString())
+            </div>
+            <div style="float:right">
+                @*<div class="btn-group">
+                        <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                            <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                            @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu pull-right" role="menu">
+                            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelectedAccident", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAllAccident", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                        </ul>
+                    </div>*@
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateAccident", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteAccident", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+            </div>
+            <div class="clear"></div>
+        </div>
+
+        <div style="width:100%; height:580px">
+            <!--Khai báo các thông tin cho Grid-->
+            @{
+
+                var valueFieldsAccident = new[]
+                        {
+                            //Hre_AccidentModel.FieldNames.ProfileName,
+                            //Hre_AccidentModel.FieldNames.CodeEmp,
+                            //Hre_AccidentModel.FieldNames.OrgStructureName,
+                            //Hre_AccidentModel.FieldNames.JobTitleName,
+                            //Hre_AccidentModel.FieldNames.PositionName,
+                            Hre_AccidentModel.FieldNames.Date,
+                            Hre_AccidentModel.FieldNames.Place,
+                            Hre_AccidentModel.FieldNames.FirstMoney,
+                            Hre_AccidentModel.FieldNames.RealMoney,
+                            Hre_AccidentModel.FieldNames.CompanyPay,
+                            Hre_AccidentModel.FieldNames.RealMoney
+                        };
+
+                Dictionary<string, int> sizeFieldsAccident = new Dictionary<string, int>()
+                        {
+                            //{Hre_AccidentModel.FieldNames.ProfileName, 150},
+                            //{Hre_AccidentModel.FieldNames.CodeEmp, 80},
+                            //{Hre_AccidentModel.FieldNames.PositionName, 110},
+                            //{Hre_AccidentModel.FieldNames.JobTitleName, 110},
+                            //{Hre_AccidentModel.FieldNames.OrgStructureName, 110},
+                            {Hre_AccidentModel.FieldNames.Date, 130},
+                            {Hre_AccidentModel.FieldNames.Place, 130},
+                            {Hre_AccidentModel.FieldNames.FirstMoney, 85},
+                            {Hre_AccidentModel.FieldNames.RealMoney, 85},
+                            {Hre_AccidentModel.FieldNames.CompanyPay, 90}
+                        };
+
+                Dictionary<string, string> displayFieldsAccident = new Dictionary<string, string>()
+                        {
+                            //{Hre_AccidentModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Accident_ProfileID},
+                            //{Hre_AccidentModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                            //{Hre_AccidentModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_OrgStructure_OrgStructureName},
+                            //{Hre_AccidentModel.FieldNames.JobTitleName, ConstantDisplay.HRM_Category_JobTitle_JobTitleName},
+                            //{Hre_AccidentModel.FieldNames.PositionName, ConstantDisplay.HRM_Category_Position_PositionName},
+                            {Hre_AccidentModel.FieldNames.Date, ConstantDisplay.HRM_HR_Accident_Date},
+                            {Hre_AccidentModel.FieldNames.Place, ConstantDisplay.HRM_HR_Accident_Place},
+                            {Hre_AccidentModel.FieldNames.FirstMoney, ConstantDisplay.HRM_HR_Accident_FirstMoney},
+                            {Hre_AccidentModel.FieldNames.RealMoney, ConstantDisplay.HRM_HR_Accident_RealMoney},
+                            {Hre_AccidentModel.FieldNames.CompanyPay, ConstantDisplay.HRM_HR_Accident_CompanyPay}
+                        };
+                Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Hre_AccidentModel.FieldNames.FirstMoney, ConstantFormat.HRM_Format_Int},
+            {Hre_AccidentModel.FieldNames.CompanyPay, ConstantFormat.HRM_Format_Int},
+            {Hre_AccidentModel.FieldNames.RealMoney, ConstantFormat.HRM_Format_Int}
+
+        };
+
+                var gridAccident = new GridBuilderInfo
+                {
+                    Name = "gridAccident",
+                    ValueFields = valueFieldsAccident,
+                    SizeFields = sizeFieldsAccident,
+                    DisplayFields = displayFieldsAccident,
+                    FormatFields = formatFields,
+                    ReadActionUrl = @_Hrm_Hre_Service + "Hre_GetData/GetAccidentProID?profileID=" + profileID,
+                    GridHeight = 580,
+                    ShowCommand = false,
+                    AutoBind = true,
+                    ShowCheckAll = false,
+                    // ReadData = "filterFieldInfo"
+                };
+            }
+            <!--Khởi tạo Grid-->
+            @(Html.VnrGrid<HRM.Presentation.Hr.Models.Hre_AccidentModel>(gridAccident))
+        </div>
+        @{
+            var sizeFieldsAcc = string.Empty;
+            for (int i = 0; i < valueFieldsAccident.Count(); i++)
+            {
+                sizeFieldsAcc += "," + valueFieldsAccident[i];
+            }
+        }
+        @Html.Hidden("valueFieldsGridAcc", sizeFieldsAcc)
+    </div>
+</div>
+@*<script>
+        $("#gridReWard .k-grid-pager").css('display', 'none');
+        $("#gridDiscipline .k-grid-pager").css('display', 'none');
+        $("#gridAccident .k-grid-pager").css('display', 'none');
+        $("#gridWorkHistory .k-grid-pager").css('display', 'none');
+        $("#@ConstantControlName.HRM_HR_CandidateHistory_Grid_Name .k-grid-pager").css('display', 'none');
+
+        $(document).ready(function () {
+            $("#panelbar").kendoPanelBar();
+        });
+    </script>*@

@@ -1,0 +1,322 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_RosterGroupSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_RosterGroup.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> list = Enum.GetValues(typeof(AttendanceDataStatus))
+        .Cast<AttendanceDataStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+    SelectList data = new SelectList(list, "Value", "Text");
+}
+
+<script type="text/javascript">
+     
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            RosterGroupName: $('#@Html.FieldIdFor(model => model.RosterGroupName)').val(),
+            Status: $('#@Html.FieldIdFor(model => model.Status)').val(),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    var Validator = CheckValidate();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#gridAtt_RosterGroup').data("kendoGrid");
+            selectedIds = [];
+            grid.dataSource.read();
+            if (Validator.validate()) {
+
+            }
+            return false;
+        });
+        //Xử lý nút Edit
+        EditGridNewPage("gridAtt_RosterGroup", '#Hrm_Att_Web/Att_RosterGroup/Edit/', 'Hrm_Att_Web', '@_hrm_Main_Web');
+    });
+ 
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_RosterGroup");
+
+    //Xử lý nút Delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == []) {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        //DeleteSelected("gridAtt_RosterGroup", '@_hrm_Main_Web' + "Att_RosterGroup/RemoveSelected/", selectedIds, '@ConstantPermission.Att_RosterGroup');
+        DeleteSelectedConfirm("gridAtt_RosterGroup", '@_hrm_Main_Web' + "Att_RosterGroup/RemoveSelected/", selectedIds, '@ConstantPermission.Att_RosterGroup');
+        
+        return false;
+    });
+
+    $('#btnApprove').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_RosterGroup_Approve', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())');
+            return;
+        }
+        e.preventDefault();
+        SetStatusSelected("gridAtt_RosterGroup", '@_hrm_Main_Web' + "Att_RosterGroup/SetStatusSelected/", selectedIds, "E_APPROVED", 'Thay Đổi Trạng Thái Thành Công!');
+        //selectedIds = [];
+        return false;
+    });
+    $('#btnReject').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_RosterGroup_Rejected', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Reject.TranslateString())');
+            return;
+        }
+        e.preventDefault();
+        SetStatusSelected("gridAtt_RosterGroup", '@_hrm_Main_Web' + "Att_RosterGroup/SetStatusSelected/", selectedIds, "E_REJECTED", 'Thay Đổi Trạng Thái Thành Công!');
+        //selectedIds = [];
+        return false;
+    });
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        Search("btnSearch", "treeviewOrg", "gridAtt_RosterGroup");
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_RosterGroup').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportRosterGroupList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_RosterGroup');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportRosterGroupSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_RosterGroup');
+        //selectedIds = [];
+    });
+    //Open poup add Point
+    function EvenClickChangeRosterGroup() {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ChangeRosterGroup/DataRosterGroup?ids=' + selectedIds, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    };
+
+
+
+
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            
+                <div class="contendSearchWidge" style="overflow:visible">
+                    <form action="#" method="POST" id="form-search">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.RosterGroupName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.RosterGroupName, "width:200px")
+                            </div>
+                        </div>
+
+                        @*<div id="3">
+                            <div class="FieldTitle">
+                                @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, DateStart)
+
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, DateEnd)
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Status)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var status = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = list,
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectStatus.TranslateString(),
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.Status, status)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>*@
+                    </form>
+</div>
+            
+            <br>
+        </div>
+    </div>
+
+    <div class="commandToolBarWidge">
+      @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenClickChangeRosterGroup", Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+      @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })*@
+            <div class="btn-group">
+                <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                    <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                    @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                    <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu pull-right" role="menu">
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                </ul>
+            </div>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeRosterGroup", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+          </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridAtt_RosterGroup_Grid_Name + "__Att_RosterGroup_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridAtt_ChangeRosterGroup_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetChangeRosterGroupList",
+            ReadData = "filterFieldInfo",
+            AutoBind = true,
+       
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Att_RosterGroupModel.FieldNames.Month,
+                
+             //   Att_RosterGroupModel.FieldNames.UserApproveName,
+            //    Att_RosterGroupModel.FieldNames.UserApproveName2,
+             //   Att_RosterGroupModel.FieldNames.Status,
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Att_RosterGroupModel.FieldNames.Month, 125},
+                
+              //  {Att_RosterGroupModel.FieldNames.UserApproveName, 150},
+              //  {Att_RosterGroupModel.FieldNames.UserApproveName2, 150},
+              //  {Att_RosterGroupModel.FieldNames.Status, 120},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Att_RosterGroupModel.FieldNames.Month, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthYear},
+               
+               // {Att_RosterGroupModel.FieldNames.UserApproveName, ConstantDisplay.HRM_Attendance_RosterGroup_UserApprove1ID},
+              //  {Att_RosterGroupModel.FieldNames.UserApproveName2, ConstantDisplay.HRM_Attendance_RosterGroup_UserApprove2ID},
+              //  {Att_RosterGroupModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_RosterGroup_Status},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_RosterGroupModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeRosterGroup", "Att_RosterGroupModel");
+        $(document).ready(function() {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

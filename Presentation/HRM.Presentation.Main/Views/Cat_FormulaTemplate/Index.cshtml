@@ -1,0 +1,179 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Category.Models.Cat_FormulaTemplateModel
+@{
+
+    Layout = null;
+    var hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var Hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+
+<script type="text/javascript">
+    var ArrayGridName = ['@FormulaTemplateType.E_TIMESALARY.ToString()',
+        '@FormulaTemplateType.E_ALLOWANCESALARY.ToString()',
+        '@FormulaTemplateType.E_LEAVEDAYSALARY.ToString()',
+        '@FormulaTemplateType.E_OVERTIMESALARY.ToString()',
+        '@FormulaTemplateType.E_PRODUCTSALARY.ToString()'];
+
+    function doSave() {
+        if (selectedIds == '')
+        {
+            Notification('@ConstantDisplay.HRM_Recruitment_UnusualAllowance_NotSelectProfile.TranslateString()', '@NotificationType.Warning.ToString()');
+        }
+
+        ShowHre_ProgressBar();
+        //lấy chế độ lương
+        var Grade = $("#GradeID").data("kendoComboBox");
+
+        var E_TIMESALARY = $("#" + '@FormulaTemplateType.E_TIMESALARY.ToString()').data("kendoGrid");
+        parameterMap = E_TIMESALARY.dataSource.transport.parameterMap;
+
+        var SourceData = [];
+
+        for (var i = 0; i < ArrayGridName.length; i++)
+        {
+            var data = $("#" + ArrayGridName[i]).data("kendoGrid").dataSource.data();
+            for (var j = 0; j < data.length; j++) {
+                if (selectedIds.indexOf(data[j].id) != -1)
+                {
+                    SourceData.push(data[j].toJSON());
+                }
+            }
+        }
+
+        var data = {};
+        $.extend(data, parameterMap({ models: SourceData, GradeID: Grade.value() }));
+
+        $.ajax({
+            type: 'POST',
+            url: '@hrm_Cat_Service' + "Sal_GetData/CreateTemplateFormula/",
+            data: data,
+            dataType: 'json',
+            success: function (data) {
+                Notification('@ConstantMessages.CreateTemplateFormulaSuccess.TranslateString()', '@NotificationType.Success');
+                CloseHre_ProgressBar();
+            },
+            error: function () {
+                Notification('@ConstantMessages.CreateTemplateFormulaError.TranslateString()', '@NotificationType.Warning');
+                CloseHre_ProgressBar();
+            }
+        });
+
+    };
+    function doSaveNew() {
+        //KendoRouteMapping('#Hrm_Main_Web/Cat_Element/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    };
+
+    //change gradepayroll
+    function changeGradePayroll() {
+        for (var i = 0; i < ArrayGridName.length; i++) {
+            ReadGrid(ArrayGridName[i]);
+        }
+    };
+
+</script>
+
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.Att_GradeIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Category_FormulaTemplateCreate.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_Category_FormulaTemplate.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options" style="margin-top: 5px;">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-continue", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+
+                <div class="VnRMain">
+                    @Html.HiddenFor(model => model.ID)
+
+                    <table style="width:100%">
+                        <tbody>
+
+                            <tr>
+                                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                                <td valign="top">
+                                    <br />
+                                    <div class="hrm_box" style="float: left;">
+                                        <div id="div2">
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(mode => mode.GradeID)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var drop_CatGradePayroll = new ComboBoxBuilderInfo
+                                                    {
+                                                        DataTextField = "GradeCfgName",
+                                                        DataValueField = "ID",
+                                                        Url = hrm_Cat_Service + "Cat_GetData/GetMultiGradePayroll",
+                                                        StyleCss = "width:200px",
+                                                        Autobind = true,
+                                                        Placeholder = @ConstantDisplay.HRM_HR_Contract_PleaseSelectData.TranslateString(),
+                                                        Value = Model == null ? string.Empty : Model.GradeID.ToString(),
+                                                        //EventChange="",
+                                                        EventChange = "changeGradePayroll",
+                                                    };
+                                                }
+                                                @Html.VnrComboBoxFor(m => m.GradeID, drop_CatGradePayroll).Text(Model == null ? string.Empty : Model.GradeCfgName)
+                                            </div>
+                                            <div style="clear: both;"></div>
+                                        </div>
+                                    </div>
+                                 
+                                </td>
+                                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+
+                </div>
+                <br />
+                <div class="VnRMain">
+                    <div id="tabtrip">
+                        <ul>
+                            <li class="k-state-active">@EnumDropDown.GetEnumDescription(FormulaTemplateType.E_TIMESALARY)</li>
+                            <li>@EnumDropDown.GetEnumDescription(FormulaTemplateType.E_OVERTIMESALARY)</li>
+                            <li>@EnumDropDown.GetEnumDescription(FormulaTemplateType.E_LEAVEDAYSALARY)</li>
+                            <li>@EnumDropDown.GetEnumDescription(FormulaTemplateType.E_ALLOWANCESALARY)</li>
+                            <li>@EnumDropDown.GetEnumDescription(FormulaTemplateType.E_PRODUCTSALARY)</li>
+                        </ul>
+                        <div>
+                            @Html.Partial("GridFormulaTemplate", FormulaTemplateType.E_TIMESALARY.ToString())
+                        </div>
+                        <div>
+                            @Html.Partial("GridFormulaTemplate", FormulaTemplateType.E_OVERTIMESALARY.ToString())
+                        </div>
+                        <div>
+                            @Html.Partial("GridFormulaTemplate", FormulaTemplateType.E_LEAVEDAYSALARY.ToString())
+                        </div>
+                        <div>
+                            @Html.Partial("GridFormulaTemplate", FormulaTemplateType.E_ALLOWANCESALARY.ToString())
+                        </div>
+                        <div>
+                            @Html.Partial("GridFormulaTemplate", FormulaTemplateType.E_PRODUCTSALARY.ToString())
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </div>
+    </div>
+</form>
+
+<script type="text/javascript">
+    $("#tabtrip").kendoTabStrip({
+        animation: { open: { effects: "fadeIn" } }
+    });
+</script>

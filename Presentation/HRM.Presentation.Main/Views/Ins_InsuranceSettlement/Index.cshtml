@@ -1,0 +1,359 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Insurance.Models
+@using HRM.Infrastructure.Security
+@model Ins_InsuranceSettlementModel
+@{
+    //Quyết toán bảo hiểm
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    IList<SelectListItem> insuranceSettlement = Enum.GetValues(typeof(InsuranceSettlement))
+       .Cast<InsuranceSettlement>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+       .ToList();
+
+    IList<SelectListItem> receiveSocialInsType = Enum.GetValues(typeof(ReceiveSocialInsType))
+  .Cast<ReceiveSocialInsType>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+  .ToList();
+}
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Insurance_InsuranceRecord_Grid_Name';
+    
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        //get ordernumber for orgtruc
+        var treeView = $("#OrgInsurance").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var sInsuranceSettlementType = $("#SInsuranceSettlementType").val();
+        var insuranceSettlementType = false;
+        if (sInsuranceSettlementType == '@InsuranceSettlement.E_INS_SETTLEMENT_SUCCESS.ToString()') {
+            insuranceSettlementType = true;
+        }
+        else if (sInsuranceSettlementType == '@InsuranceSettlement.E_INS_SETTLEMENT_YET.ToString()') {
+            insuranceSettlementType = false;
+        }
+        else {
+            insuranceSettlementType = null;
+        }
+
+        var sReceiveSocialInsType = $("#SReceiveSocialInsType").val();
+        var receiveSocialInsType = false;
+        if (sReceiveSocialInsType == '@ReceiveSocialInsType.E_INS_RECEIVESOCIAL_SUCCESS.ToString()') {
+            receiveSocialInsType = true;
+        }
+        else if (sReceiveSocialInsType == '@ReceiveSocialInsType.E_INS_RECEIVESOCIAL_YET.ToString()') {
+            receiveSocialInsType = false;
+        }
+        else {
+            receiveSocialInsType = null;
+        }
+
+        return {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            IsSettlement: insuranceSettlementType,
+            IsReceiveSocialIns: receiveSocialInsType,
+            DateQuitFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateQuitFrom").val()),
+            DateQuitTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateQuitTo").val()),           
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();       
+    });
+
+  
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xac Nhan Da Quyet Toan 
+    $("#btnSettlement").click(function () {
+        var listIds = selectedIds.join(",");
+        ShowHre_ProgressBar();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/InsuranceSettlementSelected',
+            data: { selectedIds: listIds },
+            type: 'POST',
+            success: function (data) {
+                ReadGrid(gridName);
+                ShowNotificationProcessor("Đã Quyết Toán Thành Công");
+                CloseHre_ProgressBar();
+            }
+        });
+    });
+
+    //Trả sổ bảo hiểm
+    $("#btnReceiveSocialIns").click(function () {
+        var listIds = selectedIds.join(",");
+        ShowHre_ProgressBar();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/InsuranceReceiveSocialInsSelected',
+            data: { selectedIds: listIds },
+            type: 'POST',
+            success: function (data) {
+                ReadGrid(gridName);
+                ShowNotificationProcessor("Trả Sổ Bảo Hiểm Thành Công");
+                CloseHre_ProgressBar();
+            }
+        });
+    });
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#@ConstantControlName.HRM_Insurance_InsuranceRecord_Grid_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportInsuranceSettlementList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Ins_InsuranceRecord');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportInsuranceSettlementSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Ins_InsuranceRecord');
+    });
+</script>
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue" id="test">
+                            @Html.VnrTextBoxFor(model => model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="dropdownlist"></div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var orgbuilder = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "220px;",
+                                    Name = "OrgInsurance",
+                                };
+
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", orgbuilder)
+
+                        </div>
+                    </div>
+
+                </div>
+                <div class="hrm_box">
+
+                    <div>
+                        <div class="FieldTitle170">
+                            @ConstantDisplay.HRM_HR_Profile_DateQuit.TranslateString()
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dateQuitFrom = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_From.TranslateString(),
+                                    StyleCss = "width:100px",
+                                    Format = ConstantFormat.HRM_Format_DayMonthYear
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateQuitFrom, dateQuitFrom)
+                            @{
+                                var dateQuitTo = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Common_To.TranslateString(),
+                                        StyleCss = "width:100px",
+                                        Format = ConstantFormat.HRM_Format_DayMonthYear
+                                    };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateQuitTo, dateQuitTo)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode => mode.InsuranceSettlementType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var insuranceSettlementType = new DropDownListBuilderInfo()
+                                {
+                                    Name = "SInsuranceSettlementType",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = insuranceSettlement,
+                                    StyleCss = "width:200px;"
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.InsuranceSettlementType, insuranceSettlementType)
+                        </div>
+                    </div> 
+
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode => mode.ReceiveSocialInsType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var receiveSocialInsTypeStatus = new DropDownListBuilderInfo()
+                                {
+                                    Name = "SReceiveSocialInsType",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = receiveSocialInsType,
+                                    StyleCss = "width:200px;"
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.ReceiveSocialInsType, receiveSocialInsTypeStatus)
+                        </div>
+                    </div> 
+
+                </div>
+               
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSettlement", Content = ConstantDisplay.HRM_Insurance_InsuranceSettled.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReceiveSocialIns", Content = ConstantDisplay.HRM_Insurance_ReceiveSocialIns.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->    
+        @{          
+            string[] valueFields = new string[]
+        {
+             Ins_InsuranceSettlementModel.FieldNames.ProfileName,
+             Ins_InsuranceSettlementModel.FieldNames.CodeEmp,
+             Ins_InsuranceSettlementModel.FieldNames.InsuranceSettlementType,
+             Ins_InsuranceSettlementModel.FieldNames.ReceiveSocialInsType,
+             Ins_InsuranceSettlementModel.FieldNames.E_UNIT,
+             Ins_InsuranceSettlementModel.FieldNames.E_DIVISION,
+             Ins_InsuranceSettlementModel.FieldNames.E_DEPARTMENT,
+             Ins_InsuranceSettlementModel.FieldNames.E_TEAM,
+             Ins_InsuranceSettlementModel.FieldNames.E_SECTION,
+             Ins_InsuranceSettlementModel.FieldNames.DateHire,
+             Ins_InsuranceSettlementModel.FieldNames.DateQuit,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Ins_InsuranceSettlementModel.FieldNames.ProfileName, 150},
+            {Ins_InsuranceSettlementModel.FieldNames.CodeEmp, 100},
+            {Ins_InsuranceSettlementModel.FieldNames.InsuranceSettlementType, 150},
+            {Ins_InsuranceSettlementModel.FieldNames.ReceiveSocialInsType, 150},          
+            {Ins_InsuranceSettlementModel.FieldNames.E_UNIT,135},
+            {Ins_InsuranceSettlementModel.FieldNames.E_DIVISION,135},
+            {Ins_InsuranceSettlementModel.FieldNames.E_TEAM,135},
+            {Ins_InsuranceSettlementModel.FieldNames.E_DEPARTMENT,135},
+            {Ins_InsuranceSettlementModel.FieldNames.E_SECTION,135},
+            {Ins_InsuranceSettlementModel.FieldNames.DateHire, 100},
+            {Ins_InsuranceSettlementModel.FieldNames.DateQuit, 100},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Ins_InsuranceSettlementModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+            {Ins_InsuranceSettlementModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Ins_InsuranceSettlementModel.FieldNames.InsuranceSettlementType, ConstantDisplay.HRM_Insurance_InsuranceSettlementType},
+            {Ins_InsuranceSettlementModel.FieldNames.ReceiveSocialInsType, ConstantDisplay.HRM_Insurance_IsReceiveSocialIns},
+            {Ins_InsuranceSettlementModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+            {Ins_InsuranceSettlementModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+            {Ins_InsuranceSettlementModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+            {Ins_InsuranceSettlementModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+            {Ins_InsuranceSettlementModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+            {Ins_InsuranceSettlementModel.FieldNames.DateHire, ConstantDisplay.HRM_HR_Profile_DateHire},
+            {Ins_InsuranceSettlementModel.FieldNames.DateQuit, ConstantDisplay.HRM_HR_Profile_DateQuit},
+        };
+        
+        var foreignKey = new Dictionary<object, object[]>()
+          {
+              {Ins_InsuranceSettlementModel.FieldNames.InsuranceSettlementType,new object[]
+              { "Value", "Text", insuranceSettlement, ConstantDisplay.HRM_Insurance_InsuranceSettlementType,""}},
+          };
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Insurance_InsuranceRecord_Grid_Name,
+            ValueFields = valueFields,
+            ReadActionUrl = _Hrm_Hre_Service + "Ins_GetData/GetInsuranceSettlementList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadData = "filterFieldInfo"         
+        };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Ins_InsuranceSettlementModel>(grid))           
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,246 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@using HRM.Infrastructure.Security
+
+@model Sal_ReportKaizenGeneralModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var gridN = "grid_" + controller;
+    var urlGetData = _hrm_Hre_Service + "Sal_GetData/ReportKaizenGeneral";
+    
+    IList<SelectListItem> lstOrgType = Enum.GetValues(typeof(OrgUnit))
+        .Cast<OrgUnit>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    SetFieldRequired();
+    var selectedIds = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        debugger;
+        var checkedNodes = [];
+        //var treeView = $("#treeviewOrg").data("kendoTreeView");
+        //checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var elementPara = {
+            OrgStructureID: $("#OrgStructureID").val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            TypeOrg: $("#TypeOrg").val(),
+            ReportName: '@controller',
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnSearch").click(function () {
+        ShowHre_ProgressBar();
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        $.ajax({
+            url: '@urlGetData',
+            type: 'POST',
+            data: filterFieldInfo(false),
+            datatype: 'json',
+            success: function (data) {
+                CloseHre_ProgressBar();
+                debugger;
+                if (data[0] == 'error' && data[1] != "") {
+                    ShowNotificationProcessor(data[1]);
+                } else {
+                    var grid = VnrGridDynamic;
+                    grid.GridName = '@gridN';
+                    grid.ShowCheckbox = false;
+                    grid.DataSource = data.Data;
+                    VnrGridDynamicControl(grid);
+                }
+            },
+            error: function () {
+                CloseHre_ProgressBar();
+            }
+        });
+    });
+
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@controller');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@urlGetData' ;
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@urlGetData', filterFieldInfo(true));
+    });
+
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+</script>
+
+@Html.Hidden("ValueKey")
+@Html.Hidden("ValueConfig")
+@Html.Hidden("ConfigID")
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.Label(ConstantDisplay.HRM_Category_UsualAllowanceLevel_MonthApply.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var datepickerMonthStart = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_MonthFrom.TranslateString(),
+                                    Format = ConstantFormat.HRM_Format_MonthYear
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, datepickerMonthStart)
+
+                            @{
+                                var datepickerMonthEnd = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_MonthTo.TranslateString(),
+                                    Format = ConstantFormat.HRM_Format_MonthYear
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, datepickerMonthEnd)
+
+                        </div>
+                    </div>
+                    @*<div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.TypeOrg)
+                        </div>
+                        <div class="FieldValue">
+
+                            @{
+                                var _TypeOrg = new DropDownListBuilderInfo
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstOrgType,
+                                    OptionLabel = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.TypeOrg, _TypeOrg)
+
+                        </div>
+                    </div>*@
+
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Name="OrgTreeview",
+                                   IsShowCheckBox=false,
+                                    SetFieldID = "OrgStructureID",
+                                    SetFieldName = "OrgStructureID"                               
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown",org)
+                            @Html.HiddenFor(m=>m.OrgStructureID)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+<div id="@gridN.ToString()">
+
+</div>
+
+
+
+

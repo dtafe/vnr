@@ -1,0 +1,272 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model FIN_HistoryApproveECLAIMSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Contract.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(EnumDropDown.Sal_BasicSalaryStatus))
+         .Cast<EnumDropDown.Sal_BasicSalaryStatus>()
+         .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+         .ToList();
+    
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            DateApprovedFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateApprovedFrom").val()),
+            DateApprovedTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateApprovedTo").val()),
+            Status: $('#SStatus').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#gridFIN_HistoryApproveECLAIM').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+    });
+
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    GridCheckbox("gridFIN_HistoryApproveECLAIM");
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Hre_GetData/ExportHistoryApproveECLAIMByTemplate', filterFieldInfo(true));
+    });
+
+
+
+    $("#btnExportExcelByTemplate").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        var grid = $('#gridFIN_HistoryApproveECLAIM').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportHistoryApproveECLAIMByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.FIN_HistoryApproveECLAIM');
+    });
+
+
+</script>
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+@*<form action="#" method="POST" id="form-search">*@
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div1">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(@ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_DateApproved.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                               @{
+                                   var DateApprovedFrom = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+    };
+}
+@Html.VnrDatePickerFor(model => model.DateApprovedFrom, DateApprovedFrom)
+@{
+    var DateApprovedTo = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+    };
+}
+@Html.VnrDatePickerFor(model => model.DateApprovedTo, DateApprovedTo)
+                            </div>
+                        </div>
+                        @*<div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ApprovedType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ApprovedType = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "SApprovedType"
+                                    };
+                                }
+                                @Html.VnrTextBoxFor(mode => Model.ApprovedType, ApprovedType)
+                            </div>
+                        </div>*@
+
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.Status)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ddlStatus = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "SStatus",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listStatus
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.Status, ddlStatus)
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+      
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportExcelByTemplate", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        //Thông tin hiển column hiển thị
+        string[] valueFieldsClaim = new string[]
+                            {
+                                FIN_HistoryApproveECLAIMModel.FieldNames.TravelRequestName,
+                                FIN_HistoryApproveECLAIMModel.FieldNames.DateApproved,
+                                FIN_HistoryApproveECLAIMModel.FieldNames.OrderNo,
+                                FIN_HistoryApproveECLAIMModel.FieldNames.StatusView,
+                                FIN_HistoryApproveECLAIMModel.FieldNames.ApprovedName,
+
+                            };
+
+        //Set độ rộng cho từng column
+        Dictionary<string, int> sizeFieldsClaim = new Dictionary<string, int>()
+                            {
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.TravelRequestName, 130},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.DateApproved, 130},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.OrderNo, 130},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.StatusView, 130},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.ApprovedName, 130},
+                            };
+
+        //Thông tin hiển thị được dịch
+        Dictionary<string, string> displayFieldsClaim = new Dictionary<string, string>()
+                            {
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.TravelRequestName,ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_TravelRequestID},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.DateApproved,ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_DateApproved},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.OrderNo,ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_OrderNo},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.StatusView,ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_Status},
+                                {FIN_HistoryApproveECLAIMModel.FieldNames.ApprovedName,ConstantDisplay.HRM_FIN_HistoryApproveECLAIM_ApprovedIDs},
+
+                            };
+
+        var gridClaim = new GridBuilderInfo
+        {
+            Name = "gridFIN_HistoryApproveECLAIM",
+            ValueFields = valueFieldsClaim,
+            SizeFields = sizeFieldsClaim,
+            DisplayFields = displayFieldsClaim,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Fin_GetData/GetHistoryApproveECLAIMList",
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<FIN_HistoryApproveECLAIMModel>(gridClaim))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFieldsClaim.Count(); i++)
+    {
+        valueFields1 += "," + valueFieldsClaim[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+

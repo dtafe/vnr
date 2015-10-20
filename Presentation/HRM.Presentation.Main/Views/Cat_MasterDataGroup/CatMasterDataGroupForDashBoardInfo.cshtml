@@ -1,0 +1,119 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Category.Models
+
+@model Cat_MasterDataGroupDashBoardModel
+
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var proifileID = Guid.Empty;
+    var userId = Guid.Empty;
+    if (Request[SessionObjects.ProfileID] != null)
+    {
+        Guid.TryParse(Request[SessionObjects.ProfileID].ToString(), out proifileID);
+    }
+    if (Session[SessionObjects.UserId] != null)
+    {
+        Guid.TryParse(Session[SessionObjects.UserId].ToString(), out userId);
+    }
+
+    var times = 0;
+    if (Session["openTimes"] == null)
+    {
+        Session["openTimes"] = 1;
+    }
+    else
+    {
+        times = 1;
+    }
+
+
+}
+
+<script>
+    $(document).ready(function () {
+
+        //Hidden button close window popup
+        $("#WindowgridCatMasterDataGroupInfoDashBoard").parent().find(".k-window-action").css("visibility", "hidden");
+
+        if ('@times' == 0 || '@times' == '0') {
+            var data = [];
+            $("#DashBoardObjectName_Name").kendoMultiSelect({
+                dataTextField: "MasterDataGroupName",
+                dataValueField: "ID",
+                dataSource: data
+            });
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Cat_GetData/GetMultiCatTableForDashBoard?userID=" + '@userId',
+                //type: 'GET',
+                asyn: false,
+                success: function (data) {
+                    var kendoDataId = [];
+                    for (var i = 0; i < data.length; i++) {
+                        kendoDataId[i] = data[i].ID;
+                    }
+                    var multi = $("#DashBoardObjectName_Name").data("kendoMultiSelect");
+                    multi.setDataSource(data);
+                    multi.value(kendoDataId);
+                }
+            });
+        }
+
+    });
+
+    function onSaveClose() {
+        var multi = $("#DashBoardObjectName_Name").data("kendoMultiSelect");
+        var userID = $("#UserLoginId").val();
+        var objectName = multi.value();
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'api/Cat_MasterDataGroupDashBoard',
+            type: 'POST',
+            traditional: true,
+            data: { UserID: userID, MasterDataGroupIDs: objectName },
+            success: function (data) {
+                ShowNotificationProcessor("Success");
+                $("#WindowgridCatMasterDataGroupInfoDashBoard").data("kendoWindow").close();
+                CloseHre_ProgressBar();
+            }
+        });
+    }
+
+</script>
+
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Cat_MasterDataGroupDashBoard" }))
+{
+    @Html.Hidden("Cat_MasterDataGroupDashBoardInfo_ProfileID", proifileID)
+    <table>
+        <tr>
+            <td>
+                <div id="dvObjectName" style="margin-left:40px;margin-right:40px;">
+                    <div style="font-size: 12px;font-weight: bold;">
+                        @Html.VnrLabelFor(mode => mode.MasterDataGroupName)
+                    </div>
+                    <div>
+                        <input id="DashBoardObjectName_Name" style="width: 300px;" />
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div style="margin-left:40px;">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-CatMasterDataGroupDashBoard", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}

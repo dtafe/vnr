@@ -1,0 +1,437 @@
+﻿@using HRM.Infrastructure.Utilities
+@using System.Collections
+@using HRM.Infrastructure.Security;
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Recruitment.Models
+
+@model Rec_FilterCandidateModel
+
+@{
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> listFilterCandidateStatus = Enum.GetValues(typeof(EnumDropDown.CandidateStatus))
+            .Cast<EnumDropDown.CandidateStatus>()
+            .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+            .ToList();
+    IList<SelectListItem> listFilterGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+    .Cast<EnumDropDown.Gender>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+    .ToList();
+    IList<SelectListItem> listFilterStatusHealth = Enum.GetValues(typeof(EnumDropDown.StatusHealth))
+ .Cast<EnumDropDown.StatusHealth>()
+ .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+ .ToList();
+
+}
+<script>
+    SetFieldRequiredByScreenName("FilterCandidateInfo")
+
+    $(document).ready(function () {
+        var tabToActivate = $("#Tab1");
+        $("#tabstrip").kendoTabStrip().data("kendoTabStrip").activateTab(tabToActivate);
+    });
+
+    function filterCandidateList() {
+        var _jobVacancyIDs = $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val() ? $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val()[0] : null;
+        return {
+        JobVacancyID: _jobVacancyIDs,
+        };
+    };
+
+    function filterCandidateInfo() {
+        var _IsIncludeEvaCandidate = document.getElementById("IsIncludeEvaCandidate");
+        if (_IsIncludeEvaCandidate.checked) {
+            $("#IsIncludeEvaCandidate").val("true");
+        } else {
+            $("#IsIncludeEvaCandidate").val("false");
+        }
+        var _jobVacancyIDs = $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val();
+        return {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FilterCandidateInfo_DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FilterCandidateInfo_DateTo").val()),
+            JobVacancyIDs: _jobVacancyIDs,
+            IsIncludeEvaCandidate: $("#IsIncludeEvaCandidate").val(),
+        };
+    };
+    function filterCandidateInfoFail() {
+        var _IsIncludeEvaCandidate = document.getElementById("IsIncludeEvaCandidate");
+        if (_IsIncludeEvaCandidate.checked) {
+            $("#IsIncludeEvaCandidate").val("true");
+        } else {
+            $("#IsIncludeEvaCandidate").val("false");
+        }
+        var _jobVacancyIDs = $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.JobVacancyIDs)').val();
+        return {
+            GetListFail: true,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FilterCandidateInfo_DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FilterCandidateInfo_DateTo").val()),
+            JobVacancyIDs: _jobVacancyIDs,
+            IsIncludeEvaCandidate: $("#IsIncludeEvaCandidate").val(),
+        };
+    }
+
+    $("#btnFilterCandidate").click(function () {
+        debugger;
+       
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_Candidate_Filter', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_FilterCandidate.TranslateString())');
+            return;
+        }
+        var tabToActivate2 = $("#Tab2");
+        $("#tabstrip").kendoTabStrip().data("kendoTabStrip").activateTab(tabToActivate2);
+
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Rec_GetData/GetFilterCandidateListValidate',
+            data: filterCandidateInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data[0] == "error") {
+                    CloseHre_ProgressBar();
+                    ShowNotificationProcessor(data[1]);
+                }
+                else {
+                    ReadGrid('gridRec_FilterCandidate');
+                    ReadGrid('gridRec_FilterCandidate_Fail');
+                }
+            }
+        });
+    });
+
+
+    $("#btn_Search").click(function () {
+        ReadGrid('gridRec_CandidateList');
+    });
+
+    function onClosePopUp() {
+        debugger;
+        onClose('gridRec_Candidate', 'windowFilter');
+        return false;
+    }
+</script>
+
+
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Rec_FilterCandidate" }))
+{
+    <table style="width:600px">
+        <tr>
+            <td style="width:50%">
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.JobVacancyIDs)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var _jobVacancyIDs = new MultiSelectBuilderInfo
+    {
+        DataTextField = "JobVacancyName",
+        DataValueField = "ID",
+        Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiJobVacancy",
+        Placeholder = ConstantDisplay.HRM_Att_SelectJobVacancy.TranslateString(),
+        Width = 300
+    };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.JobVacancyIDs, _jobVacancyIDs)
+                    </div>
+                </div>
+            </td>
+            <td style="width:50%">
+                <div id="div14">
+                    <div class="FieldTitle200">
+                        @Html.VnrLabelFor(mode => mode.IsIncludeEvaCandidate)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var IsIncludeEvaCandidate = new CheckBoxBuilderInfo()
+    {
+    };
+                        }
+                        @Html.VnrCheckBoxFor(model => model.IsIncludeEvaCandidate, IsIncludeEvaCandidate)
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="FieldTitle150">
+                    @Html.VnrLabelFor(mode => mode.DateFrom)
+                </div>
+                <div class="FieldValue">
+                    @{
+    var DateFrom = new DatePickerBuilderInfo()
+    {
+        Name = "FilterCandidateInfo_DateFrom",
+        //   Value = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).ToShortDateString(),
+        StyleCss = "width:120px;",
+        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+
+    };
+                    }
+                    @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                    @{
+    var DateTo = new DatePickerBuilderInfo()
+    {
+        Name = "FilterCandidateInfo_DateTo",
+        StyleCss = "width:120px;",
+        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+    };
+
+                    }
+                    @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                </div>
+                <div style="clear: both;margin-left:20px;">
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btn_Search", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnFilterCandidate", Content = ConstantAction.HRM_Common_FilterCandidate.TranslateString(), ImageUrl = ConstantPath.IconEva })
+                </div>
+            </td>
+            <td></td>
+        </tr>
+        <tr>
+            <td colspan="2">
+                <div id="tabstrip">
+                    <ul>
+                        <li id="Tab1">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Rec_Candidate_Title.TranslateString())
+                        </li>
+                        <li id="Tab2">
+                            @Html.VnrLabel(ConstantDisplay.HRM_REC_Candidate_FilterCandidate_Title.TranslateString())
+                        </li>
+                        <li>
+                            @Html.VnrLabel(ConstantDisplay.HRM_REC_Candidate_FailCandidate_Title.TranslateString())
+                        </li>
+                    </ul>
+                    <div>
+                        <div>
+                            <!--Khai báo các thông tin cho Grid-->
+                            @using HRM.Presentation.Recruitment.Models
+                            @using HRM.Presentation.UI.Controls.Kendo
+                            @{
+
+    string[] valueFieldsLstCandidate = new string[]
+        {
+            Rec_CandidateModel.FieldNames.CodeCandidate,
+            Rec_CandidateModel.FieldNames.CandidateName,
+            Rec_CandidateModel.FieldNames.StatusView,
+            Rec_CandidateModel.FieldNames.HealthStatusView,
+            Rec_CandidateModel.FieldNames.GenderView,
+            Rec_CandidateModel.FieldNames.DateOfBirth,
+            Rec_CandidateModel.FieldNames.Mobile,
+            Rec_CandidateModel.FieldNames.Phone,
+            Rec_CandidateModel.FieldNames.Email,
+
+        };
+    Dictionary<string, int> sizeFieldsLstCandidate = new Dictionary<string, int>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate,95},
+            {Rec_CandidateModel.FieldNames.CandidateName,140},
+            {Rec_CandidateModel.FieldNames.StatusView,120},
+            {Rec_CandidateModel.FieldNames.HealthStatusView,140},
+            {Rec_CandidateModel.FieldNames.GenderView,80},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,95},
+            {Rec_CandidateModel.FieldNames.Mobile,120},
+            {Rec_CandidateModel.FieldNames.Phone,120},
+            {Rec_CandidateModel.FieldNames.Email,140},
+
+        };
+
+    Dictionary<string, string> displayFieldsLstCandidate = new Dictionary<string, string>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate, ConstantDisplay.HRM_Rec_Candidate_CodeCandidate},
+            {Rec_CandidateModel.FieldNames.CandidateName, ConstantDisplay.HRM_Rec_Candidate_CandidateName},
+            {Rec_CandidateModel.FieldNames.HealthStatusView, ConstantDisplay.HRM_Rec_Candidate_HealthStatus},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,  ConstantDisplay.HRM_HR_Profile_DayOfBirth},
+            {Rec_CandidateModel.FieldNames.StatusView, ConstantDisplay.HRM_Rec_Candidate_Status},
+            {Rec_CandidateModel.FieldNames.GenderView, ConstantDisplay.HRM_HR_Profile_Gender},
+            {Rec_CandidateModel.FieldNames.Mobile, ConstantDisplay.HRM_HR_Profile_CellPhone},
+            {Rec_CandidateModel.FieldNames.Phone, ConstantDisplay.HRM_HR_Profile_HomePhone},
+            {Rec_CandidateModel.FieldNames.Email, ConstantDisplay.HRM_HR_Profile_Email},
+        };
+    var gridLstCandidate = new GridBuilderInfo
+    {
+        Name = "gridRec_CandidateList",
+        ValueFields = valueFieldsLstCandidate,
+        GridHeight = 500,
+        ShowEditIcon = false,
+        SizeFields = sizeFieldsLstCandidate,
+        DisplayFields = displayFieldsLstCandidate,
+        ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetCandidateList/",
+        ReadData = "filterCandidateList"
+    };
+                            }
+                            <!--Khởi tạo Grid-->
+                            @(Html.VnrGrid<HRM.Presentation.Recruitment.Models.Rec_CandidateModel>(gridLstCandidate))
+                        </div>
+                    </div>
+
+                    <div>
+                        <div>
+                            <!--Khai báo các thông tin cho Grid-->
+                            @using HRM.Presentation.Recruitment.Models
+                            @using HRM.Presentation.UI.Controls.Kendo
+                            @{
+    Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {Rec_CandidateModel.FieldNames.Status,new object[]
+               { "Value", "Text", listFilterCandidateStatus, ConstantDisplay.HRM_Rec_Candidate_Status,""}},
+
+               {Rec_CandidateModel.FieldNames.Gender,new object[]
+               { "Value", "Text", listFilterGender, ConstantDisplay.HRM_HR_Profile_Gender,""}},
+                  {Rec_CandidateModel.FieldNames.HealthStatus,new object[]
+               { "Value", "Text", listFilterStatusHealth, ConstantDisplay.HRM_HR_Profile_Gender,""}},
+        };
+
+    string[] valueFields = new string[]
+        {
+            Rec_CandidateModel.FieldNames.CodeCandidate,
+            Rec_CandidateModel.FieldNames.CandidateName,
+            Rec_CandidateModel.FieldNames.Status,
+            Rec_CandidateModel.FieldNames.HealthStatus,
+            Rec_CandidateModel.FieldNames.Gender,
+            Rec_CandidateModel.FieldNames.DateOfBirth,
+            Rec_CandidateModel.FieldNames.Mobile,
+            Rec_CandidateModel.FieldNames.Phone,
+            Rec_CandidateModel.FieldNames.Email,
+
+        };
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate,95},
+            {Rec_CandidateModel.FieldNames.CandidateName,140},
+            {Rec_CandidateModel.FieldNames.Status,120},
+            {Rec_CandidateModel.FieldNames.HealthStatus,140},
+            {Rec_CandidateModel.FieldNames.Gender,80},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,95},
+            {Rec_CandidateModel.FieldNames.Mobile,120},
+            {Rec_CandidateModel.FieldNames.Phone,120},
+            {Rec_CandidateModel.FieldNames.Email,140},
+
+        };
+
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate, ConstantDisplay.HRM_Rec_Candidate_CodeCandidate},
+            {Rec_CandidateModel.FieldNames.CandidateName, ConstantDisplay.HRM_Rec_Candidate_CandidateName},
+            {Rec_CandidateModel.FieldNames.HealthStatus, ConstantDisplay.HRM_Rec_Candidate_HealthStatus},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,  ConstantDisplay.HRM_HR_Profile_DayOfBirth},
+            {Rec_CandidateModel.FieldNames.Status, ConstantDisplay.HRM_Rec_Candidate_Status},
+            {Rec_CandidateModel.FieldNames.Gender, ConstantDisplay.HRM_HR_Profile_Gender},
+            {Rec_CandidateModel.FieldNames.Mobile, ConstantDisplay.HRM_HR_Profile_CellPhone},
+            {Rec_CandidateModel.FieldNames.Phone, ConstantDisplay.HRM_HR_Profile_HomePhone},
+            {Rec_CandidateModel.FieldNames.Email, ConstantDisplay.HRM_HR_Profile_Email},
+        };
+    var grid = new GridBuilderInfo
+    {
+        Name = "gridRec_FilterCandidate",
+        ValueFields = valueFields,
+        ForeignKey = foreignKey,
+        GridHeight = 500,
+        ShowEditIcon = false,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetFilterCandidateList/",
+        ReadData = "filterCandidateInfo"
+    };
+                            }
+                            <!--Khởi tạo Grid-->
+                            @(Html.VnrGrid<HRM.Presentation.Recruitment.Models.Rec_CandidateModel>(grid))
+                        </div>
+
+                    </div>
+                    <div>
+                        <div>
+                            <!--Khai báo các thông tin cho Grid-->
+                            @using HRM.Presentation.Recruitment.Models
+                            @using HRM.Presentation.UI.Controls.Kendo
+                            @{
+    Dictionary<object, object[]> foreignKey1 = new Dictionary<object, object[]>()
+        {
+            {Rec_CandidateModel.FieldNames.Status,new object[]
+               { "Value", "Text", listFilterCandidateStatus, ConstantDisplay.HRM_Rec_Candidate_Status,""}},
+
+               {Rec_CandidateModel.FieldNames.Gender,new object[]
+               { "Value", "Text", listFilterGender, ConstantDisplay.HRM_HR_Profile_Gender,""}},
+                  {Rec_CandidateModel.FieldNames.HealthStatus,new object[]
+               { "Value", "Text", listFilterStatusHealth, ConstantDisplay.HRM_HR_Profile_Gender,""}},
+        };
+
+    string[] valueFields1 = new string[]
+        {
+            Rec_CandidateModel.FieldNames.CodeCandidate,
+            Rec_CandidateModel.FieldNames.CandidateName,
+            Rec_CandidateModel.FieldNames.Status,
+            Rec_CandidateModel.FieldNames.HealthStatus,
+            Rec_CandidateModel.FieldNames.Gender,
+            Rec_CandidateModel.FieldNames.DateOfBirth,
+            Rec_CandidateModel.FieldNames.Mobile,
+            Rec_CandidateModel.FieldNames.Phone,
+            Rec_CandidateModel.FieldNames.Email,
+
+        };
+    Dictionary<string, int> sizeFields1 = new Dictionary<string, int>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate,95},
+            {Rec_CandidateModel.FieldNames.CandidateName,140},
+            {Rec_CandidateModel.FieldNames.Status,120},
+            {Rec_CandidateModel.FieldNames.HealthStatus,140},
+            {Rec_CandidateModel.FieldNames.Gender,80},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,95},
+            {Rec_CandidateModel.FieldNames.Mobile,120},
+            {Rec_CandidateModel.FieldNames.Phone,120},
+            {Rec_CandidateModel.FieldNames.Email,140},
+
+        };
+
+    Dictionary<string, string> displayFields1 = new Dictionary<string, string>()
+        {
+            {Rec_CandidateModel.FieldNames.CodeCandidate, ConstantDisplay.HRM_Rec_Candidate_CodeCandidate},
+            {Rec_CandidateModel.FieldNames.CandidateName, ConstantDisplay.HRM_Rec_Candidate_CandidateName},
+            {Rec_CandidateModel.FieldNames.HealthStatus, ConstantDisplay.HRM_Rec_Candidate_HealthStatus},
+            {Rec_CandidateModel.FieldNames.DateOfBirth,  ConstantDisplay.HRM_HR_Profile_DayOfBirth},
+            {Rec_CandidateModel.FieldNames.Status, ConstantDisplay.HRM_Rec_Candidate_Status},
+            {Rec_CandidateModel.FieldNames.Gender, ConstantDisplay.HRM_HR_Profile_Gender},
+            {Rec_CandidateModel.FieldNames.Mobile, ConstantDisplay.HRM_HR_Profile_CellPhone},
+            {Rec_CandidateModel.FieldNames.Phone, ConstantDisplay.HRM_HR_Profile_HomePhone},
+            {Rec_CandidateModel.FieldNames.Email, ConstantDisplay.HRM_HR_Profile_Email},
+        };
+    var gridFail = new GridBuilderInfo
+    {
+        Name = "gridRec_FilterCandidate_Fail",
+        ValueFields = valueFields1,
+        ForeignKey = foreignKey1,
+        GridHeight = 500,
+        ShowEditIcon = false,
+        SizeFields = sizeFields1,
+        DisplayFields = displayFields1,
+        ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetFilterCandidateList/",
+        ReadData = "filterCandidateInfoFail"
+    };
+                            }
+                            <!--Khởi tạo Grid-->
+                            @(Html.VnrGrid<HRM.Presentation.Recruitment.Models.Rec_CandidateModel>(gridFail))
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+
+
+<script>
+    $(document).ready(function () {
+        $("#tabstrip").kendoTabStrip({
+            animation: {
+                open: {
+                    effects: "fadeIn"
+                }
+            }
+        });
+    });
+</script>

@@ -1,0 +1,363 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Infrastructure.Utilities
+@model Att_GradeModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Att_Grade.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(AttendanceDataStatus))
+    .Cast<AttendanceDataStatus>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+    .ToList();
+}
+
+@{
+    var _Gradewindow = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Attendance_Grade_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Att_Grade/GradeInfo/",
+    };
+}
+@(Html.VnrWindow(_Gradewindow))
+
+<script type="text/javascript">
+
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Att_Grade_Update.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Att_Grade_Create.TranslateString())';
+
+    var checkedNodes = [];
+     
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var ProfileName = $('#@Html.FieldIdFor(model => model.ProfileName)').val();
+        var GradeAttendanceID = $('#@Html.FieldIdFor(model => model.GradeAttendanceID)').val();
+        GradeAttendanceID = GradeAttendanceID != null ? GradeAttendanceID[0] : GradeAttendanceID;
+        var MonthStart = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthStart").val());
+        var MonthEnd = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthEnd").val());
+        return {
+            ProfileName: ProfileName,
+            GradeAttendanceID: GradeAttendanceID,
+            MonthStart: MonthStart,
+            MonthEnd: MonthEnd,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#gridAtt_Grade').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+
+        //Xử Lý Grid
+        GridCheckbox("gridAtt_Grade");
+
+        //Xử lý nút Delete
+        $('#btnDelete').click(function (e) {
+            debugger;
+            if (selectedIds.length == 0) {
+                DeleteFail();
+                return;
+            }
+            e.preventDefault();
+            @*DeleteSelectedConfirm("gridAtt_Grade", '@_hrm_Main_Web' + "Att_Grade/RemoveSelected/", selectedIds, '@ConstantPermission.Att_Grade');*@
+            DeleteSelected("gridAtt_Grade", '@_hrm_Main_Web' + "Att_Grade/RemoveSelected/", selectedIds);
+        });
+
+        $("#btnCreate").click(function () {
+            //KendoRouteMapping('#Hrm_Att_Web/Att_Grade/Create/', 'Hrm_Att_Web', '@_hrm_Main_Web');
+            PopUpCreate("@ConstantControlName.HRM_Attendance_Grade_PopUp_Name", titleCreatePopUp, '@ConstantPermission.Att_Grade');
+        });
+        //Xử lý nút Edit
+        //EditGridNewPage("gridAtt_Grade", '#Hrm_Att_Web/Att_Grade/Edit/', 'Hrm_Att_Web', '@_hrm_Main_Web');
+
+
+        var url = '@_hrm_Main_Web' + "Att_Grade/GradeInfo/";
+        EditGridPopUp("@ConstantControlName.HRM_Attendance_Grade_Grid_Name", "@ConstantControlName.HRM_Attendance_Grade_PopUp_Name", url, '@ConstantPermission.Att_Grade', titleEditPopUp);
+    });
+
+
+
+    $('#btnActionSubmit').click(function (e) {
+        
+        e.preventDefault();
+        var r = confirm("Bạn có chắc chắn muốn thay đổi trạng thái?");
+        if (r == true) {
+            DoActionData("gridAtt_Grade", '@_hrm_Hr_Service' + "Att_ActionData/SubmitGrade/", selectedIds);
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            traditional:true,
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+
+    $("#btnExportAll").click(function () {
+        debugger;
+        //var grid = $('#gridAtt_Grade').data("kendoGrid");
+        //if (grid.dataSource.total() == 0) {
+        //    ExportAllFail();
+        //    return;
+        //}
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportGradeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Grade');
+    });
+
+    $("#btnExportSelected").click(function () {
+        debugger;
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportGradeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_Grade');
+        
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+           
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form id="form-search">
+                    <div>
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.Label(ConstantDisplay.HRM_Att_Grade_TimeApply.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerMonthStart = new DatePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.MonthStart).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthStart, datepickerMonthStart)
+                                @Html.ValidationMessageFor(model => model.MonthStart)
+                                @{
+                                    var datepickerMonthEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.MonthEnd).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthEnd, datepickerMonthEnd)
+                                @Html.ValidationMessageFor(model => model.MonthEnd)
+                            </div>
+                            <br />
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                                @*@Html.HiddenFor(model => model.Id)*@
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.ProfileName)
+                            </div>
+                        </div>
+                        <div id="div4"> 
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.GradeAttendanceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var multiSelectGradeAttendanceID = new MultiSelectBuilderInfo()
+                                    {
+                                        Name = "Grade_AttendanceID",
+                                        DataTextField = "GradeAttendanceName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiGradeAttendance",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectGradeAttendance.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        Autobind = true,
+                                        Value = new string[] { @Html.DisplayFor(mode => mode.GradeAttendanceID).ToString() }
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.GradeAttendanceID, multiSelectGradeAttendanceID))
+                                @Html.ValidationMessageFor(model => model.GradeAttendanceID)
+                            </div>
+                            <br />
+                        </div>
+                    </div>
+                </form>
+</div>
+               
+                </div>
+            </div>
+</div>
+<div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })*@
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeGrade", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Attendance.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridAtt_Grade_Grid_Name + "__Att_Grade_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridAtt_Grade_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Att_GetData/GetGradeList/",
+            ReadData = "filterFieldInfo",
+            //EventDataBound = "onDataBoundGrid",
+            EventDataBound = "changePageGird"
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Att_GradeModel.FieldNames.ProfileName,
+                Att_GradeModel.FieldNames.GradeAttendanceName,          
+                Att_GradeModel.FieldNames.MonthStart,
+                Att_GradeModel.FieldNames.MonthEnd,
+          
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+            
+                {Att_GradeModel.FieldNames.ProfileName, 135},
+                {Att_GradeModel.FieldNames.GradeAttendanceName, 120},          
+                {Att_GradeModel.FieldNames.MonthStart, 100},
+                {Att_GradeModel.FieldNames.MonthEnd, 110},           
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+            
+                {Att_GradeModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},               
+                {Att_GradeModel.FieldNames.GradeAttendanceName, ConstantDisplay.HRM_Category_GradeAttendance_GradeAttendanceName},
+                {Att_GradeModel.FieldNames.MonthStart, ConstantDisplay.HRM_Att_Grade_MonthStart},
+                {Att_GradeModel.FieldNames.MonthEnd, ConstantDisplay.HRM_Att_Grade_MonthEnd},
+          
+            };
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Att_GradeModel.FieldNames.MonthStart, ConstantFormat.HRM_Format_MonthYear},
+                {Att_GradeModel.FieldNames.MonthEnd, ConstantFormat.HRM_Format_MonthYear},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);     
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridAtt_Grade",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    FormatFields = formatFields,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Att_GetData/GetGradeList/",
+        //    ReadData = "filterFieldInfo",
+        //    EventDataBound = "changePageGird"
+        //};    
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Attendance.Models.Att_GradeModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeGrade", "Att_GradeModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

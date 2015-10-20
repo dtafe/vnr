@@ -1,0 +1,173 @@
+﻿    @using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_LeaveDayModel
+@{
+    ViewBag.Title = "Yêu Cầu Ngày Nghỉ";
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var ProfileId = Session["ProfileId"];
+    var _Hrm_EmpPortal_Web = ConstantPathWeb.Hrm_EmpPortal_Web;
+}
+
+<script>
+        $(document).ready(function () {
+            
+
+            $("#toolbarCreateLeaveday").kendoToolBar({
+                items: [
+                    { type: "button", id: "btnSaveLeaveday", text: "Lưu", imageUrl: '@ConstantPath.IconSavePath' },
+                    { type: "button", id: "btnSaveNewLeaveday", text: "Lưu và tạo mới", imageUrl: '@ConstantPath.IconSavePath' },
+                ],
+                click: function (e) {
+                    debugger;
+                    var userId = $("#UserLoginId").val();
+                    var userApprove1 = $("#UserApproveID").val();
+                    var userApprove2 = $("#UserApproveID2").val();
+                    if (userId == userApprove1 || userId == userApprove2) {
+                        ShowNotificationProcessor("Người duyệt phải khác người đăng ký.");
+                    }
+                    else {
+                        var leaveHours = $("#LeaveHours").val();
+                        var leaveDay = $("#LeaveDays").val();
+                        $("#Duration").val(leaveHours);
+                        $("#TotalDuration").val(leaveDay);
+                        var id = e.id;
+                        switch (id) {
+                            case "btnSaveLeaveday":
+                                var result = false;
+                                var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+                                ProfileID != null ? $('#@Html.FieldIdFor(model => model.ProfileIds)').val(ProfileID.join(',')) : null;
+                             
+                                $.ajax({
+                                    type: 'POST',
+                                    //url: '@_hrm_Hre_Service' + 'api/Att_Leaveday',
+                                    url:'@_Hrm_EmpPortal_Web'+'Att_Leaveday/Create',
+                                    data: queryStringToJSON(slpitQueryEntity($("#form-update-create").serialize())),
+                                    dataType: 'json',
+                                    async: false,
+                                    success: function (data) {
+                                        debugger;
+                                        if (data.ActionStatus.indexOf('[') == 0) {
+                                            ShowNotificationProcessor(data.ActionStatus);
+                                            return;
+                                        }
+                                        if (data.ActionStatus.indexOf(',') > 0) {
+                                            var strStatus = data.ActionStatus.split(',');
+                                            if (strStatus[0] == "Error") {
+                                                ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Đăng Ký Ngày Nghỉ Bị Trùng", "k-block k-info-colored");
+                                                return;
+                                            }
+                                        }
+                                        if (data.ActionStatus == "Success") {
+                                            ShowNotificationProcessor(data.ActionStatus);
+                                            window.location.replace('@_Hrm_EmpPortal_Web' + "Att_Leaveday/LeavedayList");
+                                            result = true;
+                                            return result;
+                                        }
+                                        if (data.ActionStatus == "ErrorTotalLeave") {
+                                            ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Số Ngày Nghỉ Vượt Quá Quy Định", "k-block k-info-colored");
+                                            return;
+                                        }
+
+                                    }
+                                });
+                                break;
+                            case "btnSaveNewLeaveday":
+                                var result = false;
+                                var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+                                ProfileID != null ? $('#@Html.FieldIdFor(model => model.ProfileIds)').val(ProfileID.join(',')) : null;
+                                $.ajax({
+                                    type: 'POST',
+                                    url: '@_hrm_Hre_Service' + 'api/Att_Leaveday',
+                                    data: queryStringToJSON(slpitQueryEntity($("#form-update-create").serialize())),
+                                    dataType: 'json',
+                                    async: false,
+                                    success: function (data) {
+                                        debugger;
+                                        if (data.ActionStatus.indexOf('[') == 0) {
+                                            ShowNotificationProcessor(data.ActionStatus);
+                                            return;
+                                        }
+                                        if (data.ActionStatus.indexOf(',') > 0) {
+                                            var strStatus = data.ActionStatus.split(',');
+                                            if (strStatus[0] == "Error") {
+                                                ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Đăng Ký Ngày Nghỉ Bị Trùng", "k-block k-info-colored");
+                                                return;
+                                            }
+                                        }
+                                        if (data.ActionStatus == "Success") {
+                                            ShowNotificationProcessor(data.ActionStatus);
+                                            result = true;
+                                            return result;
+                                            location.href = "/Att_Leaveday/Submit/";
+                                        }
+                                        if (data.ActionStatus == "ErrorTotalLeave") {
+                                            ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Số Ngày Nghỉ Vượt Quá Quy Định", "k-block k-info-colored");
+                                            return;
+                                        }
+
+                                    }
+                                });
+
+                                @*$.ajax({
+                                    type: 'POST',
+                                    url: '@_hrm_Hre_Service' + 'api/Att_Leaveday',
+                                    data: queryStringToJSON(slpitQueryEntity($("#form-update-create").serialize())),
+                                    success: function (data) {
+                                        var dataSplit = data.ActionStatus.split(',');
+                                        if (data.ActionStatus.indexOf('[') == 0) {
+                                            ShowNotificationProcessor(data.ActionStatus);
+                                            return;
+                                        }
+                                        if (dataSplit.length > 1) {
+                                            ShowNotificationProcessor(dataSplit[1]);
+                                        }
+                                        else {
+                                            $("#ID").val(dataSplit[0]);
+                                            ShowNotificationProcessor("Thao tác thành công");
+                                        }
+                                        location.href = "/Att_Leaveday/Submit/";
+                                    },
+                                    error: function (data) {
+                                        window.ShowNotificationProcessor(data.responseText);
+                                    }
+                                });*@
+                                break;
+                        }
+                    }
+                }
+
+            });
+        });
+</script>
+
+<form action="#" method="POST" id="form-update-create">
+
+    <div class="container">
+        <div class="row">
+            <ul class="breadcrumb hidden-xs" style="margin-bottom:auto">
+                <li><a href="/Portal/Home">Trang Chủ</a></li>
+                <li><a href="#">Yêu Cầu</a></li>
+                <li><a href="/Att_Leaveday/Submit">Ngày Nghỉ</a></li>
+                <li class="active">Tạo Mới Ngày Nghỉ</li>
+            </ul>
+        </div>
+    </div>
+    <div class="form-tile">@*Tạo Mới Ngày Nghỉ (@Html.ActionLink("Danh sách","Approve"))*@</div>
+    <div class="form-create-update">
+        <div id="toolbarCreateLeaveday"></div>
+        <div class="form-content">
+            @Html.Partial("_LeavedayForm", Model)
+            <script>
+                $(document).ready(function () {
+                    var multiProfile = $("#ProfileID").data("kendoMultiSelect");
+                    multiProfile.value('@ProfileId');
+                    multiProfile.readonly();
+                    document.getElementById("DurationTypeDetail").style.display = "none";
+                });
+            </script>
+        </div>
+    </div>
+</form>

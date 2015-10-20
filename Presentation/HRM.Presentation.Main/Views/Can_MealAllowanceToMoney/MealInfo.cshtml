@@ -1,0 +1,258 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Canteen.Models.Can_MealAllowanceToMoneyModel
+@{
+    Layout = null;
+    var _hrm_Can_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    IList<SelectListItem> listMealAllowanceType = Enum.GetValues(typeof(StatusMealAllowanceType))
+   .Cast<StatusMealAllowanceType>()
+   .Select(x => new SelectListItem { Value = ((int)x).ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+   .ToList();
+
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(StatusMealAllowanceToMoney))
+      .Cast<StatusMealAllowanceToMoney>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+      .ToList(); 
+   
+}
+
+<script>
+    if ($("#windowCanMealAllowanceToMoney_wnd_title").text() == '@Html.Raw(ConstantDisplay.HRM_Can_MealAllowanceToMoney_Create_Title.TranslateString())') {
+        document.getElementById("MealInfo_Status").readOnly = true;
+        document.getElementById("MealInfo_Status").value = '@StatusMealAllowanceToMoney.E_REQUEST';
+    }
+    function checkDuplication() {
+        debugger
+        var _profileID = $("#NealInfo_ProfileID").val().toString();
+        var _mealAllowanceTypeSettingID = $("#MealInfo_MealAllowanceTypeID").val();
+        var _dateFrom = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MealInfo_DateFrom").val());
+        var _dateTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MealInfo_DateTo").val());
+        var _id = '@lineId';
+        var listField = "ProfileID,MealAllowanceTypeID,DateFrom,DateTo";
+        var param = {
+            tableName: 'Can_MealAllowanceToMoney',
+            columnName1: 'ProfileID',
+            columnName2: 'MealAllowanceTypeID',
+            columnName3: 'DateFrom',
+            columnName4: 'DateTo',
+            keyword1: _profileID,
+            keyword2: _mealAllowanceTypeSettingID,
+            keyword3: _dateFrom,
+            keyword4: _dateTo,
+            id: _id
+        };
+
+        var isduplicate = checkDuplicate_4Condition('@_hrm_Sys_Service', 'Sys_GetData', 'CheckDuplicate_4Condition', param, listField);
+
+        return isduplicate;
+    }
+    
+    
+    var data = SetCharacteFieldRequired();
+    function dataReturn() {
+        
+        var profileId = $('#NealInfo_ProfileID').val() != null ? $('#NealInfo_ProfileID').val().join(',') : $('#NealInfo_ProfileID').val();
+        var param = {
+            ProfileID: profileId,
+            Status: $('#MealInfo_Status').val()
+            };
+        return param;
+    }
+    function onSaveAndContinuePopUp() {
+        if (CheckValidate(data) && !checkDuplication()) {
+       
+            
+            onSaveAndContinue($('#form_can_CanMeal'), '@_hrm_Can_Service', 'api/Can_MealAllowanceToMoney/', 'gridCan_MealAllowanceToMoney', 'windowCanMealAllowanceToMoney');
+        }
+        return false;
+    }
+
+    function onSaveClosePopUp() {
+        if (CheckValidate(data) && !checkDuplication()) {
+      
+           
+            onSaveAndClose($('#form_can_CanMeal'), '@_hrm_Can_Service', 'api/Can_MealAllowanceToMoney/', 'gridCan_MealAllowanceToMoney', 'windowCanMealAllowanceToMoney');
+        }
+        return false;
+    }
+
+    function onSaveDataPopUp() {
+
+        if (CheckValidate(data) && !checkDuplication()) {
+            dataReturn();
+                onlySave($('#form_can_CanMeal'), '@_hrm_Can_Service', 'api/Can_MealAllowanceToMoney/', 'gridCan_MealAllowanceToMoney'); return false;
+         
+        }
+    }
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_can_CanMeal" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    <table>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            IEnumerable valueProfile = new string[] { };
+                            if (Model != null)
+                            {
+                                valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+                            }
+                        }
+                        @{
+                            var Profile = new MultiSelectBuilderInfo()
+                            {
+                                Width = 300,
+                                DataTextField = "ProfileName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                MaxSelectedItems = 1,
+                                Value = valueProfile,
+                                Name = "NealInfo_ProfileID"
+                            };
+                        }
+                        @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                        @*@Html.ValidationMessageFor(model => model.ProfileId)*@
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.DateFrom)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var datepickerDateFrom = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                StyleCss = "width:120px;",
+                                Placeholder = ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateFrom.TranslateString(),
+                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString(),
+                                Name = "MealInfo_DateFrom",
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateFrom, datepickerDateFrom)
+
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.DateTo)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var datepickerDateTo = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                StyleCss = "width:120px;",
+                                Placeholder = ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateTo.TranslateString(),
+                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString(),
+                                Name = "MealInfo_DateTo"
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateTo, datepickerDateTo)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.MealAllowanceTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _MealAllowanceTypeSetting = new ComboBoxBuilderInfo()
+                        {
+                            DataTextField = "MealAllowanceTypeSettingName",
+                            DataValueField = "ID",
+                            Url = _hrm_Can_Service + "Canteen_GetData/GetMultiMealAllowanceTypeSetting",
+                            Placeholder = ConstantDisplay.HRM_Canteen_SelectMealAllowanceTypeName.TranslateString(),
+                            StyleCss = "width:300px",
+                            Name = "MealInfo_MealAllowanceTypeID"
+
+                        };
+                            if (Model != null)
+                            {
+                                _MealAllowanceTypeSetting.Value = Model.MealAllowanceTypeID == null ? string.Empty : Model.MealAllowanceTypeID.ToString();
+                                _MealAllowanceTypeSetting.Autobind = true;
+                            }
+                            }
+                    @Html.VnrComboBoxFor(mode => mode.MealAllowanceTypeID, _MealAllowanceTypeSetting)
+
+                    </div>
+
+                    
+                 </div>
+                <div id="dvProfileStatus">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Status)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                                var dropdownProfileStatus = new DropDownListBuilderInfo()
+                                {
+                                    Name = "MealInfo_Status",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    OptionLabel = ConstantDisplay.HRM_Can_MealAllowanceToMoney_Status.TranslateString(),
+                                    BindTo = listStatus,
+                                    StyleCss = "Width:300px;",
+                                };
+                                if(Model != null){
+                                    dropdownProfileStatus.Value = Model.Status == null ? string.Empty : Model.Status;
+                                    
+                                }
+                        }
+                        @(Html.VnrDropDownList(dropdownProfileStatus))
+                    </div>
+
+                </div>
+                
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Note)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextAreaFor(mode => mode.Note, "width:500px;height:100px;")
+                        @Html.ValidationMessageFor(model => model.Note, "width:500px;height:100px;")
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                    <div class="LineFooterCommandEdit">
+                    </div>
+                </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-MealAllowanceToMoney", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveAndContinuePopUp", Name = "save-continue-MealAllowanceToMoney", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClosePopUp", Name = "save-close-MealAllowanceToMoney", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+
+}
+

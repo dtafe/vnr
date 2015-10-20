@@ -1,0 +1,307 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.HrmSystem.Models
+
+@using HRM.Presentation.UI.Controls.Kendo
+@model Sys_AsynTaskComputeModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_CalculateAttendance.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+<script type="text/javascript">
+    var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Attendance_CalculateAttendance.TranslateString())';
+
+    var userID = $('#UserLoginId').val();
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function paramComputing() {
+        return {
+            Type: '@AsynTask.Attendance_Computing.ToString()'
+        };
+    }
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        checkedNodes = [];
+        var treeView = $("#OrgStructureIDs").data("kendoTreeView");
+        SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+
+        var WP = $('#@Html.FieldIdFor(model => model.WorkPlace)').val() != null ? $('#@Html.FieldIdFor(model => model.WorkPlace)').val().join(',') : null;
+        var SG = $('#@Html.FieldIdFor(model => model.SalaryJobGroup)').val() != null ? $('#@Html.FieldIdFor(model => model.SalaryJobGroup)').val().join(',') : null;
+        return {
+            CutOffDurationID: $('#CutOffDurationID').val(),
+            OrgStructureID: checkedNodes.join(','),
+            UserCreateID: userID,
+            WorkPlace: WP,
+            SalaryJobGroup: SG,
+            OnlyQuitEmp: $('#@Html.FieldIdFor(model => model.OnlyQuitEmp)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+
+    SetFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+
+        $('input[type=checkbox]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+        $('input[type=radio]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnCompute").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeAttendance_Compute', false);
+            if (!isAccess) {
+                ShowNotificationProcessor(permissionNotAllow_Msg);
+                return;
+            }
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/ComputeAttendance',
+                data: filterFieldInfo(false),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    debugger;
+                    if (data[0] == 'error') {
+                        ShowNotificationProcessor(data[1]);
+                    } else {
+                        IsActiveProgress = true;
+                        ShowProgressBar(data.ID, "gridAtt_ComputeAttendance");
+                    }
+                },
+                error: function (data) {
+                    window.ShowNotificationProcessor("Lỗi trong quá trình xử lý !");
+                }
+            });
+
+            //Xử Lý Grid
+            GridCheckbox("gridAtt_ComputeAttendance");
+
+        });
+    });
+
+
+
+
+    $("#gridAtt_ComputeAttendance").on("dblclick", "tr.k-state-selected", function () {
+        debugger;
+
+        var status = this.childNodes[1].childNodes[0].data;
+        if (status == 'Done') {
+            return;
+        }
+        var idSelected = this.childNodes[0].childNodes[0].defaultValue;
+        IsActiveProgress = true;
+        ShowProgressBar(idSelected, "gridAtt_ComputeAttendance");
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CutOffDurationID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var cutOffDurationName = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "CutOffDurationName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hre_Service + "Att_GetData/GetMultiCutOffDuration",
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(model => model.CutOffDurationID, cutOffDurationName))
+                        </div>
+                    </div>
+
+                    <div id="div3">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var Org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Name = "OrgStructureIDs"
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", Org)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.SalaryJobGroup)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var SalaryJobGroup = new MultiSelectBuilderInfo()
+                             {
+                                 DataTextField = "SalaryJobGroupName",
+                                 DataValueField = "ID",
+                                 Url = _hrm_Hre_Service + "Cat_GetData/GetMultiSalaryJobGroup",
+                             };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.SalaryJobGroup, SalaryJobGroup))
+                        </div>
+                    </div>
+
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.WorkPlace)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                            var _WorkPlace = new MultiSelectBuilderInfo()
+                            {
+                                DataTextField = "WorkPlaceName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+                                Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                            };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.WorkPlace, _WorkPlace))
+                        </div>
+                    </div>
+
+
+                    <div id="div6">
+                        <div class="FieldTitle" style="width:100px">
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _OnlyQuitEmp = new CheckBoxBuilderInfo() { };
+                            }
+                            @Html.VnrCheckBoxFor(mode => mode.OnlyQuitEmp, _OnlyQuitEmp)
+                            @Html.VnrLabelFor(mode => mode.OnlyQuitEmp)
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCompute", Content = ConstantDisplay.HRM_Attendance_CalculateAttendance.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+    </div>
+
+    <div class="clear"></div>
+</div>
+<div>
+
+
+
+
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        valueFields = new string[]
+        {
+            Sys_AsynTaskModel.FieldNames.Summary,
+            Sys_AsynTaskModel.FieldNames.Status,
+            Sys_AsynTaskModel.FieldNames.UserCreate,
+            Sys_AsynTaskModel.FieldNames.PercentComplete,
+            Sys_AsynTaskModel.FieldNames.TimeStart,
+            Sys_AsynTaskModel.FieldNames.TimeEnd,
+            Sys_AsynTaskModel.FieldNames.Description,
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, 138},
+            {Sys_AsynTaskModel.FieldNames.Status, 80},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, 110},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, 80},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, 135},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd,135},
+            {Sys_AsynTaskModel.FieldNames.Description, 220}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, ConstantDisplay.HRM_System_AsynTask_Summary},
+            {Sys_AsynTaskModel.FieldNames.Status, ConstantDisplay.HRM_System_AsynTask_Status},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantDisplay.HRM_System_AsynTask_PercentComplete},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, ConstantDisplay.HRM_System_AsynTask_UserNameCreate},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantDisplay.HRM_System_AsynTask_TimeStart},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantDisplay.HRM_System_AsynTask_TimeEnd},
+            {Sys_AsynTaskModel.FieldNames.Description, ConstantDisplay.HRM_System_AsynTask_Description},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantFormat.HRM_Format_Percent}
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ComputeAttendance",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetAsynTaskList",
+            ReadData = "paramComputing",
+            ShowEditIcon = false,
+            AutoBind = true
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_AsynTaskModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+
+
+

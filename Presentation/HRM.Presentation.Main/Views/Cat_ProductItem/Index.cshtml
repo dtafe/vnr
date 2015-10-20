@@ -1,0 +1,306 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using System.Collections
+@using HRM.Presentation.Category.Models
+
+@model Cat_ProductItemSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_Product_Title.TranslateString();
+    //var hrm_Cat_Web = ConstantPathWeb.Hrm_Cat_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windownCatProductItem",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_ProductItem/CatProductItemInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+     
+    var gridName = '@ConstantControlName.HRM_Category_Product_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_Product_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_ProductItem_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_ProductItem_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            ReadGrid('grid_ProductItem');
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }*@
+        EditGridPopUp('grid_ProductItem', 'windownCatProductItem', '@_hrm_Main_Web' + "Cat_ProductItem/CatProductItemInfo/", '@ConstantPermission.Cat_Product', titleEditPopUp);
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        
+        //var _currency = $("#_CurrencyID").data("kendoMultiSelect");
+        return {
+            ProductItemName: $('#ProductItemName1').val(),
+            Code : $("#Code1").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox('grid_ProductItem');
+    //Tạo mới Sản phẩm
+    $("#btnCreateCatProductItem").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate('windownCatProductItem', titleCreatePopUp);
+    });
+    //Chỉnh sửa Sản phẩm
+    
+    //Xóa Sản phẩm
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('grid_ProductItem', '@_hrm_Main_Web' + "Cat_ProductItem/RemoveSelected/", selectedIds);
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportProductItemSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_Product');
+    });
+
+    $("#btnExportAll").click(function () {
+      @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $("#grid_ProductItem").data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllProductItemList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_Product');
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProductItemName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtProductName = new TextBoxBuilderInfo()
+                                {
+                                    Width = 250,
+                                    Name = "ProductItemName1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtProductName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Code)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtCode = new TextBoxBuilderInfo()
+                                {
+                                    Width = 250,
+                                    Name = "Code1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtCode)
+                        </div>
+                    </div>
+
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCatProductItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeProductItem", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_ProductItem_Grid_Name + "__Cat_ProductItem_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_ProductItem_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetProductItemList/",
+            ReadData = "filterFieldInfo",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Cat_ProductItemModel.FieldNames.ProductItemCode,
+                Cat_ProductItemModel.FieldNames.ProductItemName,
+                Cat_ProductItemModel.FieldNames.ProductName,
+                //Cat_ProductItemModel.FieldNames.ProductionTime,
+                Cat_ProductItemModel.FieldNames.UnitPrice,
+               // Cat_ProductItemModel.FieldNames.BonusPrice,
+               // Cat_ProductItemModel.FieldNames.RateStage,
+                //Cat_ProductItemModel.FieldNames.CurrencyName,
+                Cat_ProductItemModel.FieldNames.Note1,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+          
+                {Cat_ProductItemModel.FieldNames.ProductItemCode,80},
+                {Cat_ProductItemModel.FieldNames.ProductItemName,140},
+                {Cat_ProductItemModel.FieldNames.ProductName,110},
+                {Cat_ProductItemModel.FieldNames.ProductionTime,120},
+                {Cat_ProductItemModel.FieldNames.UnitPrice,100},
+                {Cat_ProductItemModel.FieldNames.BonusPrice,110},
+                {Cat_ProductItemModel.FieldNames.RateStage,70},
+                {Cat_ProductItemModel.FieldNames.CurrencyName,70},
+                {Cat_ProductItemModel.FieldNames.Note1,300},
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+               {Cat_ProductItemModel.FieldNames.ProductItemCode,true},
+                {Cat_ProductItemModel.FieldNames.ProductItemName,true},
+                {Cat_ProductItemModel.FieldNames.ProductName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+            
+            
+                {Cat_ProductItemModel.FieldNames.ProductItemCode,ConstantDisplay.HRM_Category_ProductItem_Code},
+                {Cat_ProductItemModel.FieldNames.ProductItemName,ConstantDisplay.HRM_Category_ProductItem_ProductItemName},
+                {Cat_ProductItemModel.FieldNames.ProductName,ConstantDisplay.HRM_Category_ProductItem_ProductName},
+                {Cat_ProductItemModel.FieldNames.ProductionTime,ConstantDisplay.HRM_Category_ProductItem_ProductionTime},
+                {Cat_ProductItemModel.FieldNames.UnitPrice,ConstantDisplay.HRM_Category_ProductItem_UnitPrice},
+                {Cat_ProductItemModel.FieldNames.BonusPrice,ConstantDisplay.HRM_Category_ProductItem_BonusPrice},
+                {Cat_ProductItemModel.FieldNames.RateStage,ConstantDisplay.HRM_Category_ProductItem_RateStage},
+                {Cat_ProductItemModel.FieldNames.CurrencyName,ConstantDisplay.HRM_Category_ProductItem_CurrencyName},
+                {Cat_ProductItemModel.FieldNames.Note1,ConstantDisplay.HRM_Category_Product_Note},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_ProductItem",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetProductItemList/",
+        //    ReadData = "filterFieldInfo",
+        //};
+    }
+
+    @(Html.VnrGrid<Cat_ProductItemModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeProductItem", "Cat_ProductItemModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

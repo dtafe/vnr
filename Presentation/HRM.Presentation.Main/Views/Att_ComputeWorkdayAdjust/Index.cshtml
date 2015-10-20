@@ -1,0 +1,987 @@
+﻿@using HRM.Infrastructure.Security
+@using HRM.Infrastructure.Utilities
+
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_WorkDaySearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_ComputeWorkdayAdjust.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> listType = Enum.GetValues(typeof(EnumDropDown.WorkdayType))
+    .Cast<EnumDropDown.WorkdayType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+
+    IList<SelectListItem> listSrcType = Enum.GetValues(typeof(EnumDropDown.WorkdaySrcType))
+    .Cast<EnumDropDown.WorkdaySrcType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+}
+
+<script>
+
+    var userLG = $('#UserLoginId').val();
+    var checkedNodes = [];
+    SetFieldRequired();
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_ComputeWorkdayAdjust");
+
+    function validateStatus(buttonId) {
+        var message = "";
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Att_GetData/ValidateWorkdayStatus',
+            data: { selectedIds: selectedIds.join(','), buttonId: buttonId },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+
+                if (data[0] == "error") {
+                    message = data[1];
+                }
+                    //if (data != "") {
+                    //    ShowNotificationProcessor(data);
+                    //    return false
+                    //}
+                else {
+                    message = "";
+                }
+            }
+        });
+        return message;
+    }
+
+    function filterFieldInfo(isExport) {
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _srcType = $('#msl_SrcType').val() != null ? $('#msl_SrcType').val().join(',') : $('#msl_SrcType').val();
+        var _type = $('#msl_Type').val() != null ? $('#msl_Type').val().join(',') : $('#msl_Type').val();
+        var _shift = $('#@Html.FieldIdFor(model=>model.ShiftID)').val() != null ? $('#@Html.FieldIdFor(model=>model.ShiftID)').val().join(',') : $('#@Html.FieldIdFor(model=>model.ShiftID)').val();
+        return {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ShiftID: _shift,
+            LateDuration: $('#@Html.FieldIdFor(model => model.LateDuration)').val(),
+            EarlyDuration: $('#@Html.FieldIdFor(model => model.EarlyDuration)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            SrcType: _srcType,
+            Type: _type,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+    }
+
+    function paramExport(isExportDDL) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _srcType = $('#msl_SrcType').val() != null ? $('#msl_SrcType').val().join(',') : $('#msl_SrcType').val();
+        var _type = $('#msl_Type').val() != null ? $('#msl_Type').val().join(',') : $('#msl_Type').val();
+        var _shift = $('#@Html.FieldIdFor(model=>model.ShiftID)').val() != null ? $('#@Html.FieldIdFor(model=>model.ShiftID)').val().join(',') : $('#@Html.FieldIdFor(model=>model.ShiftID)').val();
+        var param = {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ShiftID: _shift,
+
+            LateDuration: $('#@Html.FieldIdFor(model => model.LateDuration)').val(),
+            EarlyDuration: $('#@Html.FieldIdFor(model => model.EarlyDuration)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            SrcType: _srcType,
+            Type: _type,
+            ExportId: $('#ddlScreenName').val(),
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+
+        return param;
+    }
+
+
+    // var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnLoadData").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_LoadData', false);
+            if (!isAccess) {
+                ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_LoadData.TranslateString())');
+                return;
+            }
+
+            //if (CheckValidate(data)) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeWorkdayAdjustValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+
+                        var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+                        grid.dataSource.read();
+                        checkedNodes = [];
+                    }
+                }
+            });
+            // }
+        });
+    });
+
+    $("#btnExport").click(function () {
+
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportWorkDayTemplateList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = paramExport(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+
+    });
+
+
+    @*EditGridNewPage("gridAtt_ComputeWorkdayAdjust", '#Hrm_Att_Web/Att_Leaveday/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    //Xử lý nút Delete
+    DeleteGrid("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "/Att_Leaveday/Remove/");*@
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        Search("btnSearch", "treeviewOrg", "gridAtt_ComputeWorkdayAdjust");
+        //Xử lý show hide form tìm kiếm
+        selectedIds = [];
+        ShowHidePanel();
+    });
+
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+
+        @*e.preventDefault();
+        DeleteSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/RemoveSelected/", selectedIds, '@ConstantPermission.Att_ComputeWorkdayAdjust');
+
+            return false;*@
+
+        var recordids = [];
+        for (var i = 0; i < selectedIds.length; i++) {
+            recordids.push(selectedIds[i]);
+        }
+        var IsActive = true;
+        var grid = $("#gridAtt_ComputeWorkdayAdjust").data("kendoGrid");
+        //var record = selectedIds.length;
+        if (selectedIds.length == 1) {
+            var selectedItem = grid.dataItem(grid.select());
+            if (selectedItem.Status == "Duyệt" || selectedItem.Status == "E_APPROVED") {
+                ErrorMessages("Ca Làm Việc Đã Duyệt Không Được Phép Xóa");
+                return;
+            }
+        }
+        else {
+            var currentSource = grid.dataSource.data();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetConfig_Allow',
+                // data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    for (var i = 0; i < currentSource.length; i++) {
+                        if (selectedIds.indexOf(currentSource[i].id) != -1) {
+                            if (currentSource[i].Status == "Duyệt" || currentSource[i].Status == "E_APPROVED") {
+                                if (data == true) {
+                                    ErrorMessages("Dữ Liệu Có Trạng Thái Duyệt Không Được Xóa");
+                                    IsActive = false;
+                                    return IsActive;
+                                }
+                                else {
+                                    selectedIds.splice(selectedIds.indexOf(currentSource[i].id), 1);
+
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            if (!IsActive) {
+                return;
+            }
+        }
+        e.preventDefault();
+        if (recordids.length == selectedIds.length) {
+            DeleteSelectedConfirm("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/RemoveSelected/", selectedIds, '@ConstantPermission.Att_ComputeWorkdayAdjust');
+            return;
+        }
+
+        DeleteSelecteds("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/RemoveSelected/", selectedIds, recordids, '@ConstantPermission.Att_ComputeWorkdayAdjust');
+        return false;
+
+    });
+
+    $("#Att_ComputeLeaveLateEarly").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeLeaveLateEarly/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_ComputeOvertime").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeOvertime/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_OvertimeConfirm").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_OvertimeConfirm/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    $('#btnApproved').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_Approved', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+            return;
+        }
+        if (selectedIds.length == 0) {
+            ErrorMessages("Không Có Dòng Dữ Liệu Nào Được Chọn!");
+            return false;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+            data: { userID: userLG, permissionCheck: '@ApproveType.E_WORKDAY_APPROVE.ToString()' },
+            success: function (data) {
+
+                if (data == "True") {
+                    $.when(kendo.ui.ExtOkCancelDialog.show({
+                        title: "Thông Báo",
+                        message: "Bạn có chắc chắn muốn đổi trạng thái " + selectedIds.length + " dòng đã chọn thành Duyệt?",
+                        icon: "k-ext-warning",
+                        width: "355px",
+                        height: "105px"
+                    })
+       ).done(function (response) {
+
+           e.preventDefault();
+           if (response.button == "OK") {
+               SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@AttendanceDataStatus.E_APPROVED.ToString()', 'Thay Đổi Trạng Thái Thành Công!');
+               @*SetStatusSelectedWithPermission("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@LeaveDayStatus.E_APPROVED.ToString()', userLG, 'Thay Đổi Trạng Thái Thành Công!');*@
+               selectedIds = [];
+               //var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+               //grid.dataSource.read();
+               IsActive = false;
+               return IsActive;
+           }
+           if (response.button == "Cancel") {
+               IsActive = false;
+               return IsActive;
+           }
+       });
+                }
+                else {
+                    ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+                    return;
+                }
+            }
+        });
+
+        if (!isAccess) {
+            return;
+        }
+
+        //
+        //e.preventDefault();
+        @*SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@AttendanceDataStatus.E_APPROVED.ToString()', 'Thay Đổi Trạng Thái Thành Công!');
+        selectedIds = [];*@
+    });
+    $('#btnWaitting').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_Wait_Approved', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Waitting.TranslateString())');
+            return;
+        }
+        if (selectedIds.length == 0) {
+            ErrorMessages("Không Có Dòng Dữ Liệu Nào Được Chọn!");
+            return false;
+        }
+        var message = validateStatus("btnWaitting");
+        if (message == "") {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+                data: { userID: userLG, permissionCheck: '@ApproveType.E_WORKDAY_APPROVE.ToString()' },
+                success: function (data) {
+
+                    if (data == "True") {
+                        $.when(kendo.ui.ExtOkCancelDialog.show({
+                            title: "Thông Báo",
+                            message: "Bạn có chắc chắn muốn đổi trạng thái " + selectedIds.length + " dòng đã chọn thành Chờ Duyệt?",
+                            icon: "k-ext-warning",
+                            width: "355px",
+                            height: "105px"
+                        })
+                       ).done(function (response) {
+
+                           e.preventDefault();
+                           if (response.button == "OK") {
+                               SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@AttendanceDataStatus.E_WAIT_APPROVED.ToString()', 'Thay Đổi Trạng Thái Thành Công!');
+                               @*SetStatusSelectedWithPermission("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@AttendanceDataStatus.E_WAIT_APPROVED.ToString()', userLG, 'Thay Đổi Trạng Thái Thành Công!');*@
+                               selectedIds = [];
+                               //var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+                               //grid.dataSource.read();
+                               IsActive = false;
+                               return IsActive;
+                           }
+                           if (response.button == "Cancel") {
+                               IsActive = false;
+                               return IsActive;
+                           }
+                       });
+                    }
+                    else {
+                        ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+                        return;
+                    }
+                }
+            });
+        }
+        else {
+            ShowNotificationProcessor(message);
+        }
+        if (!isAccess) {
+            return;
+        }
+
+        @*
+        e.preventDefault();
+        SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, '@AttendanceDataStatus.E_WAIT_APPROVED.ToString()', 'Thay Đổi Trạng Thái Thành Công!');
+        selectedIds = [];*@
+    });
+
+    $('#btnCancelLateEarly').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_CancelLateEarly', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), "Loại Bỏ Muộn Sớm")');
+            return;
+        }
+
+        if (selectedIds.length == 0) {
+            ErrorMessages("Không Có Dòng Dữ Liệu Nào Được Chọn!");
+            return false;
+        }
+        e.preventDefault();
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+            data: { userID: userLG, permissionCheck: '@ApproveType.E_WORKDAY_APPROVE.ToString()' },
+            success: function (data) {
+
+                if (data == "True") {
+                    SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, "CancelLateEarly", 'Loại Bỏ Muộn Sớm Thành Công');
+                    @*SetStatusSelectedWithPermission("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, "CancelLateEarly", userLG, 'Loại Bỏ Muộn Sớm Thành Công!');*@
+                    selectedIds = [];
+                }
+                else {
+                    ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+                    return;
+                }
+            }
+        });
+    });
+
+    $('#btnUpdateInOut').click(function (e) {
+
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_UpdateInOut', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), "Cấp Giờ In-Out")');
+            return;
+        }
+        var selectedIdsTemp1 = [];
+        @*var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        // kiểm tra check vì selectItem khi bỏ checbox vẫn nhận selectItem
+        if (selectedIds.length != 0) {
+            var check = $("input[type=checkbox][value='" + selectedItem.ID + "']")[0].checked;
+            if (selectedItem.ShiftName == null && check) {
+                ShowNotificationProcessor('Error,Không Thể Cấp Giờ Vào-Ra Cho Ngày Công Không Có Ca Làm Việc!');
+                return;
+            }
+            if (selectedItem.ShiftName != null && selectedItem.InTime1 != null && selectedItem.OutTime1 != null && check) {
+                ShowNotificationProcessor('Error,Không Thể Cấp Mới Giờ Vào-Ra Cho Ngày Công Đã Có Giờ Vào-Ra');
+                return;
+            }
+        }
+        e.preventDefault();
+        SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, "UpdateInOut", 'Cấp Giờ Vào-Ra Thành Công');
+            selectedIds = [];*@
+        var noInOut = 0;
+        var noShift = 0;
+
+        var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+        var data = grid.dataSource.data();
+        for (var i = 0; i < data.length; i++) {
+            if (selectedIds.indexOf(data[i].id) != -1) {
+                if (data[i].ShiftName != null) {
+                    if (data[i].InTime1 != null && data[i].OutTime1 != null) {
+                        noInOut += 1;
+                    } else {
+                        selectedIdsTemp1.push(data[i].id);
+                    }
+                } else {
+                    noShift += 1;
+                }
+            }
+        }
+
+        e.preventDefault();
+        if (selectedIdsTemp1.length > 0) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+                data: { userID: userLG, permissionCheck: '@ApproveType.E_WORKDAY_APPROVE.ToString()' },
+                success: function (data) {
+
+                    if (data == "True") {
+                        SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIdsTemp1, "UpdateInOut", 'Cấp Giờ Vào-Ra Thành Công');
+                        @*SetStatusSelectedWithPermission("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, "UpdateInOut", userLG, 'Thay Đổi Trạng Thái Thành Công!');*@
+                    }
+                    else {
+                        ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+                        return;
+                    }
+                }
+            });
+        }
+        if (noShift > 0 || noInOut > 0) {
+            if (noShift > 0) {
+                ShowNotificationProcessor('Error,Có ' + noShift.toString() + ' Dữ Liệu Không Thể Cấp Giờ Vào-Ra Do Ngày Công Không Có Ca Làm Việc');
+            }
+            if (noInOut > 0) {
+                ShowNotificationProcessor('Error,Có ' + noInOut.toString() + ' Dữ Liệu Không Thể Cấp Giờ Vào-Ra Do Ngày Công Đã Có Giờ Vào-Ra');
+            }
+        }
+        selectedIds = [];
+    });
+
+    $('#btnChangeInOut').click(function (e) {
+        var selectedIdsTemp = [];
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkdayAdjust_ChangeInOut', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), "Đảo vị trí In-Out")');
+            return;
+        }
+
+        var grid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+        var data = grid.dataSource.data();
+        for (var i = 0; i < data.length; i++) {
+            if (selectedIds.indexOf(data[i].id) != -1) {
+                if (data[i].InTime1 != null && data[i].OutTime1 != null) {
+                    selectedIdsTemp.push(data[i].id);
+                }
+            }
+        }
+
+        e.preventDefault();
+        if (selectedIdsTemp.length > 0) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+                data: { userID: userLG, permissionCheck: '@ApproveType.E_WORKDAY_APPROVE.ToString()' },
+                success: function (data) {
+
+                    if (data == "True") {
+                        SetStatusSelected("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIdsTemp, "ChangeInOut", 'Đảo Vị Trí Vào-Ra Thành Công');
+                        @*SetStatusSelectedWithPermission("gridAtt_ComputeWorkdayAdjust", '@_hrm_Main_Web' + "Att_WorkDay/SetStatusSelected/", selectedIds, "ChangeInOut", userLG, 'Đảo Vị Trí Vào-Ra Thành Công');*@
+                    }
+                    else {
+                        ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approved.TranslateString())');
+                        return;
+                    }
+                }
+            });
+        }
+        if (selectedIds.length > selectedIdsTemp.length) {
+            ShowNotificationProcessor('Error,Có ' + (selectedIds.length - selectedIdsTemp.length).toString() + ' Dữ Liệu Không Thể Đảo Vị Trí Vào-Ra Do Ngày Công Chưa Có Giờ Vào-Ra');
+        }
+        selectedIds = [];
+    });
+
+
+
+    //Phan quyen tren luoi
+    function SaveChangeOnGrid(e) {
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Att_ComputeWorkdayAdjust', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Edit.TranslateString())');
+            e.preventDefault();
+            return;
+        }
+    };
+
+</script>
+<style>
+    .breadcrumb {
+        float: left;
+    }
+</style>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <div>
+                <h3 style="height:28px">
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    <div style=" width:100%">
+
+                        <div>
+                            @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                            <div style="float: right; margin-top: -3px">
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_ComputeLeaveLateEarly">
+                                    @Html.Label(ConstantDisplay.HRM_Attendance_ComputeLeaveLateEarly.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_ComputeOvertime">
+                                    @Html.Label(ConstantDisplay.HRM_Att_ComputeOvertime_Title.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_OvertimeConfirm">
+                                    @Html.Label(ConstantDisplay.HRM_Attendance_OvertimeConfirm.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                     
+
+                </h3>
+            </div>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="width:100%">
+                <div class="hrm_box">
+                    <div id="div4">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.Label(ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value=DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, _DateFrom)
+
+                            @{
+                                var _DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value=DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, _DateTo)
+                        </div>
+                    </div>
+                    <div id="div3">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+
+                    
+                </div>
+                <div class="hrm_box">
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div8">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ShiftID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ShiftType = new MultiSelectBuilderInfo()
+                                {
+                                    //  Name = "mls_Shift",
+                                    DataTextField = "ShiftName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiShift",
+                                    Placeholder = ConstantDisplay.HRM_Att_SelectShift.TranslateString(),
+                                    //MaxSelectedItems = 1,
+                                };
+                            }
+
+                            @(Html.VnrMultiSelectFor(mode => mode.ShiftID, _ShiftType))
+                        </div>
+                    </div>
+                    <div id="div7">
+                        <div class="FieldTitle">
+                            @Html.Label(ConstantDisplay.HRM_Attendance_LateEarlyFrom.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _LateEarlyFrom = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_MinutesFrom.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                    Format = ConstantFormat.HRM_Format_Number_Integer
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.LateDuration, _LateEarlyFrom)
+
+                            @{
+                                var _LateEarlyTo = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_MinutesTo.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                    Format = ConstantFormat.HRM_Format_Number_Integer
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.EarlyDuration, _LateEarlyTo)
+                        </div>
+                    </div>
+                    
+               
+
+                </div>
+                <div class="hrm_box">
+                    <div id="div9">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.VnrLabelFor(mode => mode.SrcType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _SrcType = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "msl_SrcType",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listSrcType,
+                                    Placeholder = ConstantDisplay.HRM_Attendance_SelectSrcType.TranslateString()
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(model => model.SrcType, _SrcType)
+                        </div>
+                    </div>
+                    <div id="div10">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.VnrLabelFor(mode => mode.Type)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _Type = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "msl_Type",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listType,
+                                    Placeholder = ConstantDisplay.HRM_Attendance_SelectType.TranslateString()
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(model => model.Type, _Type)
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+  
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnLoadData", Content = ConstantAction.HRM_Common_LoadData.TranslateString(), ImageUrl = ConstantPath.IconLoadDataPath })
+ 
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnWaitting", Content = ConstantAction.HRM_Common_Waitting.TranslateString(), ImageUrl = ConstantPath.IconWaittingPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApproved", Content = ConstantAction.HRM_Common_Approved.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCancelLateEarly", Content = ConstantAction.HRM_Common_CancelLateEarly.TranslateString(), ImageUrl = ConstantPath.IconCancelLateEarly })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnUpdateInOut", Content = ConstantAction.HRM_Common_UpdateInOut.TranslateString(), ImageUrl = ConstantPath.IconUpdateInOut })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeInOut", Content = ConstantAction.HRM_Common_ChangeInOut.TranslateString(), ImageUrl = ConstantPath.IconChangeInOut })
+    
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            
+                @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+                }
+                @Html.VnrDropDownList(screenName)
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+     
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        
+    </div>
+</div>
+<div style="overflow:hidden">
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        IList<SelectListItem> status1 = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+        .Cast<EnumDropDown.OverTimeStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+            {"Type",new object[] { "Value", "Text", listType, ConstantDisplay.HRM_Attendance_WorkDay_Type,""}},
+            {"SrcType",new object[] { "Value", "Text", listSrcType, ConstantDisplay.HRM_Attendance_WorkDay_SrcType,""}},
+            {"Status",new object[] { "Value", "Text", status1, ConstantDisplay.HRM_Attendance_WorkDay_Status,""}},
+            {"ShiftActual",new object[] { "ID", "ShiftName",  ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_ReportWrongShift_ActualShift,""}},
+            {"ShiftApprove",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift,""}},
+            {"MissInOutReason",new object[] { "ID", "TAMScanReasonMissName", ViewData["Cat_TamScan"], ConstantDisplay.HRM_Attendance_WorkDay_MissInOutReason,""}},
+            //{"ShiftActual",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_ReportWrongShift_ActualShift,""}},
+           // {"ShiftApprove",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift,""}},
+           {"udLeavedayCode1",new object[] { "Code", "LeaveDayTypeName", ViewData["Cat_LeadayType"] , ConstantDisplay.HRM_Category_LeaveDayType_LeaveDayTypeName,""}},
+            
+        };
+
+
+
+        valueFields = new string[]
+        {
+            //Att_WorkdayModel.FieldNames.ProfileID,
+            Att_WorkdayModel.FieldNames.CodeEmp,
+            Att_WorkdayModel.FieldNames.ProfileName,
+            Att_WorkdayModel.FieldNames.OrgStructureName,
+            //Att_WorkdayModel.FieldNames.CodeAttendance,
+            Att_WorkdayModel.FieldNames.WorkDate,
+            Att_WorkdayModel.FieldNames.ShiftID,
+            Att_WorkdayModel.FieldNames.udLeavedayCode1,
+            Att_WorkdayModel.FieldNames.InTime1,
+            Att_WorkdayModel.FieldNames.TempTimeIn,
+            Att_WorkdayModel.FieldNames.OutTime1,
+            Att_WorkdayModel.FieldNames.TempTimeOut,
+
+            Att_WorkdayModel.FieldNames.Type,
+            Att_WorkdayModel.FieldNames.Status,
+            Att_WorkdayModel.FieldNames.ShiftActual,
+            Att_WorkdayModel.FieldNames.ShiftApprove,
+
+            Att_WorkdayModel.FieldNames.LateDuration1,
+            Att_WorkdayModel.FieldNames.EarlyDuration1,
+            Att_WorkdayModel.FieldNames.LateEarlyRoot,
+            Att_WorkdayModel.FieldNames.LateEarlyDuration,
+            Att_WorkdayModel.FieldNames.LateEarlyReason,
+            Att_WorkdayModel.FieldNames.MissInOutReason,
+            //Att_WorkdayModel.FieldNames.LateEarlyError,
+            Att_WorkdayModel.FieldNames.SrcType,
+            Att_WorkdayModel.FieldNames.InTimeRoot,
+            Att_WorkdayModel.FieldNames.OutTimeRoot,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+            {
+                //{Att_WorkdayModel.FieldNames.ProfileID,0},
+                {Att_WorkdayModel.FieldNames.CodeEmp,70},
+                {Att_WorkdayModel.FieldNames.ProfileName,135},
+                {Att_WorkdayModel.FieldNames.OrgStructureName,80},
+                {Att_WorkdayModel.FieldNames.CodeAttendance,107},
+                {Att_WorkdayModel.FieldNames.WorkDate,81},
+                {Att_WorkdayModel.FieldNames.ShiftID,85},
+                {Att_WorkdayModel.FieldNames.ShiftActualName,85},
+                {Att_WorkdayModel.FieldNames.ShiftApproveName,100},
+                {Att_WorkdayModel.FieldNames.udLeavedayCode1,70},
+                {Att_WorkdayModel.FieldNames.InTime1,81},
+                {Att_WorkdayModel.FieldNames.TempTimeIn,65},
+                {Att_WorkdayModel.FieldNames.OutTime1,81},
+                {Att_WorkdayModel.FieldNames.TempTimeOut,65},
+                {Att_WorkdayModel.FieldNames.Type,93},
+                {Att_WorkdayModel.FieldNames.Status,77},
+                {Att_WorkdayModel.FieldNames.ShiftActual,85},
+                {Att_WorkdayModel.FieldNames.ShiftApprove,103},
+
+                {Att_WorkdayModel.FieldNames.LateDuration1,65},
+                {Att_WorkdayModel.FieldNames.EarlyDuration1,65},
+                {Att_WorkdayModel.FieldNames.LateEarlyRoot,70},
+                {Att_WorkdayModel.FieldNames.LateEarlyDuration,100},
+
+                {Att_WorkdayModel.FieldNames.LateEarlyReason,100},
+                {Att_WorkdayModel.FieldNames.MissInOutReason,147},
+                {Att_WorkdayModel.FieldNames.SrcType,95},
+                {Att_WorkdayModel.FieldNames.LateEarlyError,72},
+                {Att_WorkdayModel.FieldNames.InTimeRoot,85},
+                {Att_WorkdayModel.FieldNames.OutTimeRoot,80},
+            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                {
+                    //{Att_WorkdayModel.FieldNames.ProfileID,ConstantDisplay.HRM_Attendance_WorkDay_ProfileID},
+                    {Att_WorkdayModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_WorkDay_ProfileID},
+                    {Att_WorkdayModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                     {Att_WorkdayModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Category_OrgStructure_OrgStructureName},
+                    {Att_WorkdayModel.FieldNames.CodeAttendance,ConstantDisplay.HRM_HR_Profile_CodeAttendance},
+                    {Att_WorkdayModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDay_WorkDate},
+                    {Att_WorkdayModel.FieldNames.ShiftID,ConstantDisplay.HRM_Attendance_WorkDay_ShiftID},
+                    {Att_WorkdayModel.FieldNames.ShiftActualName,ConstantDisplay.HRM_Attendance_ReportWrongShift_ActualShift},
+                    {Att_WorkdayModel.FieldNames.ShiftApproveName,ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift},
+                    {Att_WorkdayModel.FieldNames.udLeavedayCode1,ConstantDisplay.HRM_Category_LeaveDayType_LeaveDayTypeName},
+                    {Att_WorkdayModel.FieldNames.InTime1,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Date},
+                    {Att_WorkdayModel.FieldNames.TempTimeIn,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Time},
+                    {Att_WorkdayModel.FieldNames.OutTime1,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Date},
+                    {Att_WorkdayModel.FieldNames.TempTimeOut,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Time},
+                    {Att_WorkdayModel.FieldNames.Type,ConstantDisplay.HRM_Attendance_WorkDay_Type},
+                    {Att_WorkdayModel.FieldNames.Status,ConstantDisplay.HRM_Attendance_Status},
+                    {Att_WorkdayModel.FieldNames.ShiftActual,ConstantDisplay.HRM_Attendance_ReportWrongShift_ActualShift},
+                    {Att_WorkdayModel.FieldNames.ShiftApprove,ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift},
+                    {Att_WorkdayModel.FieldNames.LateDuration1,ConstantDisplay.HRM_Attendance_LateIn},
+                    {Att_WorkdayModel.FieldNames.EarlyDuration1,ConstantDisplay.HRM_Attendance_EarlyOut},
+
+                    {Att_WorkdayModel.FieldNames.LateEarlyDuration,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyDuration},
+                    {Att_WorkdayModel.FieldNames.LateEarlyRoot,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyRoot},
+                    {Att_WorkdayModel.FieldNames.LateEarlyReason,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyReason},
+                    {Att_WorkdayModel.FieldNames.MissInOutReason,ConstantDisplay.HRM_Attendance_WorkDay_MissInOutReason},
+
+                    {Att_WorkdayModel.FieldNames.SrcType,ConstantDisplay.HRM_Attendance_WorkDay_SrcType},
+                    {Att_WorkdayModel.FieldNames.LateEarlyError,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyError},
+                    {Att_WorkdayModel.FieldNames.InTimeRoot,ConstantDisplay.HRM_Attendance_WorkDay_ShiftInTime},
+                    {Att_WorkdayModel.FieldNames.OutTimeRoot,ConstantDisplay.HRM_Attendance_WorkDay_ShiftOutTime},
+                };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                {
+                    {Att_WorkdayModel.FieldNames.InTime1, ConstantFormat.HRM_Format_DayMonthYear},
+                    {Att_WorkdayModel.FieldNames.OutTime1 , ConstantFormat.HRM_Format_DayMonthYear},
+                    {Att_WorkdayModel.FieldNames.ShiftInTime , ConstantFormat.HRM_Format_HourMinSecond},
+                    {Att_WorkdayModel.FieldNames.ShiftOutTime , ConstantFormat.HRM_Format_HourMinSecond},
+                    {Att_WorkdayModel.FieldNames.TempTimeIn , ConstantFormat.HRM_Format_HourMinSecond},
+                    {Att_WorkdayModel.FieldNames.TempTimeOut , ConstantFormat.HRM_Format_HourMinSecond},
+                    {Att_WorkdayModel.FieldNames.InTimeRoot , ConstantFormat.HRM_Format_HourMinSecond},
+                    {Att_WorkdayModel.FieldNames.OutTimeRoot , ConstantFormat.HRM_Format_HourMinSecond},
+                    
+                    {Att_WorkdayModel.FieldNames.LateDuration1 , ConstantFormat.HRM_Format_Number_Double},
+                    {Att_WorkdayModel.FieldNames.EarlyDuration1 , ConstantFormat.HRM_Format_Number_Double},
+                    {Att_WorkdayModel.FieldNames.LateEarlyDuration , ConstantFormat.HRM_Format_Number_Double},
+                    {Att_WorkdayModel.FieldNames.LateEarlyRoot , ConstantFormat.HRM_Format_Number_Double},
+                    
+                };
+
+        string[] disableFields = new string[]
+                {
+                    Att_WorkdayModel.FieldNames.ProfileName,
+                    Att_WorkdayModel.FieldNames.CodeEmp,
+                    Att_WorkdayModel.FieldNames.CodeAttendance,
+                  Att_WorkdayModel.FieldNames.OrgStructureName,
+                    Att_WorkdayModel.FieldNames.ShiftInTime,
+                    Att_WorkdayModel.FieldNames.ShiftOutTime,
+                    Att_WorkdayModel.FieldNames.LateDuration1,
+                    Att_WorkdayModel.FieldNames.EarlyDuration1,
+                    Att_WorkdayModel.FieldNames.LateEarlyRoot,
+                    Att_WorkdayModel.FieldNames.WorkDate,
+                    Att_WorkdayModel.FieldNames.ShiftID,
+                    Att_WorkdayModel.FieldNames.Type,
+                    Att_WorkdayModel.FieldNames.Status,
+                    Att_WorkdayModel.FieldNames.SrcType,
+                    Att_WorkdayModel.FieldNames.InTimeRoot,
+                    Att_WorkdayModel.FieldNames.OutTimeRoot,
+                };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ComputeWorkdayAdjust",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            DisableFields = disableFields,
+            ForeignKey = foreignKey,
+            //ServerOperation=false,
+            ShowSaveButton = true,
+            ShowEditIcon = false,
+            //EditActionUrl = _hrm_Main_Web + "/Att_WorkDay/CreateInlineAdjust/",
+            EditActionUrl = _hrm_Hre_Service + "Att_GetData/CreateInlineAdjust/",
+            EditMode = GridEditMode.InCell,
+            EvenEdit = "onEdit",
+            Batch = true,
+            ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetComputeWorkdayAdjust",
+            ReadData = "filterFieldInfo",
+            Navigatable = true,
+            EventDataBound = "changePageGird",
+            //ShowEditIcon = false,
+            //ShowCommand = true,
+            //ForeignKey = foreignKey,
+            //ShowEditButton = true,
+            //EditActionUrl = _hrm_Main_Web + "/Att_WorkDay/CreateInline/",
+            //EditMode = GridEditMode.InLine,
+            //ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetComputeWorkdayAdjust",
+            //ReadData = "filterFieldInfo",
+            EventSaveChanges="SaveChangeOnGrid",
+            
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_WorkdayModel>(grid))
+
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+@*<script type="text/javascript">
+        //Xử lý dblclick
+        var myGrid = $('#gridAtt_ComputeWorkdayAdjust').data("kendoGrid");
+        myGrid.element.on('click', 'tbody>tr>td:not(.k-edit-cell)', function (e) {
+            myGrid.closeCell();
+        });
+        myGrid.element.on("dblclick", "tbody>tr>td:not(.k-edit-cell)", "dblclick", function (e) {
+            myGrid.editCell($(this));
+        });
+    </script>*@

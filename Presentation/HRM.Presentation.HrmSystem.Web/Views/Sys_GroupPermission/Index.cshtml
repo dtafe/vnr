@@ -1,0 +1,356 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+
+@model PermissionMappingModel
+@{
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var groupId = Guid.Empty;
+    if (ViewBag.groupId != Guid.Empty)
+    {
+        groupId = (Guid)ViewBag.groupId;
+    }
+
+    var title = ConstantDisplay.HRM_System_GroupPermission_Update.TranslateString();
+    if (groupId == Guid.Empty)
+    {
+        title = ConstantDisplay.HRM_System_GroupPermission_Add.TranslateString();
+    }
+
+    var moduleNames = Enum.GetNames(typeof(ModuleName));
+
+    IList<SelectListItem> listModuleNames = Enum.GetValues(typeof(ModuleName))
+     .Cast<ModuleName>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+}
+<style>
+    .hidden {
+        display: none;
+    }
+</style>
+
+<script>
+    var data = SetCharacteFieldRequired();
+    var groupId = '@groupId';
+    var modules = ['System', 'Category', 'Attendance', 'Canteen', 'HR', 'Laundry', 'Medical', 'Training', 'Salary', 'Recruitment', 'Insurance', 'Evaluation', 'Kaizen', 'HRDetail','Finance'];
+    function checkDuplicationGroup() {
+        //kiem tra trùng code trong nhóm quyền
+        var loginName = $("#Code").val();
+        var iD = groupId;
+        var data = { tableName: "Sys_Group", columnName: "Code", keyword: loginName, iD: iD };
+        var isduplicate = checkDuplicate('@hrm_Sys_Service', 'Sys_GetData', 'CheckDuplicate', data, "Code");
+        return isduplicate;
+    }
+
+    var doSaveGroupPermission = function () {
+        var isAccess = true;
+        
+        if(groupId == '@Guid.Empty.ToString()') {
+            isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_GroupPermission');
+        } else {
+            isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Sys_GroupPermission');
+        }
+        if (!isAccess) {
+            return;
+        }
+
+        if (!CheckValidate(data) || checkDuplicationGroup()) {
+            return;
+        }
+        ShowHre_ProgressBar();
+        $.ajax({
+            url: '@hrm_Sys_Service' + 'api/Sys_GroupPermission',
+            data: $('form').serialize(),
+            type: 'POST',
+            success: function (data) {
+
+                if (data != "00000000-0000-0000-0000-000000000000") {
+                    $("#ID").val(data);
+                    groupId = data;
+                }
+                ShowNotificationProcessor("@ConstantDisplay.HRM_System_GroupPermissionSaveSuccess.TranslateString()");
+                CloseHre_ProgressBar();
+            }
+        });
+        return false;
+    };
+
+    function updateResource() {
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Sys_GroupPermission');
+        if (!isAccess) {
+            return;
+        }
+        ShowHre_ProgressBar();
+        //Update lại resource
+        $.ajax({
+            url: '@hrm_Sys_Service' + 'Sys_GetData/UpdateResourceList',
+            type: 'POST',
+            success: function (data) {
+                ShowNotificationProcessor("@ConstantDisplay.HRM_System_GroupPermissionUpdateResource.TranslateString()");
+                var id = '@groupId';
+                KendoRouteMapping('#Hrm_Sys_Web/Sys_GroupPermission/Index/' + id, 'Hrm_Sys_Web', '@hrm_Sys_Web');
+                CloseHre_ProgressBar();
+            }
+        });
+    }
+
+    function onFilterResource() {
+        //loc cac module
+        var moduleNames = $("#ModuleNames").data("kendoDropDownList");
+        var moduleName = moduleNames.value();
+
+        for (var i = 0; i < modules.length; i++) {
+            if (moduleName == '') {
+                $("tr[name='" + modules[i] + "']").removeClass('hidden');
+            }
+            else {
+                if (modules[i] == moduleName) {
+                    $("tr[name='" + modules[i] + "']").removeClass('hidden');
+                } else {
+                    $("tr[name='" + modules[i] + "']").addClass('hidden');
+                }
+            }
+        }
+    }
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <div class="section-header">
+                <div class="title">
+                    <img src="@ConstantPath.PositionIconPath" alt="" width="20" height="20" />
+                    @title  @Html.ActionLink("(" + ConstantDisplay.HRM_System_GroupPermission__Back_To_List.TranslateString() + ")", "Index", "Sys_Group")
+                </div>
+            </div>
+
+            <div class="commandToolBarWidge">
+                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveGroupPermission", Name = "btnSaveGroupPermission", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+
+                <div style="float:right">
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "updateResource", Name = "btnUpdateResource", Content = ConstantDisplay.HRM_System_GroupPermission_UpdateResource.TranslateString(), ImageUrl = ConstantPath.IconEditPath })
+                </div>
+
+                <div class="LineFooterCommandEdit">
+                </div>
+                <div style="clear: both;"></div>
+                <br />
+            </div>
+            <div>
+                
+                <div class="contendSearchWidge" style="width:100%">
+                    @using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_cat_sysgroup" }))
+                    {
+                        @Html.HiddenFor(model => model.ID)
+
+                        <div class="hrm_box">
+                            <div id="dvCode">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Code)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.Code)
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.GroupName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.GroupName)
+
+                                </div>
+                            </div>
+
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.IsActivate)
+                                </div>
+                                <div class="FieldValue">
+                                    @(Html.VnrCheckBoxFor(model => model.IsActivate))
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <div class="hrm_box">
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Description)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextAreaFor(mode => mode.Notes)
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    <div style="float:right;margin-top:80px">
+                        <div class="FieldTitle">
+                            @ConstantDisplay.HRM_System_FilterModule.TranslateString()
+                        </div>
+
+                        @{
+                            var dropdownModules = new DropDownListBuilderInfo()
+                            {
+                                Name = "ModuleNames",
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                BindTo = listModuleNames,
+                                EventChange = "onFilterResource",
+                                OptionLabel = ConstantDisplay.HRM_System_ChooseModuleAll.TranslateString(),
+                                StyleCss = "width:200px;"
+                            };
+                        }
+                        @(Html.VnrDropDownList(dropdownModules))
+                    </div>
+                </div>
+            </div>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            @using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Sys_GroupPermission" }))
+            {
+                <div class="scrollit">
+                    <table class="adminContent">
+                        <tbody>
+                            <tr>
+                                <td>
+                                    @if (Model.AvailablePermissions.Count == 0)
+                                    {
+                                        <text>Không tìm thấy GroupPermssion </text>
+                                    }
+                                    else if (Model.AvailableRolesName.Count == 0)
+                                    {
+                                        <text>Không tìm thấy Role</text>
+                                    }
+                                    else
+                                    {
+                                        <script type="text/javascript">
+                                            $(document).ready(function () {
+                                                @foreach (var cr in Model.AvailableRolesName)
+                                                {
+                                                    <text>
+                                                $('#selectall-@(cr.Id)').click(function () {
+                                                    var isChecked = this.checked;
+                                                    $('#form_Sys_GroupPermission input[type=checkbox].allow_@(cr.Id)').each(function () {
+                                                        this.checked = isChecked;
+
+                                                    });
+                                                    if (!isChecked) {
+                                                        $('#form_Sys_GroupPermission input[type=checkbox].allow_@(cr.Id)').removeAttr("checked");
+                                                    }
+                                                });
+                                                </text>
+                                                }
+                                            });
+                                        </script>
+                                        <table class="k-grid" cellpadding="6" cellspacing="5" rules="all" style="width: 100%; border-collapse: collapse; border: 0px solid #ccc">
+
+                                            <thead>
+                                                <tr>
+                                                    <th scope="col" class="k-header ">
+                                                        <strong>@ConstantDisplay.HRM_System_Resource_ResourceNameEn.TranslateString()</strong>
+                                                    </th>
+                                                    <th scope="col" class="k-header ">
+                                                        <strong>@ConstantDisplay.HRM_System_Resource_ResourceName.TranslateString()</strong>
+                                                    </th>
+                                                    <th scope="col" class="k-header ">
+                                                        <strong>@ConstantDisplay.HRM_System_UserApprove_Type.TranslateString()</strong>
+                                                    </th>
+                                                    @foreach (var cr in Model.AvailableRolesName)
+                                                    {
+                                                        <th scope="col" class="k-header ">
+                                                            @*<strong>@cr.Name</strong>*@
+                                                            <span>
+                                                                <input type="checkbox" id="selectall-@(cr.Id)" />
+                                                                <label for="selectall-@(cr.Id)">@cr.Name</label>
+                                                            </span>
+                                                        </th>
+                                                    }
+                                                </tr>
+                                            </thead>
+                                            <tbody style="height:500px; overflow:scroll;">
+                                                @{
+                                                    bool altRow = true;
+                                                    var listResources = (Dictionary<string, List<Sys_GroupPermissionModel>>)ViewBag.listResource;
+                                                }
+                                                @foreach (KeyValuePair<string, List<Sys_GroupPermissionModel>> pr in listResources)
+                                                {
+                                                    var Sys_GroupPermissionModels = pr.Value.Where(p => p != null).ToList();
+                                                    //foreach (var sysGroupPermissionModel in Sys_GroupPermissionModels)
+                                                    //[Hien.Nguyen] Edit vòng lặp foreach thành for
+                                                    for (int i = 0; i < Sys_GroupPermissionModels.Count; i++)
+                                                    {
+                                                        altRow = !altRow;
+                                                        <tr name="@(Sys_GroupPermissionModels[i].Category == "Module" ? Sys_GroupPermissionModels[i].ResourceName :Sys_GroupPermissionModels[i].Category)" style="@(Sys_GroupPermissionModels[i].Category == "Module" ? "background: #067590;font-size: 12px; color: #fff; font-weight: bold;" : "")" class="@(altRow ? "altrowstyle" : "rowstyle")">
+                                                            <td>
+                                                                <span>@Sys_GroupPermissionModels[i].ResourceName</span>
+                                                            </td>
+                                                            <td>
+                                                                @if (Sys_GroupPermissionModels[i].Category != "Module")
+                                                                {
+                                                                    <span>@Sys_GroupPermissionModels[i].ResourceNameTranslate</span>
+                                                                }
+                                                            </td>
+                                                            <td>
+                                                                @if (Sys_GroupPermissionModels[i].Category != "Module")
+                                                                {
+                                                                    <span>@Sys_GroupPermissionModels[i].ResourceTypeTranslate</span>
+                                                                }
+                                                            </td>
+                                                            @foreach (var cr in Model.AvailableRolesName)
+                                                            {
+                                                                if (i == 00)
+                                                                {
+                                                                    var allowed = Model.Allowed.ContainsKey(Sys_GroupPermissionModels[i].ResourceName) && Model.Allowed[Sys_GroupPermissionModels[i].ResourceName][cr.Id];
+                                                                    <td>
+                                                                        <input onclick="MiltipleChecked($(this))" data-root="true" data-parent="@(pr.Key + "_" + cr.Id)" class="allow_@(cr.Id)" type="checkbox" value="@(Sys_GroupPermissionModels[i].ResourceID)" name="@(Sys_GroupPermissionModels[i].GroupID)_allow_@(cr.Id)" @(allowed ? " checked=checked" : null) />
+                                                                    </td>
+                                                                }
+                                                                else
+                                                                {
+                                                                    var allowed = Model.Allowed.ContainsKey(Sys_GroupPermissionModels[i].ResourceName) && Model.Allowed[Sys_GroupPermissionModels[i].ResourceName][cr.Id];
+                                                                    <td>
+                                                                        <input data-root="false" data-parent="@(pr.Key + "_" + cr.Id)" class="allow_@(cr.Id)" type="checkbox" value="@(Sys_GroupPermissionModels[i].ResourceID)" name="@(Sys_GroupPermissionModels[i].GroupID)_allow_@(cr.Id)" @(allowed ? " checked=checked" : null) />
+                                                                    </td>
+                                                                }
+
+                                                            }
+
+                                                        </tr>
+                                                    }
+                                                }
+                                            </tbody>
+                                        </table>
+                                    }
+                                </td>
+                            </tr>
+                        </tbody>
+
+                    </table>
+                </div>
+
+
+                @Html.Hidden((Guid)ViewBag.groupId + "_allow_0", "0")
+
+
+            }
+        </div>
+
+    </div>
+</div>
+
+<script type="text/javascript">
+
+    //[Hien.Nguyen] Checked các Role trong một Group
+    function MiltipleChecked(e) {
+
+        var _tmp = e.attr("data-parent");
+        $("input[data-parent=" + _tmp + "][data-root=false]").prop('checked', e.context.checked);
+    }
+</script>

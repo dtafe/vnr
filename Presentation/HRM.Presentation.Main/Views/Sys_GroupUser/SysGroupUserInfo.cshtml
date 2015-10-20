@@ -1,0 +1,169 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@model Sys_GroupUserModel
+@using HRM.Presentation.HrmSystem.Models
+@{
+    ViewBag.Title = "SysGroupUser";
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+<script>
+    var checkedNodes = [];
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    function doSaveAndContinue() {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var dataPara = {
+            UserID: $("#UserID").val(),
+            GroupID: $('#@Html.FieldIdFor(model => model.GroupID)').val(),
+            OrgStructures: checkedNodes,
+            Note: $('#@Html.FieldIdFor(model => model.Note)').val(),
+        };
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'api/Sys_GroupUser/Post',
+            data: dataPara,
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                var window = $("#windowSysGroupUser").data("kendoWindow");
+                window.refresh();
+                var grid = $("#GroupUser").data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+            }
+        });
+    }
+    
+    function onSaveAndClose() {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var dataPara = {
+            UserID: $("#UserID").val(),
+            GroupID: $('#@Html.FieldIdFor(model => model.GroupID)').val(),
+            OrgStructures: checkedNodes,
+            Note: $('#@Html.FieldIdFor(model => model.Note)').val(),
+        };
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'api/Sys_GroupUser/Post',
+            data: dataPara,
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                var window = $("#windowSysGroupUser").data("kendoWindow");
+                window.refresh();
+                window.close();
+                var grid = $("#GroupUser").data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+            }
+        });
+    }
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_sys_sysgroupuser" }))
+{
+    
+    @*<div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.Code)
+        </div>
+        <div class="FieldValue">
+            @Html.VnrTextBoxFor(mode => mode.Code)
+            @Html.ValidationMessageFor(model => model.Code)
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.GroupUserName)
+        </div>
+        <div class="FieldValue">
+            @Html.VnrTextBoxFor(mode => mode.GroupUserName)
+            @Html.ValidationMessageFor(model => model.GroupUserName)
+        </div>
+    </div>*@
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.UserID)
+        </div>
+        <div class="FieldValue">
+            <script>
+                function setValue() {
+                    var data = $("#hdUserName").val();
+                    $("#UserID").data("kendoMultiSelect").value([data]);
+                }
+            </script>
+            @{
+                var mtsUser = new MultiSelectBuilderInfo()
+                {
+                    DataTextField = Sys_GroupUserModel.FieldNames.UserName,
+                    DataValueField = Sys_GroupUserModel.FieldNames.ID,
+                    Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                    Placeholder = ConstantDisplay.HRM_System_SelectUser.TranslateString(),
+                    Enable = false,
+                    MaxSelectedItems = 1,
+                    EventDataBound = "setValue"
+                };
+            }
+            @(Html.VnrMultiSelectFor(model => model.UserID, mtsUser))
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.GroupID)
+        </div>
+        <div class="FieldValue">
+            @{
+                var mtsGroup = new MultiSelectBuilderInfo()
+                {
+                    DataTextField = Sys_GroupUserModel.FieldNames.GroupName,
+                    DataValueField = Sys_GroupUserModel.FieldNames.ID,
+                    Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiGroup",
+                    Placeholder = ConstantDisplay.HRM_System_SelectGroup.TranslateString(),
+                    MaxSelectedItems = 1,
+                };
+            }
+            @(Html.VnrMultiSelectFor(model => model.GroupID, mtsGroup))
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabel("Phòng ban")
+        </div>
+        <div class="FieldValue">
+            @Html.Partial("EditorTemplates/OrgStructureTreeView")
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.Note)
+        </div>
+        <div class="FieldValue">
+            @(Html.VnrTextAreaFor(model => model.Note))
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+
+        </div>
+        <div class="FieldValue">
+            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveAndContinue", Name = "SaveAndContinue", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveAndClose", Name = "SaveAndClose", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+            @*<input type="button" value="@ConstantAction.HRM_Common_SaveNew.TranslateString()" onclick="onSaveAndContinue($('#form_sys_sysgroupuser'), '@_hrm_Sys_Service', 'api/Sys_GroupUser/', 'GroupUser','windowSysGroupUser'); return false;" class="k-button" />*@
+            @*<input type="button" value="@ConstantAction.HRM_Common_SaveClose.TranslateString()" onclick="onSaveAndClose($('#form_sys_sysgroupuser'), '@_hrm_Sys_Service', 'api/Sys_GroupUser/', 'GroupUser','windowSysGroupUser'); return false;" class="k-button" />*@
+        </div>
+    </div>
+
+}
+

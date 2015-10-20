@@ -1,0 +1,361 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Training.Models;
+@using HRM.Infrastructure.Security;
+
+@model Tra_TraineeCertificateSearchModel
+
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service; Layout = null;
+}
+
+
+
+<script>
+    //Data khi tìm kiếm
+    var checkedNodes = [];
+    function filterFieldInfo() {
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+        return {
+            OrgStructureID: checkedNodes.join(','),
+            JobTitleID: jobTitleID ? jobTitleID[0] : null,
+            PositionID: positionID ? positionID[0] : null,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            CourseID: $('#@Html.FieldIdFor(model => model.CourseID)').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid("gridTraTraineeCertificate");
+            checkedNodes = [];
+        });
+    });
+    //Xử Lý grid
+    GridCheckbox("gridTraTraineeCertificate");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        e.preventDefault();
+        DeleteSelected("gridTraTraineeCertificate", '@_hrm_Main_Web' + "Tra_TraineeCertificate/RemoveSelected/", selectedIds, '@ConstantPermission.Tra_TraineeCertificate');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportTraineeCertificateSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Tra_TraineeCertificate');
+    });
+
+    $("#btnExportAll").click(function () {
+      @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#gridTraTraineeCertificate').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportAllTraineeCertificateList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Tra_TraineeCertificate');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.JobTitleID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var JobTitleName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "JobTitleName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.PositionID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PositionName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "PositionName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                            </div>
+                        </div>
+                      
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CourseID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _CourseID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "CourseName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Tra_GetData/GetMultiTraCourse",
+                                        StyleCss = "width:204px"
+                                    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.CourseID, _CourseID))
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="FieldTitle">
+                                <b>
+                                    @ConstantDisplay.HRM_HR_Profile_PassportDateOfIssue.TranslateString()
+                                </b>
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                                @{
+                                    var dateTo = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+                       
+                    </div>
+            </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnTraineeCertificate", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+    </div>
+
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridTra_TraineeCertificate_Name + "__Tra_TraineeCertificate_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridTra_TraineeCertificate_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Tra_GetData/GetTraineeCertificateList/",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckAll = false,
+            ShowCheckbox = false
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+               Tra_TraineeCertificateModel.FieldNames.CodeEmp,
+               Tra_TraineeCertificateModel.FieldNames.ProfileName,
+                      Tra_TraineeCertificateModel.FieldNames.E_UNIT,
+                       Tra_TraineeCertificateModel.FieldNames.E_DIVISION,
+                Tra_TraineeCertificateModel.FieldNames.E_DEPARTMENT,
+                 Tra_TraineeCertificateModel.FieldNames.E_TEAM,
+                Tra_TraineeCertificateModel.FieldNames.E_SECTION,
+
+               Tra_TraineeCertificateModel.FieldNames.CourseName,
+               Tra_TraineeCertificateModel.FieldNames.ClassName,
+                Tra_TraineeCertificateModel.FieldNames.TeacherName,
+                Tra_TraineeCertificateModel.FieldNames.DateCertificate,
+                Tra_TraineeCertificateModel.FieldNames.DateExpireCertificate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Tra_TraineeCertificateModel.FieldNames.CodeEmp,80},
+                {Tra_TraineeCertificateModel.FieldNames.ProfileName,140},
+                        {Tra_TraineeCertificateModel.FieldNames.E_UNIT,135},
+                {Tra_TraineeCertificateModel.FieldNames.E_DIVISION,135},
+
+                {Tra_TraineeCertificateModel.FieldNames.E_TEAM,135},
+                {Tra_TraineeCertificateModel.FieldNames.E_DEPARTMENT,135},
+                {Tra_TraineeCertificateModel.FieldNames.E_SECTION,135},
+
+                {Tra_TraineeCertificateModel.FieldNames.CourseName,120},
+                   {Tra_TraineeCertificateModel.FieldNames.ClassName,120},
+                {Tra_TraineeCertificateModel.FieldNames.TeacherName,120},
+                {Tra_TraineeCertificateModel.FieldNames.DateCertificate,90},
+                {Tra_TraineeCertificateModel.FieldNames.DateExpireCertificate,95}
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Tra_TraineeCertificateModel.FieldNames.ProfileName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Tra_TraineeCertificateModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+                {Tra_TraineeCertificateModel.FieldNames.ProfileName,ConstantDisplay.HRM_Att_Report_ProfileName},
+                        {Tra_TraineeCertificateModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Tra_TraineeCertificateModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Tra_TraineeCertificateModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Tra_TraineeCertificateModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Tra_TraineeCertificateModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Tra_TraineeCertificateModel.FieldNames.CourseName,ConstantDisplay.HRM_Tra_Course_CourseName},
+                       {Tra_TraineeCertificateModel.FieldNames.ClassName,ConstantDisplay.HRM_Tra_Class_ClassName},
+                {Tra_TraineeCertificateModel.FieldNames.TeacherName,ConstantDisplay.HRM_Tra_Class_Teacher},
+                       {Tra_TraineeCertificateModel.FieldNames.DateCertificate,ConstantDisplay.HRM_Tra_TraineeCertificate_DateCertificate},
+                {Tra_TraineeCertificateModel.FieldNames.DateExpireCertificate,ConstantDisplay.HRM_Tra_TraineeCertificate_DateExpireCertificate},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridTraTraineeCertificate",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Tra_GetData/GetTraineeCertificateList/",
+        //    ReadData = "filterFieldInfo",
+        //    ShowEditIcon=false,
+        //    ShowCheckAll=false,
+        //    ShowCheckbox=false
+        //};
+    }
+
+    @(Html.VnrGrid<Tra_TraineeCertificateModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnTraineeCertificate", "Tra_TraineeCertificateModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

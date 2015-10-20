@@ -1,0 +1,247 @@
+﻿@using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Evaluation.Models.Eva_PerformanceEvaModel
+@{
+    ViewBag.Title = "Update Eva_PerformanceEva";
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string gridName = "gridPerformanceEvaDetail";
+    string Formula = Model != null ? Model.FormulaOfPerformanceTemplate : "";
+
+    var dateStartMustEnter = "2015/06/01";
+    var dateEndMustEnter = "2015/12/31";
+    var currentDate = DateTime.Now.ToString("yyyy/MM/dd");
+    if (Model != null)
+    {
+        if (Model.DateStartMark.HasValue)
+        {
+            dateStartMustEnter = Model.DateStartMark.Value.ToString("yyyy/MM/dd");
+        }
+        if (Model.DateEndMark.HasValue)
+        {
+            dateEndMustEnter = Model.DateEndMark.Value.ToString("yyyy/MM/dd");
+        }
+    }
+
+
+
+}
+<script type="text/javascript">
+    var gridName = '@gridName';
+    SetFieldRequired();
+
+    function getData() {
+        var id = $("#ID").val();
+        var status = $("#Status1").val();
+        var strengths = $("#Strengths").val();
+        var weaknesses = $("#Weaknesses").val();
+        var resultNote = $("#ResultNote").val();
+        var levelID = $("#LevelID").val();
+        var proportion = $("#Proportion").val();
+        //  var attachFile = $("#AttachFile").val();
+        var attachFiles = $("#AttachFile").val().split(",");
+        var totalMark = $("#TotalMark").val();
+
+
+        return {
+            ID: id,
+            Status: status,
+            Proportion: proportion,
+            Strengths: strengths,
+            Weaknesses: weaknesses,
+            ResultNote: resultNote,
+            LevelID: levelID,
+            //   AttachFile: attachFile,
+            AttachFiles: attachFiles,
+            TotalMark: totalMark
+        };
+    }
+    var doSave = function () {
+
+        var check = CheckMark();
+        if (check === false) {
+            return;
+        }
+        else {
+            //tính toán
+            var vtotalMark = calculate();
+            var performamceEvaData = getData();
+
+            //lay data cua luoi post len
+            var grid = $("#gridPerformanceEvaDetail").data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentData = grid.dataSource.view();
+            //var PevadetailData = [];
+            //for (var i = 0; i < currentData.length; i++) {
+            //    PevadetailData.push(currentData[i].toJSON());
+            //}
+            var currentData = grid.dataSource._data;
+            var PevadetailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                for (var j = 0; j < currentData[i].items.length; j++) {
+                    PevadetailData.push(currentData[i].items[j].toJSON());
+                }
+            }
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: PevadetailData, performanceEvaModel: performamceEvaData }));            
+                $.ajax({
+                    traditional: true,
+                    url: '@_hrm_Main_Web' + 'Eva_PerformanceEvaWaitingEva360/Save',
+                    data: lstModel,
+                    type: 'POST',
+                    success: function (data) {
+                        ReadGrid(gridName);
+                        if (data.ActionStatus != undefined) {
+                            ShowNotificationProcessor(data.ActionStatus);
+                            return;
+                        }
+                        ShowNotificationProcessor("Cập Nhật Thành Công");
+
+                    },
+                    error: function (data) { }
+                });
+        }
+
+    };
+    function CheckMark() {
+        debugger;
+        var dtCurrentDate = new Date('@currentDate');
+        var dtStartMustEnter = new Date('@dateStartMustEnter');
+        var dtEndMustEnter = new Date('@dateEndMustEnter');
+        var list = $("#gridPerformanceEvaDetail").data("kendoGrid").dataSource.data();
+        debugger;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].Evaluation != null && list[i].Evaluation.length >500) {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_PerformanceEvaWaitingEva_Evaluation.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Trong Bản Đánh Giá không được > 500 ký tự .");
+                return false;
+            }
+        }
+
+        if (dtStartMustEnter <= dtCurrentDate && dtCurrentDate <= dtEndMustEnter) {
+            //bat buoc nhap diem
+            //var list = $("#gridPerformanceEvaDetail").data("kendoGrid").dataSource.data();
+
+            var currentData = list;
+            var detailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                for (var j = 0; j < currentData[i].items.length; j++) {
+                    detailData.push(currentData[i].items[j].toJSON());
+                }
+            }
+
+
+            for (var i = 0; i < detailData.length; i++) {
+                if (detailData[i].Mark == null) {
+                    ShowNotificationProcessor("Bạn Chưa Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Trong Bảng Đánh Giá.");
+                    return false;
+                }
+                if (detailData[i].Mark > detailData[i].MaximumRating || detailData[i].Mark < detailData[i].MinimumRating) {
+                    ShowNotificationProcessor("Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Nằm Trong Khoảng Giữa Của " + '@ConstantDisplay.HRM_Evaluation_MinimumRating.TranslateString()' + " Và " + '@ConstantDisplay.HRM_Evaluation_MaximumRating.TranslateString()');
+                    return false;
+                }
+            }
+        }
+        else {
+            //"không cần nhap diem"
+              return true;
+        }
+        return true;
+    }
+    function calculate() {       
+        //var check = CheckMark();
+        //if (check === false) {
+        //    alert("check mark false");
+        //    return;
+        //}
+        //else {
+            var list = $("#gridPerformanceEvaDetail").data("kendoGrid").dataSource.data();
+            var TotalMark = 0;
+            var TotalRate = 0;
+            var TotalKPI = list.length;
+            var Formula = '@Formula';
+            for (var i = 0; i < list.length; i++) {
+                TotalMark += list[i].Mark;
+                TotalRate += list[i].Rate;
+            }
+
+            var listData = $("#gridPerformanceEvaDetail").data("kendoGrid");
+            parameterMap = listData.dataSource.transport.parameterMap;
+            var currentData = listData.dataSource.view();
+            //var PevadetailData = [];
+            //for (var i = 0; i < currentData.length; i++) {
+            //    PevadetailData.push(currentData[i].toJSON());
+            //}
+
+            var currentData = listData.dataSource._data;
+            var PevadetailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                for (var j = 0; j < currentData[i].items.length; j++) {
+                    PevadetailData.push(currentData[i].items[j].toJSON());
+                }
+            }
+
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: PevadetailData, Formula: Formula }));
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Eva_GetData/GetTotalMarkByFormula360",
+                data:lstModel,
+                async: false,
+                datatype:'json',
+                type: 'POST',
+                success:function(data)
+                {
+                    $("#TotalMark").val(data);
+                    TotalMark = data;
+                }
+            });
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Eva_GetData/GetTotalMark",
+                data: { TotalMark: TotalMark },
+                async: false,
+                datatype: 'json',
+                type: 'POST',
+                success: function (data) {
+                    var datas = [{ LevelName: data.LevelName, ID: data.ID }];
+                    var ddl = $("#LevelID").data("kendoDropDownList");
+                    ddl.value(data.ID);
+                }
+            });
+        return TotalMark;
+
+        //}
+    }
+
+</script>
+
+<div>
+    @ViewBag.MsgInsert
+</div>
+
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+
+                    <div class="title">
+                        <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Evaluation_PerformanceEvaWaitingEva_Edit_Title.TranslateString()
+                        @Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_PerformanceEvaWaitingEva.TranslateString() + ")", "/Index")
+                    </div>
+
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("PerformanceEvaWaitingEvaInfo360", Model)
+            </div>
+        </div>
+    </div>
+</form>

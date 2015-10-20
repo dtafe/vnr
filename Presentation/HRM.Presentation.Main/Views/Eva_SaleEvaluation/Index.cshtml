@@ -1,0 +1,340 @@
+﻿@using HRM.Presentation.Evaluation.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+
+@using HRM.Infrastructure.Security;
+
+@model Eva_SaleEvaluationModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var hrm_Hre_Web = ConstantPathWeb.Hrm_Hre_Web;
+    //var hrm_Hre_Service = ConstantPathWeb.hrm_Hre_Service;
+    //var _hrm_Main_Web = ConstantPathWeb._hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var gridName = "gridSaleEvaluation";
+    var windowName = "windowSaleEvaluation";
+    var profileId = Guid.Empty;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Hre_Web;
+    if (ViewBag.profileId != null)
+    {
+        profileId = ViewBag.profileId;
+    }
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 700,
+        Title = "Thông tin Doanh Số",
+        LoadContentFrom = _hrm_Main_Web + "Eva_SaleEvaluation/EvalSaleEvaluationInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var titleEditPopUp = 'Chỉnh Sửa Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Update_Title.TranslateString())';*@
+    var titleCreatePopUp = 'Tạo Mới Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Create_Title.TranslateString())';*@
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //tim kiem
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid(gridName);
+            checkedNodes = [];
+        });
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Eva_SaleEvaluation/EvalSaleEvaluationInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Eva_SaleEvaluation', titleEditPopUp);
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Eva_SaleEvaluation');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Eva_SaleEvaluation');
+    });
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_SaleEvaluation/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_SaleEvaluation');
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+       
+       
+       var grid = $('#gridSaleEvaluation').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hre_Service' + "Eva_GetData/ExportSaleEvaluationList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_SaleEvaluation');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hre_Service' + "Eva_GetData/ExportSaleEvaluationSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_SaleEvaluation');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue" id="test">
+                            @Html.VnrTextBoxFor(model => model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="dropdownlist"></div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                        </div>
+                    </div>
+                    
+                   
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+     @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnSaleEvaluation", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+         @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<script>
+    function clickProfile(ProfileID) {
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + ProfileID, 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        //Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        //{
+        //    {Eva_SaleEvaluationModel.FieldNames.SalesTypeID ,new object[]
+        //        {  "ID", Eva_SaleEvaluationModel.FieldNames.SalesTypeName, ViewData["Eva_SalesType"], ConstantDisplay.HRM_Evaluation_SaleEvaluation_SalesTypeID,""}},
+        //};
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridSaleEvaluation_Name + "__Eva_SaleEvaluation_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridSaleEvaluation_Name,
+            ReadActionUrl = hrm_Hre_Service + "Eva_GetData/GetSaleEvaluationList",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.ProfileName,"clickProfile, ProfileID"},
+            };
+            grid.HiddenFields = new[]
+            {
+                Eva_SaleEvaluationModel.FieldNames.ProfileID,
+            };
+            grid.ValueFields = new string[]
+            {
+                Eva_SaleEvaluationModel.FieldNames.ProfileName,
+                Eva_SaleEvaluationModel.FieldNames.CodeEmp,
+                
+              Eva_SaleEvaluationModel.FieldNames.E_UNIT,
+                       Eva_SaleEvaluationModel.FieldNames.E_DIVISION,
+                Eva_SaleEvaluationModel.FieldNames.E_DEPARTMENT,
+                 Eva_SaleEvaluationModel.FieldNames.E_TEAM,
+                Eva_SaleEvaluationModel.FieldNames.E_SECTION,
+
+                
+                Eva_SaleEvaluationModel.FieldNames.Year,
+                Eva_SaleEvaluationModel.FieldNames.SalesTypeName,
+                Eva_SaleEvaluationModel.FieldNames.TagetNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultPercent
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.ProfileName, 150},
+                {Eva_SaleEvaluationModel.FieldNames.CodeEmp, 80},
+              
+  {Eva_SaleEvaluationModel.FieldNames.E_DEPARTMENT,135},
+                {Eva_SaleEvaluationModel.FieldNames.E_DIVISION,135},
+                {Eva_SaleEvaluationModel.FieldNames.E_SECTION,135},
+                {Eva_SaleEvaluationModel.FieldNames.E_TEAM,135},
+                {Eva_SaleEvaluationModel.FieldNames.E_UNIT,135},
+
+                {Eva_SaleEvaluationModel.FieldNames.Year, 100},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, 200},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, 80},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Eva_SaleEvaluationModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                
+              
+                {Eva_SaleEvaluationModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Eva_SaleEvaluationModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Eva_SaleEvaluationModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Eva_SaleEvaluationModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Eva_SaleEvaluationModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantDisplay.HRM_Evaluation_SaleEvaluation_Year},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, ConstantDisplay.HRM_Evaluation_SaleEvaluation_SalesTypeID},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_TagetNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultPercent},
+            };
+
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantFormat.HRM_Format_MonthYear}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = "gridSaleEvaluation",
+    //    ValueFields = valueFields,
+    //    FormatFields = formatFields,
+    //    ReadActionUrl = hrm_Hre_Service + "Eva_GetData/GetSaleEvaluationList",
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadData = "filterFieldInfo",
+    //    HyperlinkFields = hyperlinkFields,
+    //    HiddenFields = hiddenFields
+
+
+    //};
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Eva_SaleEvaluationModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnSaleEvaluation", "Eva_SaleEvaluationModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

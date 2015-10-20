@@ -1,0 +1,231 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Training.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model Tra_ReportTraineeByMonthModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    SetFieldRequired();
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            Month: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Month").val()),
+            CourseID: $('#@Html.FieldIdFor(model => model.CourseID)').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#gridTra_ReportTraineeByMonth').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+
+        });
+    });
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Tra_ReportTraineeByMonth');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Tra_GetData/GetReportTraineeByMonth";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + '/Tra_GetData/GetReportTraineeByMonth', filterFieldInfo(true));
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.Month)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var Month = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Value = DateTime.Today.ToShortDateString(),
+                               
+                            };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.Month, Month).Format("MM/yyyy")
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.CourseID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+    var _CourseID = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "CourseName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Tra_GetData/GetMultiTraCourse",
+    };
+}
+@Html.VnrComboBoxFor(mode => mode.CourseID, _CourseID)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+                            {
+                                Tra_ReportTraineeByMonthModel.FieldNames.CodeEmp,
+                                Tra_ReportTraineeByMonthModel.FieldNames.ProfileName,
+              Tra_ReportTraineeByMonthModel.FieldNames.E_UNIT,
+                       Tra_ReportTraineeByMonthModel.FieldNames.E_DIVISION,
+                Tra_ReportTraineeByMonthModel.FieldNames.E_DEPARTMENT,
+                 Tra_ReportTraineeByMonthModel.FieldNames.E_TEAM,
+                Tra_ReportTraineeByMonthModel.FieldNames.E_SECTION,
+
+
+                                Tra_ReportTraineeByMonthModel.FieldNames.CourseName,
+                                Tra_ReportTraineeByMonthModel.FieldNames.ClassName,
+                                Tra_ReportTraineeByMonthModel.FieldNames.StartDate,
+                                Tra_ReportTraineeByMonthModel.FieldNames.Month,
+                                Tra_ReportTraineeByMonthModel.FieldNames.WorkPlace,
+                                Tra_ReportTraineeByMonthModel.FieldNames.Notes,
+
+                            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Tra_ReportTraineeByMonthModel.FieldNames.CodeEmp,100},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.ProfileName,130},
+                         {Tra_ReportTraineeByMonthModel.FieldNames.E_DEPARTMENT,135},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_DIVISION,135},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_SECTION,135},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_TEAM,135},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_UNIT,135},
+
+                                {Tra_ReportTraineeByMonthModel.FieldNames.CourseName,100},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.ClassName,100},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.StartDate,100},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.Month,100},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.WorkPlace,130},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.Notes,100},
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Tra_ReportTraineeByMonthModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.ProfileName,ConstantDisplay.HRM_Att_Report_ProfileName},
+                                          {Tra_ReportTraineeByMonthModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Tra_ReportTraineeByMonthModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                                {Tra_ReportTraineeByMonthModel.FieldNames.CourseName,ConstantDisplay.HRM_Tra_Course_CourseName},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.ClassName,ConstantDisplay.HRM_Tra_Class_ClassName},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.StartDate,ConstantDisplay.HRM_System_AutoBackup_DateStart},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.Month,ConstantDisplay.HRM_Common_Search_Month},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.WorkPlace,ConstantDisplay.HRM_HR_Profile_WorkingPlace},
+                                {Tra_ReportTraineeByMonthModel.FieldNames.Notes,ConstantDisplay.HRM_Recruitment_Notes},
+                            };
+                            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                            {
+                                {Tra_ReportTraineeByMonthModel.FieldNames.Month,ConstantFormat.HRM_Format_MonthYear},
+                                
+                            };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridTra_ReportTraineeByMonth",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowNextPrevious = true,
+            PageSize = 20,
+            ShowPageNumber = true,
+            ReadActionUrl = _hrm_Hre_Service + "Tra_GetData/GetReportTraineeByMonth",
+            ReadData = "filterFieldInfo",
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            FormatFields = formatFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Tra_ReportTraineeByMonthModel>(grid))
+</div>
+

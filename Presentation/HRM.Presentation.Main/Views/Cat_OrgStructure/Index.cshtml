@@ -1,0 +1,327 @@
+﻿@model HRM.Presentation.Category.Models.CatOrgStructureSearchModel
+@using HRM.Infrastructure.Utilities
+
+@using HRM.Infrastructure.Security;
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_OrgStructure.TranslateString();
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowOrgStructure",
+        Visible = false,
+        Width = 1000,
+        LoadContentFrom = _hrm_Main_Web + "Cat_OrgStructure/CreateOrUpdate/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    //Biến để lưu id của các dòng đã check chọn
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_OrgStructure_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_OrgStructure_Create_Title.TranslateString())';
+    var gridName = "grid_Cat_OrgStructure";
+
+    var checkedNodes = [];
+    var orderNumber = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var typeID = $("#SOrgStructureTypeID").val();
+        typeID = typeID != null ? typeID[0] : typeID;
+        return {
+
+            OrgStructureName: $('#SOrgStructureName').val(),
+            Code: $('#SCode').val(),
+            ORGSTRUCTURETYPEID: typeID,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#grid_Cat_OrgStructure').data("kendoGrid");
+            grid.dataSource.read();
+        });
+        EditGridNewPage(gridName, '#Hrm_Main_Web/Cat_OrgStructure/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Cat_OrgStructure/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $(document).ready(function () {
+        //SHow Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+    });
+    //Xử Lý Grid
+    GridCheckbox("grid_Cat_OrgStructure");
+    //Xử lý nút Delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        var grid = $('#grid_Cat_OrgStructure').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("grid_Cat_OrgStructure", '@_hrm_Main_Web' + "Cat_OrgStructure/RemoveSelected/", selectedIds, '@ConstantPermission.Cat_OrgStructure');
+        //checkProfileInOrg(orderNumber);
+        return false;
+    });
+
+
+    function checkProfileInOrg(orderNumber)
+    {
+        
+        $.ajax({
+
+            url: '@_hrm_Hr_Service' + "Cat_GetData/CheckExistProfileInOrgStructure",
+            data: { selectedIds: selectedIds },
+            type: 'POST',
+            datatype: 'json',
+            traditional: true,
+            success: function (data) {
+                
+                var rs = data.split(',');
+                var success = "";
+                var dataReturn = "";
+                var grid = $("#grid_Cat_OrgStructure").data("kendoGrid");
+                for (var i = 0; i < rs.length; i++) {
+                    if (rs[i] == "Success" ) {
+                        success = rs[i];
+                    } else {
+                        dataReturn += "[" + rs[i] + "]";
+                    }
+                }
+                if (success == "Success") {
+                    ShowNotification("Thông Báo", "Thao Tác Thành Công", "k-block k-success-colored");
+                }
+                if(dataReturn.length > 0){
+                    ShowNotification("Thông Báo", dataReturn + " Đã Có Nhân Viên Nên Không Thể Xóa", "k-block k-info-colored");
+                }
+                grid.dataSource.read();
+                selectedIds = [];
+               
+            }
+
+        });
+    }
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+    //Export
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == []) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportOrgStrucTypeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_OrgStructure');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#grid_Cat_OrgStructure').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllOrgStructureList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_OrgStructure');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.OrgStructureName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SOrgStructureName", "Width: 200px")
+                    </div>
+                </div>
+
+                <div id="div3">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SCode", "width:200px")
+                    </div>
+                </div>
+
+                <div id="div4">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.OrgStructureTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                            {
+                                Name = "SOrgStructureTypeID",
+                                DataTextField = CatOrgStructureModel.FieldNames.OrgStructureTypeName,
+                                DataValueField = CatOrgStructureModel.FieldNames.ID,
+                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                MaxSelectedItems = 1
+                            };
+                        }
+                        @(Html.VnrMultiSelect(_OrgStructureTypeID))
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @*<div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnOrgStructure", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Cat_OrgStructure_Grid_Name + "__Cat_OrgStructure_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Cat_OrgStructure_Grid_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetOrgStructureList",
+            ReadData = "filterFieldInfo"
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                CatOrgStructureModel.FieldNames.Code,
+                CatOrgStructureModel.FieldNames.OrgStructureName,
+                CatOrgStructureModel.FieldNames.OrgStructureTypeName,
+                CatOrgStructureModel.FieldNames.OrgStructureParentName,
+                CatOrgStructureModel.FieldNames.OrderNumber ,
+                CatOrgStructureModel.FieldNames.Description
+            };
+
+            //Set độ rộng cho từng column
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {CatOrgStructureModel.FieldNames.Code, 100},
+                {CatOrgStructureModel.FieldNames.OrgStructureName, 150},
+                {CatOrgStructureModel.FieldNames.OrgStructureTypeName, 150},
+                {CatOrgStructureModel.FieldNames.OrgStructureParentName, 130},
+                {CatOrgStructureModel.FieldNames.OrderNumber, 80},
+                {CatOrgStructureModel.FieldNames.Description, 200}
+
+            };
+
+            //Thông tin hiển thị được dịch
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {CatOrgStructureModel.FieldNames.Code , ConstantDisplay.HRM_Category_OrgStructure_Code},
+                {CatOrgStructureModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_OrgStructure_OrgStructureName},
+                {CatOrgStructureModel.FieldNames.OrgStructureTypeName , ConstantDisplay.HRM_Category_OrgStructure_TypeID},
+                {CatOrgStructureModel.FieldNames.OrgStructureParentName, ConstantDisplay.HRM_Category_OrgStructure_ParentID},
+                {CatOrgStructureModel.FieldNames.OrderNumber, ConstantDisplay.HRM_Category_OrgStructure_OrderNumber},
+                {CatOrgStructureModel.FieldNames.Description, ConstantDisplay.HRM_Category_OrgStructure_Description}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_Cat_OrgStructure",
+        //    ValueFields = valueFields,
+        //    DisplayFields = displayFields,
+        //    SizeFields = sizeFields,
+        //    ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetOrgStructureList",
+        //    ReadData = "filterFieldInfo"
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<CatOrgStructureModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnOrgStructure", "CatOrgStructureModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

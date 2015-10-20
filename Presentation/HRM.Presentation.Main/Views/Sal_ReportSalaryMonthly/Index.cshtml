@@ -1,0 +1,322 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models
+@model HRM.Presentation.Payroll.Models.Sal_ReportSalaryMonthlyModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+  
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    SetFieldRequired();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            CutOffDurationID: $('#ddlCutOffDuration').val(),
+            OrgStructureID: checkedNodes.join(','),
+            OrgStructureTypeID: $('#SOrgStructureTypeID').val() ? $('#SOrgStructureTypeID').val()[0] : null,
+            CodeEmp: $("#SCodeEmp").val(),
+            isIncludeQuitEmp: $("#isIncludeQuitEmp").val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    $("#btnSearch").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Sal_GetData/ReportSalaryMonthly",
+            type: 'POST',
+            data: filterFieldInfo(false),
+            datatype: 'json',
+            success: function (data) {
+                
+                //   data.Data.splice(0, 1);
+                var grid = VnrGridDynamic;
+                grid.GridName = "grid_ReportSalaryMonthly";
+                grid.DataSource = data.Data;
+                VnrGridDynamicControl(grid);
+            }
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/ReportSalaryMonthly', filterFieldInfo(true));
+       
+    });
+
+        $("#btnExport").click(function () {
+            
+
+
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCSeniority');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/ReportSalaryMonthly',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+            }
+        });
+    });
+
+
+</script>
+
+
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+               <div style="float:left;width:500px">
+                   <div id="div2">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(model => model.CutOffDurationID)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var cutOffDurationName = new DropDownListBuilderInfo()
+                               {
+                                   Name = "ddlCutOffDuration",
+                                   DataTextField = "CutOffDurationName",
+                                   DataValueField = "ID",
+                                   Url = _hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                                   StyleCss = "width:200px"
+                               };
+                           }
+                           @(Html.VnrDropDownList(cutOffDurationName))
+                       </div>
+                   </div>
+                   <div>
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.CodeEmp)
+                       </div>
+                       <div class="FieldValue">
+                           @Html.VnrTextBox("SCodeEmp", "width:200px;")
+                       </div>
+                   </div>
+                   <div>
+                       <div id="div4">
+                           <div class="FieldTitle">
+                               @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                           </div>
+                           <div class="FieldValue">
+                               @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                           </div>
+                       </div>
+                   </div>  
+
+                   <div id="div4">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(model => model.OrgStructureTypeID)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                               {
+                                   Name = "SOrgStructureTypeID",
+                                   DataTextField = "OrgStructureTypeName",
+                                   DataValueField = "ID",
+                                   Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                   Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                   MaxSelectedItems = 1
+                               };
+                           }
+                           @(Html.VnrMultiSelectFor(mode => mode.OrgStructureTypeID, _OrgStructureTypeID))
+                       </div>
+                   </div>
+
+                   
+               </div>
+
+
+                <div style="float:left">
+                    
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.PayrollGroupID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _PayrollGroupID = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "SPayrollGroupID",
+                                    DataTextField = "PayrollGroupName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectPayrollGroup.TranslateString(),
+                                    MaxSelectedItems = 1
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.PayrollGroupID, _PayrollGroupID))
+                        </div>
+                    </div>
+
+                    <div id="div6">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+
+                            @{
+                                var IsIncludeQuitEmp = new CheckBoxBuilderInfo()
+                               {
+
+                               };
+                            }
+
+                            @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp)
+                            @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                        </div>
+
+                    </div>
+                </div>
+                
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                        StyleCss = "width:200px;",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+</div>
+
+@*<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.CodeEmp,
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.ProfileName,
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.OrgStructureName,
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.JobtitleName,
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.PositionName,
+           Sal_ReportBasicSalaryMonthlyModel.FieldNames.DateHire
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.CodeEmp,80},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.ProfileName,140},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.OrgStructureName,120},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.JobtitleName,100},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.PositionName,100},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.DateHire,100}
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.ProfileName,ConstantDisplay.HRM_Att_Report_ProfileName},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Canteen_MealRecordMissing_OrgStructureName},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.JobtitleName,ConstantDisplay.HRM_Att_Report_JobTitleName},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.PositionName,ConstantDisplay.HRM_Att_Report_PositionName},
+           {Sal_ReportBasicSalaryMonthlyModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_Profile_DateHire}
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "gridHre_ReportProfileNew",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportProfileNew",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_ReportProfileNewModel>(grid))
+</div>*@
+<div id="grid_ReportSalaryMonthly">
+
+</div>
+
+
+
+

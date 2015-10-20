@@ -1,0 +1,318 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Payroll.Models
+@using HRM.Presentation.Main.Controllers
+@using HRM.Presentation.UI.Controls.Kendo
+@model Sal_ReportProfileSearchModel
+
+@{
+    ViewBag.Title = "Profiles Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+    //string[] valueFields = null;
+    //IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+    //.Cast<EnumDropDown.Gender>()
+    //.Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    //.ToList();
+
+    IList<SelectListItem> listStatusSynz = Enum.GetValues(typeof(ProfileStatusSyn))
+     .Cast<ProfileStatusSyn>()
+     .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+     .ToList();
+}
+@Html.Hidden("Screen", screen)
+
+<style>
+    .k-state-selected {
+        color: #fff !important;
+        background-color: #5A83B1 !important;
+        border-color: #5A83B1 !important;
+    }
+</style>
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var dataParameter = {
+            CutOffDurationID: $('#CutOffDurationID').val(),
+            OrgStructureID: checkedNodes.join(','),
+            WorkPlaceID:$('#WorkPlaceID').val(),
+            UserID: '@Session[SessionObjects.ProfileID]',
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            var CutOff = $("#CutOffDurationID").data("kendoDropDownList");
+            if (CutOff.value() == null || CutOff.value() == '') {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_Payroll_CutOffDurationID.TranslateString()' + ' Không Thể Bỏ Trống');
+                return false;
+            }
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            var grid = $('#gridSal_ReportProfile').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+         
+        });
+        ShowHidePanel();
+        @*EditGridNewPage("gridHre_Profile", '#Hrm_Hre_Web/Hre_Profile/Edit/', 'Hrm_Hre_Web', '@_hrm_Main_Web');*@
+    });
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Sal_ReportProfile');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Sal_GetData/GetReportProfileList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/GetReportProfileList', filterFieldInfo(true));
+    });
+</script>
+<div id="grid_Demo"></div>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CutOffDurationID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var cutOffDurationName = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "CutOffDurationName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Att_GetData/GetMultiCutOffDuration",
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(model => model.CutOffDurationID, cutOffDurationName))
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model=>model.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField="WorkPlaceName",
+                                        DataValueField="ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        StyleCss="Width:200px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        var foreignkey = new Dictionary<object, object[]>()
+        {
+            {Sal_ReportProfileModel.FieldNames.StatusSyn,new object[]
+                   { "Value", "Text", listStatusSynz, ConstantDisplay.HRM_HR_Profile_StatusSyn,""}},
+
+        };
+
+
+        var valueFields = new[]
+            {
+                Sal_ReportProfileModel.FieldNames.CodeEmp,
+                Sal_ReportProfileModel.FieldNames.ProfileName,
+                             Sal_ReportProfileModel.FieldNames.E_UNIT,
+                       Sal_ReportProfileModel.FieldNames.E_DIVISION,
+                Sal_ReportProfileModel.FieldNames.E_DEPARTMENT,
+                 Sal_ReportProfileModel.FieldNames.E_TEAM,
+                Sal_ReportProfileModel.FieldNames.E_SECTION,
+
+                Sal_ReportProfileModel.FieldNames.WorkPlaceName,
+                Sal_ReportProfileModel.FieldNames.StatusSyn,
+                Sal_ReportProfileModel.FieldNames.SalaryClassName,
+                Sal_ReportProfileModel.FieldNames.SalaryRankName,
+                Sal_ReportProfileModel.FieldNames.BasicSalary,
+                Sal_ReportProfileModel.FieldNames.IDNo,
+                Sal_ReportProfileModel.FieldNames.DateOfBirth,
+                Sal_ReportProfileModel.FieldNames.DateHire,
+                Sal_ReportProfileModel.FieldNames.DateStart,
+                Sal_ReportProfileModel.FieldNames.DateEnd,
+                Sal_ReportProfileModel.FieldNames.IsUnEmpInsurance,
+                Sal_ReportProfileModel.FieldNames.IsHealthInsurance,
+                Sal_ReportProfileModel.FieldNames.IsSocialInsurance,
+                Sal_ReportProfileModel.FieldNames.IsTradeUnionist,
+                Sal_ReportProfileModel.FieldNames.DateStop,
+                Sal_ReportProfileModel.FieldNames.DateQuit,
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Sal_ReportProfileModel.FieldNames.CodeEmp,80},
+                {Sal_ReportProfileModel.FieldNames.ProfileName,140},
+                             {Sal_ReportProfileModel.FieldNames.E_UNIT,135},
+                {Sal_ReportProfileModel.FieldNames.E_DIVISION,135},
+
+                {Sal_ReportProfileModel.FieldNames.E_TEAM,135},
+                {Sal_ReportProfileModel.FieldNames.E_DEPARTMENT,135},
+                {Sal_ReportProfileModel.FieldNames.E_SECTION,135},
+
+                {Sal_ReportProfileModel.FieldNames.WorkPlaceName,120},
+                {Sal_ReportProfileModel.FieldNames.StatusSyn,138},
+                {Sal_ReportProfileModel.FieldNames.SalaryClassName,100},
+                {Sal_ReportProfileModel.FieldNames.SalaryRankName,100},
+                {Sal_ReportProfileModel.FieldNames.BasicSalary,100},
+                {Sal_ReportProfileModel.FieldNames.IDNo,100},
+                {Sal_ReportProfileModel.FieldNames.DateOfBirth,100},
+                {Sal_ReportProfileModel.FieldNames.DateHire,100},
+                {Sal_ReportProfileModel.FieldNames.DateStart,100},
+                {Sal_ReportProfileModel.FieldNames.DateEnd,100},
+                {Sal_ReportProfileModel.FieldNames.IsUnEmpInsurance,100},
+                {Sal_ReportProfileModel.FieldNames.IsHealthInsurance,100},
+                {Sal_ReportProfileModel.FieldNames.IsSocialInsurance,100},
+                {Sal_ReportProfileModel.FieldNames.IsTradeUnionist,90},
+                {Sal_ReportProfileModel.FieldNames.DateStop,110},
+                {Sal_ReportProfileModel.FieldNames.DateQuit,100},
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Sal_ReportProfileModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Sal_ReportProfileModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                              {Sal_ReportProfileModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Sal_ReportProfileModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Sal_ReportProfileModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Sal_ReportProfileModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Sal_ReportProfileModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Sal_ReportProfileModel.FieldNames.WorkPlaceName,ConstantDisplay.HRM_Category_WorkPlace_WorkPlaceName},
+                {Sal_ReportProfileModel.FieldNames.StatusSyn,ConstantDisplay.HRM_HR_Profile_StatusSyn},
+                {Sal_ReportProfileModel.FieldNames.SalaryClassName,ConstantDisplay.HRM_HR_Profile_SalaryClassName},
+                {Sal_ReportProfileModel.FieldNames.SalaryRankName,ConstantDisplay.HRM_Payroll_BasicSalary_SalaryRankName},
+                {Sal_ReportProfileModel.FieldNames.BasicSalary,ConstantDisplay.HRM_Payroll_ReportProfile_BasicSalary},
+                {Sal_ReportProfileModel.FieldNames.IDNo,ConstantDisplay.HRM_HR_Profile_IDNo},
+                {Sal_ReportProfileModel.FieldNames.DateOfBirth,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_DateOfBirth},
+                {Sal_ReportProfileModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_Profile_DateHire},
+                {Sal_ReportProfileModel.FieldNames.DateStart,ConstantDisplay.HRM_Payroll_ReportProfile_DateStart},
+                {Sal_ReportProfileModel.FieldNames.DateEnd,ConstantDisplay.HRM_Payroll_ReportProfile_DateEnd},
+                {Sal_ReportProfileModel.FieldNames.IsUnEmpInsurance,ConstantDisplay.HRM_Payroll_ReportProfile_IsUnEmpInsurance},
+                {Sal_ReportProfileModel.FieldNames.IsHealthInsurance,ConstantDisplay.HRM_Payroll_ReportProfile_IsHealthInsurance},
+                {Sal_ReportProfileModel.FieldNames.IsSocialInsurance,ConstantDisplay.HRM_Payroll_ReportProfile_IsSocialInsurance},
+                {Sal_ReportProfileModel.FieldNames.IsTradeUnionist,ConstantDisplay.HRM_Payroll_ReportProfile_IsTradeUnionist},
+                {Sal_ReportProfileModel.FieldNames.DateStop,ConstantDisplay.HRM_Payroll_ReportProfile_DateStop},
+                {Sal_ReportProfileModel.FieldNames.DateQuit,ConstantDisplay.HRM_Payroll_ReportProfile_DateQuit},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridSal_ReportProfile",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Sal_GetData/GetReportProfileList/",
+            ReadData = "filterFieldInfo",
+            ForeignKey = foreignkey,
+            ShowCheckAll = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false
+        };
+    }
+    @(Html.VnrGrid<Sal_ReportProfileModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

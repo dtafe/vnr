@@ -1,0 +1,267 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security;
+
+@model Sys_AllSettingModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_System_AllSetting.TranslateString();
+    Layout = null;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    IList<SelectListItem> listSetting = Enum.GetValues(typeof(AppConfig))
+      .Cast<AppConfig>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+      .ToList();
+
+    SelectList dataSetting = new SelectList(listSetting, "Value", "Text");
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowAllSetting",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Sys_Web + "Sys_AllSetting/Sys_AllSettingInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+@{
+    var windowMenu = new WindowBuilderInfo
+    {
+        Name = "windowMenuOption",
+        Visible = false,
+        LoadContentFrom = @_hrm_Sys_Web + "Sys_AllSetting/MenuOption/",
+    };
+}
+@(Html.VnrWindow(windowMenu))
+
+
+<script>
+
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_System_AllSetting_Create.TranslateString())';
+    var titleMenuOptionPopUp = '@Html.Raw(ConstantDisplay.HRM_System_AllSetting_Create.TranslateString())';
+    //Xử lý sự kiện click button tìm kiếm
+    $("#btnSearch").click(function () {
+        ReadGrid("Setting");
+        //var grid = $('#gridDynamicColumn').data("kendoGrid");
+        //grid.dataSource.read();
+    });
+    //Tạo mới
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_AllSetting');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate("windowAllSetting", titleCreatePopUp);
+    });
+    $("#btnMenuOption").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_AllSetting');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate("windowMenuOption", titleMenuOptionPopUp);
+    });
+    function filterFieldInfo(isExport) {
+        var multi = $("#SName").data("kendoMultiSelect");
+        var name = multi.value().join();
+        var dataParameter = {
+            //   Name: $('#SName').val(),
+            Name : name,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return dataParameter;
+    }
+    
+    //nut cap nhat cau hinh mac dinh
+    $("#btnConfigDefault").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_AllSetting_ConfigDefault', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_System_AllSetting_ConfigDefault.TranslateString())');
+            return;
+        }
+        
+        
+        var selectedValues = selectedIds.join(",");
+        // "Những điều chỉnh cấu hình trước đó sẽ trở về giá trị mặc định .Bạn có muốn tiếp tục?"
+        VnrConfirm('@ConstantMessages.HRM_System_SysAllSetting_Confirm_ConfigDefault.TranslateString()', selectedValues, function (values) {
+            
+            $.ajax({
+                url: '@_hrm_Sys_Web' + '/Sys_AllSetting/ConfigDefault',
+                data: { lstConfigIds: values },
+                type: 'POST',
+                async:false,
+                success: function (datasource) {
+                },
+                    error: function (data) {
+                }
+            });
+            
+            ReadGrid("Setting");
+            selectedIds = [];
+        });
+    });
+
+    //Xử Lý grid
+    GridCheckbox("Setting");
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Sys_AllSetting');
+        if (!isAccess) {
+            return;
+        }
+        
+        var grid = $('#Setting').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Sys_Service' + "/Sys_GetData/ExportSys_AllSettingList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    @*$('#Setting').on("click", ".gridEditImgButton", function (e) {
+        
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Sys_AllSetting');
+        if (!isAccess) {
+            return;
+        }
+
+        var grid = $('#Setting').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        KendoRouteMapping('#Hrm_Sys_Web/Sys_AllSetting/Edit/' + selectedItem.Id, 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+
+    });*@
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.Name)
+                    </div>
+                    <div class="FieldValue">
+                        @*@Html.VnrTextBox("SName", "width:300px")*@
+                        
+                        
+                        @{
+                            var multi_Name = new MultiSelectBuilderInfo()
+                            {
+                                Name="SName",
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                BindTo = listSetting,
+                                Width =450,
+                                
+                                //DataTextField = "Text",
+                                //DataValueField = "Value",
+                                //FilterType = FilterType.Contains,
+                                //BindTo = listSetting,
+                                Value = @Html.DisplayFor(model => model.Name).ToString()
+                            };
+                        }
+                        @Html.VnrMultiSelect(multi_Name)
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnMenuOption",  Content = ConstantAction.HRM_Common_MenuOption.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnConfigDefault", Content = ConstantDisplay.HRM_System_AllSetting_ConfigDefault.TranslateString() })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+    </div>
+
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+        {
+            Sys_AllSettingModel.FieldNames.Name,
+            Sys_AllSettingModel.FieldNames.Value1,
+           // Sys_AllSettingModel.FieldNames.Value2,
+            Sys_AllSettingModel.FieldNames.ModuleName,
+           //  Sys_AllSettingModel.FieldNames.test,
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>
+        {
+            {Sys_AllSettingModel.FieldNames.Name, ConstantDisplay.HRM_System_AllSetting_Name},
+            {Sys_AllSettingModel.FieldNames.Value1,ConstantDisplay.HRM_System_AllSetting_Value1},
+            //{Sys_AllSettingModel.FieldNames.Value2,ConstantDisplay.HRM_System_AllSetting_Value2},
+            {Sys_AllSettingModel.FieldNames.ModuleName,ConstantDisplay.HRM_System_AllSetting_ModuleId},
+           //  {Sys_AllSettingModel.FieldNames.test,"test"}
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>
+        {
+            {Sys_AllSettingModel.FieldNames.Name, 480},
+            {Sys_AllSettingModel.FieldNames.Value1, 250},
+            {Sys_AllSettingModel.FieldNames.ModuleName, 150}
+        };
+        
+        string[] disableFields = new string[]
+        {
+            Sys_AllSettingModel.FieldNames.Name,
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "Setting",
+            ValueFields = valueFields,
+            DisplayFields = displayFields,
+            SizeFields = sizeFields,
+            ShowEditIcon = false,
+            ShowCommand = true,
+            ShowCreateButton = true,
+            ShowEditButton = true,
+            ShowDeleteButton = true,
+            AutoBind = false,
+            EditActionUrl = _hrm_Sys_Web + "/Sys_AllSetting/Create/",
+            //CreateActionUrl = _hrm_Sys_Web + "/Sys_AllSetting/Create/",
+            DeleteActionUrl = _hrm_Sys_Web + "/Sys_AllSetting/Delete/",
+            EditMode = GridEditMode.InLine,
+            ReadData = "filterFieldInfo",
+            ReadActionUrl = _hrm_Sys_Service + "/Sys_GetData/GetSys_AllSettingList/"
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_AllSettingModel>(grid)
+          .Navigatable()
+    )
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

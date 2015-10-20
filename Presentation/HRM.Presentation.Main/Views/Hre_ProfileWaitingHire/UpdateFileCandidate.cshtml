@@ -1,0 +1,765 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Hr.Models
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string lstProfileIDs = "";
+    if (ViewData["lstProfileIDs"] != null)
+    {
+        lstProfileIDs = ViewData["lstProfileIDs"].ToString();
+    }
+}
+
+@model Hre_ProfileTemp
+<script>
+    SetFieldRequiredByScreenName('Hre_ProfileTemp');
+    var checkedNodes = [];
+
+    function onSaveClose() {
+        var result = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Hre_GetData/ValidateUpdateFileCandidate/',
+            data: queryStringToJSON(slpitQueryEntity($("#form_Hre_ProfileTemp").serialize() + "&SalaryClassName=" + $("#SalaryClassName").val() + "&BasicSalary=" + $("#BasicSalary").val() + "&AbilityTitle=" + $("#AbilityTitle").val() + "&GradePayrollID=" + $("#GradePayrollID").val() + "&GradeAttendanceID=" + $("#GradeAttendanceID").val())),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data.ActionStatus != "Success") {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    result = false;
+                }
+            }
+        });
+        if (result == true) {
+            var multi = $("#UpdatefileCandidate_ProfileIDs").data("kendoMultiSelect");
+            $("#TempProfileIDs").val(multi.value().join(','));
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + "Hre_GetData/SaveHreCandidateGeneral/",
+                data: queryStringToJSON(slpitQueryEntity($("#form_Hre_ProfileTemp").serialize())),
+                dataType: 'json',
+                success: function (data) {
+                    var window = $("#windowUpdateFileCandidate").data("kendoWindow");
+                    if (data.ActionStatus == 'Success') {
+                        ShowNotificationProcessor(data.ActionStatus);
+                        //window.refresh().close();
+                        ReadGrid("gridHre_Profile");
+                    }
+                    window.refresh().close();
+                }
+            });
+        }
+    };
+
+    function onSaveApply() {
+        ShowHre_ProgressBar();
+        var _dateHire = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateHire").val());
+        var _dateEndProbation = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEndProbation").val());
+        var result = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Hre_GetData/ValidateUpdateFileCandidate/',
+            data: queryStringToJSON(slpitQueryEntity($("#form_Hre_ProfileTemp").serialize() + "&SalaryClassName=" + $("#SalaryClassName").val() + "&BasicSalary=" + $("#BasicSalary").val() + "&AbilityTitle=" + $("#AbilityTitle").val() + "&GradePayrollID=" + $("#GradePayrollID").val() + "&GradeAttendanceID=" + $("#GradeAttendanceID").val())),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data.ActionStatus != "Success") {
+                    CloseHre_ProgressBar();
+                    ShowNotificationProcessor(data.ActionStatus);
+                    result = false;
+                }
+            }
+        });
+
+        if (result == true) {
+            debugger;
+            var ProfileIDs = $("#UpdatefileCandidate_ProfileIDs").val();
+            if (ProfileIDs != "") {
+                ProfileIDs = ProfileIDs.join(',');
+            }
+            var window = $("#windowUpdateFileCandidate").data("kendoWindow");
+            window.refresh().close();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + "Hre_GetData/UpdateDataForProfileWaiting/",
+                data: {
+                    SalaryClassName: $("#SalaryClassName").val(), ProfileIDs: ProfileIDs, DateEndProbation: _dateEndProbation,
+                    DateHire: _dateHire, OrgStructureID: $("#OrgStructureID").val(), SalaryRankID: $("#SalaryRankID").val(),
+                    WorkPlaceID: $("#WorkPlaceID").val(), ContractTypeID: $("#ContractTypeID").val(), BasicSalary: $("#BasicSalary").val(),
+                    GradePayrollID: $("#GradePayrollID").val(), GradeAttendanceID: $("#GradeAttendanceID").val(),
+
+                    jobTitleID: $("#JobTitleID").val(), positionID: $("#PositionID").val(), allowanceID1: $("#AllowanceID1").val(), allowanceID2: $("#AllowanceID2").val(),
+                    allowanceID3: $("#AllowanceID3").val(), allowanceID4: $("#AllowanceID4").val(), allowanceID5: $("#AllowanceID5").val(),
+                    allowance1: $("#Allowance1").val(), allowance2: $("#Allowance2").val(), allowance3: $("#Allowance3").val(), allowance4: $("#Allowance4").val(), allowance5: $("#Allowance5").val(),
+                    currencyID: $("#CurrencyID").val(), insuranceSalary: $("#InsuranceSalary").val(), codeEmp: $("#CodeEmp").val()
+                },
+                dataType: 'json',
+                success: function (data) {
+                    CloseHre_ProgressBar();
+                    var window = $("#windowUpdateFileCandidate").data("kendoWindow");
+                    if (data == 'Success') {
+                        ShowNotificationProcessor(data);
+                        ReadGrid("gridHre_Profile");
+                    }
+                }
+            });
+        }
+    };
+
+    $(document).ready(function () {
+        @{
+             if (lstProfileIDs != string.Empty)
+             {
+                 <text>
+        setTimeout(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + "Hre_GetData/GetProfileNameByProfileID/",
+                data: { profileIds: '@lstProfileIDs'.split(',') },
+                dataType: 'json',
+                async: false,
+                traditional: true,
+                success: function (data) {
+                    var dataSource = new kendo.data.DataSource();
+                    var ItemsSelect = [];
+                    for (var i = 0; i < data.length; i++) {
+                        dataSource.add({ ID: data[i].ID, ProfileName: data[i].ProfileName });
+                        ItemsSelect.push(data[i].ID);
+                    }
+                    var Profilemultiselect = $("#UpdatefileCandidate_ProfileIDs").data("kendoMultiSelect");
+                    if (Profilemultiselect != undefined) {
+                        Profilemultiselect.setDataSource(dataSource);
+                        Profilemultiselect.value(ItemsSelect);
+                    }
+                },
+            });
+        }, 500);
+        </text>
+             }
+         }
+
+    });
+
+
+
+    function ChangeSalaryRank() {
+        showAjaxLoading();
+        // Khi chọn rankdetail thì những field này mới readonly
+
+
+        var ID = $("#SalaryRankID").val();
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Cat_GetData/GetDataOfSalaryRank/",
+            data: { ID: ID },
+            dataType: 'json',
+            success: function (data) {
+                $("#SalaryClassName").val(data.SalaryClassName);
+                $("#BasicSalary").val(data.BasicSalary);
+                $("#InsuranceSalary").val(data.BasicSalary);
+                $("#AbilityTitle").val(data.AbilityTitle);
+                hideAjaxLoading();
+                if (data.SalaryClassName != '' || data.SalaryClassName != null) {
+                    GetGradePayrollAndGradeAttendanceByRank();
+                }
+            }
+        });
+    };
+
+    // load Chế độ lương theo Rank( load thep Salaryclassname thực chất Code của SalaryClass )
+    function GetGradePayrollAndGradeAttendanceByRank() {
+        $.ajax({
+            type: 'POST',
+            data: { Rank: $("#SalaryClassName").val() },
+            url: '@_hrm_Hr_Service' + 'Cat_GetData/GetGradePayrollAndGradeAttendanceByRank/',
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data.GradePayrollID != '@Guid.Empty') {
+                    $("#GradePayrollID").data("kendoComboBox").value(data.GradePayrollID);
+                }
+                else {
+                    $("#GradePayrollID").data("kendoComboBox").value("");
+                }
+                if (data.GradeAttendanceID != '@Guid.Empty') {
+                    $("#GradeAttendanceID").data("kendoComboBox").value(data.GradeAttendanceID);
+                }
+                else {
+                    $("#GradeAttendanceID").data("kendoComboBox").value("");
+                }
+            }
+        })
+    };
+
+    $("#DateHire").change(function () {
+        var ContractTypeID = $("#ContractTypeID").val();
+        var _DateHire = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateHire").val());
+        if (ContractTypeID != "" && _DateHire != "") {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + "Cat_GetData/GetMonthOfDateEndProbation/",
+                data: { ContractTypeID: ContractTypeID, DateHire: _DateHire },
+                dataType: 'json',
+                success: function (data) {
+                    $("#DateEndProbation").val(data);
+                }
+            });
+        }
+    });
+
+    $("#BasicSalary").change(function () {
+        var _BasicSalary = $("#BasicSalary").val();
+        $("#InsuranceSalary").val(_BasicSalary);
+    });
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Hre_ProfileTemp" }))
+{
+    @Html.HiddenFor(mode => mode.TempProfileIDs)
+    <div style="width:100%">
+        <table>
+            <tr>
+                <td>
+                    <div style="display:block">
+                        @Html.HiddenFor(model => model.DateEndProbation)
+                        <div style="float:left;">
+                            <div id="div1">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Rec_Interview_CandidateName.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var Profiles = new MultiSelectBuilderInfo()
+    {
+        Width = 300,
+        Name = "UpdatefileCandidate_ProfileIDs",
+        DataTextField = "ProfileName",
+        DataValueField = "ID",
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+        ServerFiltering = false,
+    };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.ProfileIDs, Profiles))
+                                </div>
+                            </div>
+                            <div id="div_CodeEmp">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.CodeEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.CodeEmp, "width: 300px")
+                                </div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.ContractTypeID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var contractTypeID = new ComboBoxBuilderInfo
+    {
+        StyleCss = "width:300px;",
+        DataTextField = "ContractTypeName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiContractType",
+        Placeholder = ConstantDisplay.HRM_Category_SelectContractType.TranslateString(),
+    };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.ContractTypeID, contractTypeID)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.DateHire)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var DateHire = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:120px;",
+    };
+                                    }
+                                    @Html.VnrDatePickerFor(mode => mode.DateHire, DateHire)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var org = new TreeViewDropdDownBuilderInfo()
+    {
+
+        Name = "UpdateFileCandidate_TreeViewDropDown",
+        SetFieldName = "OrgStructureID",
+        IsShowCheckBox = false,
+        Width = "300px;",
+        Fixed = true,
+    };
+                                    }
+                                    @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                                    @Html.HiddenFor(model => model.OrgStructureID)
+                                </div>
+                            </div>
+                            <div id="div5" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.JobTitleID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var jobTitleID = new ComboBoxBuilderInfo
+    {
+        DataTextField = "JobTitleName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+        StyleCss = "width: 300px"
+    };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.JobTitleID, jobTitleID)
+                                </div>
+                            </div>
+                            <div id="div5" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.PositionID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var PositionID = new ComboBoxBuilderInfo
+    {
+        DataTextField = "PositionName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+        StyleCss = "width: 300px"
+    };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.PositionID, PositionID)
+                                </div>
+                            </div>
+                            <div class="DivContentTitleValue" id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var _workplaceName = new ComboBoxBuilderInfo()
+     {
+         StyleCss = "width:300px;",
+         DataTextField = "WorkPlaceName",
+         DataValueField = "ID",
+         Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+         Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString()
+     };
+                                    }
+                                    @(Html.VnrComboBoxFor(mode => mode.WorkPlaceID, _workplaceName))
+                                </div>
+                            </div>
+                            <div class="DivContentTitleValue" id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.CurrencyID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    string valueCurr = string.Empty;
+    if (Model == null || Model.CurrencyID == null)
+    {
+        valueCurr = "VND";
+    }
+                                    }
+                                    @{
+    var CurrencyName = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "CurrencyName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrency",
+        StyleCss = "width:150px;",
+        Autobind = true,
+        Value = valueCurr
+    };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.CurrencyID, CurrencyName)
+                                </div>
+                            </div>
+                        </div>
+                        <div style="float:left;">
+                            <div id="Div_Rank">
+                                <div>
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.SalaryRankID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var SalaryRankID = new ComboBoxBuilderInfo()
+        {
+            Name = "SalaryRankID",
+            DataTextField = "SalaryRankName",
+            DataValueField = "ID",
+            Url = _hrm_Hr_Service + "Cat_GetData/GetMultiSalaryRank",
+            StyleCss = "width:300px;",
+            EventChange = "ChangeSalaryRank",
+        };
+                                        }
+                                        @(Html.VnrComboBoxFor(mode => mode.SalaryRankID, SalaryRankID))
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.SalaryClassName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.SalaryClassName, "width: 300px")
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AbilityTitle)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.AbilityTitle, "width: 300px")
+                                </div>
+                            </div>
+
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.GradePayrollID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var drop_CatGradePayroll = new ComboBoxBuilderInfo
+    {
+        Name = "GradePayrollID",
+        DataTextField = "GradeCfgName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiGradePayroll",
+        StyleCss = "width:300px",
+        Placeholder = @ConstantDisplay.HRM_HR_Contract_PleaseSelectData.TranslateString()
+    };
+                                    }
+                                    @Html.VnrComboBoxFor(m => m.GradePayrollID, drop_CatGradePayroll)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.GradeAttendanceID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var ComboboxGradeAttendanceID = new ComboBoxBuilderInfo
+        {
+            StyleCss = "width:300px;",
+            Name = "GradeAttendanceID",
+            DataTextField = "GradeAttendanceName",
+            DataValueField = "ID",
+            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiGradeAttendance",
+            Placeholder = ConstantDisplay.HRM_Category_SelectGradeAttendance.TranslateString(),
+        };
+                                    }
+                                    @(Html.VnrComboBoxFor(mode => mode.GradeAttendanceID, ComboboxGradeAttendanceID))
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.BasicSalary)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.BasicSalary, "width: 300px")
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.InsuranceSalary)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.InsuranceSalary, "width: 300px")
+                                </div>
+                            </div>
+                            <div id="div3" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AllowanceID1)
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+    var AllowanceID1Name = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "UsualAllowanceName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUsualAllowance",
+        StyleCss = "width:150px;",
+        Value = Model == null ? string.Empty : Model.AllowanceID1.ToString(),
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.AllowanceID1, AllowanceID1Name)
+
+                                    </div>
+                                    <div style="float: left; padding-left: 2px">
+                                        @{
+    var Allowance1 = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.Allowance1, Allowance1)
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="div3" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AllowanceID2)
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+    var AllowanceID2 = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "UsualAllowanceName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUsualAllowance",
+        StyleCss = "width:150px;",
+        Value = Model == null ? string.Empty : Model.AllowanceID2.ToString(),
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.AllowanceID2, AllowanceID2)
+
+                                    </div>
+                                    <div style="float: left; padding-left: 2px">
+                                        @{
+    var Allowance2 = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.Allowance2, Allowance2)
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="div3" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AllowanceID3)
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+    var AllowanceID3 = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "UsualAllowanceName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUsualAllowance",
+        StyleCss = "width:150px;",
+        Value = Model == null ? string.Empty : Model.AllowanceID3.ToString(),
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.AllowanceID3, AllowanceID3)
+
+                                    </div>
+                                    <div style="float: left; padding-left: 2px">
+                                        @{
+    var Allowance3 = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.Allowance3, Allowance3)
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="div3" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AllowanceID4)
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+    var AllowanceID4 = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "UsualAllowanceName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUsualAllowance",
+        StyleCss = "width:150px;",
+        Value = Model == null ? string.Empty : Model.AllowanceID4.ToString(),
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.AllowanceID4, AllowanceID4)
+
+                                    </div>
+                                    <div style="float: left; padding-left: 2px">
+                                        @{
+    var Allowance4 = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.Allowance4, Allowance4)
+                                    </div>
+                                </div>
+                            </div>
+                            <div id="div3" class="DivContentTitleValue">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.AllowanceID5)
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+    var AllowanceID5 = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "UsualAllowanceName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUsualAllowance",
+        StyleCss = "width:150px;",
+        Value = Model == null ? string.Empty : Model.AllowanceID5.ToString(),
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.AllowanceID5, AllowanceID5)
+
+                                    </div>
+                                    <div style="float: left; padding-left: 2px">
+                                        @{
+    var Allowance5 = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.Allowance5, Allowance5)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding-top:2px; padding-bottom:10px;">
+                    <div class="LineFooterCommandEdit">
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveApply", Name = "save-apply-ProfileTemp", Content = ConstantAction.HRM_Common_SaveAndApply.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+                        </div>
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+}
+
+<script>
+    $(document).ready(function () {
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Hre_GetData/IsInputGeneralCandidateManual/",
+            dataType: 'json',
+            async: false,
+            success: function (returnValue) {
+                if (returnValue == true) {
+                    $("#Div_Rank").hide();
+                }
+                else {
+                    $("#Div_Rank").show();
+                    var _GradeAttendanceID = $('#GradeAttendanceID').data("kendoComboBox");
+                    var _GradePayrollID = $('#GradePayrollID').data("kendoComboBox");
+                    _GradeAttendanceID.readonly();
+                    _GradePayrollID.readonly();
+                    $("#SalaryClassName").prop("readonly", true);
+                    $("#BasicSalary").prop("readonly", true);
+                    $("#InsuranceSalary").prop("readonly", true);
+                    $("#AbilityTitle").prop("readonly", true);
+                }
+            },
+        });
+    });
+</script>
+
+<script>
+    $(document).ready(function () {
+        debugger;
+        var profileId = '@lstProfileIDs';
+        if (profileId != null || profileId != "") {
+            if (profileId.indexOf(',') == -1) {
+                $("#div_CodeEmp").show();
+                var _ContractTypeID = $("#ContractTypeID").data("kendoComboBox");
+                var _DateHire = $("#DateHire").data("kendoDatePicker");
+                var _JobTitleID = $("#JobTitleID").data("kendoComboBox");
+                var _PositionID = $("#PositionID").data("kendoComboBox");
+                var _WorkPlaceID = $("#WorkPlaceID").data("kendoComboBox");
+                var _CurrencyID = $("#CurrencyID").data("kendoComboBox");
+                var _SalaryRankID = $("#SalaryRankID").data("kendoComboBox");
+
+                var _GradePayrollID = $("#GradePayrollID").data("kendoComboBox");
+                var _GradeAttendanceID = $("#GradeAttendanceID").data("kendoComboBox");
+                var _AllowanceID1 = $("#AllowanceID1").data("kendoComboBox");
+                var _AllowanceID2 = $("#AllowanceID2").data("kendoComboBox");
+                var _AllowanceID3 = $("#AllowanceID3").data("kendoComboBox");
+                var _AllowanceID4 = $("#AllowanceID4").data("kendoComboBox");
+                var _AllowanceID5 = $("#AllowanceID5").data("kendoComboBox");
+                var _Allowance1 = $("#Allowance1").data("kendoNumericTextBox");
+                var _Allowance2 = $("#Allowance2").data("kendoNumericTextBox");
+                var _Allowance3 = $("#Allowance3").data("kendoNumericTextBox");
+                var _Allowance4 = $("#Allowance4").data("kendoNumericTextBox");
+                var _Allowance5 = $("#Allowance5").data("kendoNumericTextBox");
+                $.ajax({
+                    type: 'POST',
+                    url: '@_hrm_Hr_Service' + "Hre_GetData/GetCandidateGeneralByProfileId/",
+                    dataType: 'json',
+                    async: false,
+                    data: { ProfileIDs: '@lstProfileIDs' },
+                    success: function (data) {
+                        debugger;
+                        if (data != "") {
+                            _DateHire.value(data.EnteringDate);
+                            $("#DateEndProbation").val(data.DateEndProbation);
+                            $("#SalaryClassName").val(data.SalaryClassName);
+                            $("#BasicSalary").val(data.BasicSalary);
+                            $("#InsuranceSalary").val(data.BasicSalary);
+                            $("#AbilityTitle").val(data.AbilityTitleVNI);
+                            _ContractTypeID.value(data.ContractTypeID);
+                            _JobTitleID.value(data.JobTitleID);
+                            _PositionID.value(data.PositionID);
+                            _WorkPlaceID.value(data.WorkPlaceID);
+                            _CurrencyID.value(data.CurrencyID);
+                            _SalaryRankID.value(data.RankRateID);
+                            _GradePayrollID.value(data.GradePayrollID);
+                            _GradeAttendanceID.value(data.GradeAttendanceID);
+                            _AllowanceID1.value(data.AllowanceID1);
+                            _AllowanceID2.value(data.AllowanceID2);
+                            _AllowanceID3.value(data.AllowanceID3);
+                            _AllowanceID4.value(data.AllowanceID4);
+                            _AllowanceID5.value(data.AllowanceID5);
+                            $("#OrgStructureID").val(data.OrgStructureID);
+                            $("#UpdateFileCandidate_TreeViewDropDowninput").val(data.OrgStructureName);
+                            _Allowance1.value(data.Allowance1);
+                            _Allowance2.value(data.Allowance2);
+                            _Allowance3.value(data.Allowance3);
+                            _Allowance4.value(data.Allowance4);
+                            _Allowance5.value(data.Allowance5);
+                            $("#CodeEmp").val(data.CodeEmp);
+                        }
+                    },
+                });
+            }
+            else {
+                $("#div_CodeEmp").hide();
+            }
+        }
+    });
+</script>
+

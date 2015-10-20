@@ -1,0 +1,386 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Laundry.Models;
+@using HRM.Infrastructure.Security
+@model Lau_LaundryRecordSearchNewModel
+
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowLaundryRecord",
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Main_Web + "LaundryRecord/LaundryRecordInfo/00000000-0000-0000-0000-000000000000",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var titleEditPopUp = '@Html.Raw(@ConstantDisplay.HRM_Laundry_LaundryRecord_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Laundry_LaundryRecord_Create_Title.TranslateString())';
+     
+    var checkedNodes = [];
+    //Data khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _ProfileIDs = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+        return {
+            CodeEmp: $('#SCodeEmp').val(),
+            ProfileIDs: _ProfileIDs,
+            OrgStructureID: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            MachineCode: $('#SMachineCode').val(),
+            LineID: $('#LineID1').val(),
+            MarkerID: $('#MarkerID1').val(),
+            LockerID: $('#LockerID1').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#grid_Lau_LaundryRecord').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+        var url = '@_hrm_Main_Web' + "LaundryRecord/LaundryRecordInfo/";
+        EditGridPopUp("grid_Lau_LaundryRecord", "windowLaundryRecord", url, '@ConstantPermission.LaundryRecord', titleEditPopUp);
+
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.LaundryRecord');
+        if (!isAccess) {
+            return;
+        }
+        
+        PopUpCreate("windowLaundryRecord", titleCreatePopUp);
+    });
+
+    //Xử Lý grid
+    GridCheckbox("grid_Lau_LaundryRecord");
+    //Xử lý Edit popup
+    var url = '@_hrm_Main_Web' + "LaundryRecord/LaundryRecordInfo/";
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.LaundryRecord');
+        if (!isAccess) {
+            return;
+        }
+        e.preventDefault();
+
+        DeleteSelected("grid_Lau_LaundryRecord", '@_hrm_Main_Web' + "LaundryRecord/RemoveSelected/", selectedIds.join(","));
+
+        return false;
+    });
+
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $('#btnApproved').click(function (e) {
+
+        e.preventDefault();
+        SetStatusSelected("grid_Lau_LaundryRecord", '@_hrm_Main_Web' + "LaundryRecord/SetStatusSelected/", selectedIds.join(","), '@EnumDropDown.LaundryRecord_Status.E_APPROVED', 'Thay Đổi Trạng Thái Thành Công!');
+        return false;
+    });
+    $('#btnWaitting').click(function (e) {
+        e.preventDefault();
+        SetStatusSelected("grid_Lau_LaundryRecord", '@_hrm_Main_Web' + "LaundryRecord/SetStatusSelected/", selectedIds.join(","), '@EnumDropDown.LaundryRecord_Status.E_WAIT_APPROVED', 'Thay Đổi Trạng Thái Thành Công!');
+        return false;
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#grid_Lau_LaundryRecord').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/ExportLaudryRecordList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.LaundryRecord');
+    });
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/ExportLaudryRecordSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.LaundryRecord');
+        selectedIds = [];
+        checkedNodes = [];
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left">
+                    <div style="width:550px; display:block; float:left">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(@ConstantDisplay.HRM_Laundry_TamScanLog_TimeLog.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ProfileName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+                            </div>
+                        </div>
+                        <div>
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.CodeEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBox("SCodeEmp", "width:150px")
+                                </div>
+                            </div>
+
+
+                        </div>
+                    </div>
+                    <div style="width:550px; display:block; float:left">
+                        <div>
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.MachineCode)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBox("SMachineCode", "width:150px")
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.LineID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _LineName = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "LineLMSName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Lau_GetData/GetMultiLine",
+                                        Name = "LineID1",
+                                        StyleCss = "width:300px;"
+                                    };
+                                }
+                                @Html.VnrComboBox(_LineName)
+                            </div>
+
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.MarkerID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Marker = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "MarkerName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Lau_GetData/GetMultiMarker",
+                                        Name = "MarkerID1",
+                                        StyleCss = "width:300px;"
+                                    };
+                                }
+                                @Html.VnrComboBox(_Marker)
+                            </div>
+
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.LockerID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Locker = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "LockerLMSName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Lau_GetData/GetMultiLocker",
+                                        Name = "LockerID1",
+                                        StyleCss = "width:300px;"
+                                    };
+                                }
+                                @Html.VnrComboBox(_Locker)
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        <div style="float:left">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        </div>
+        <div style="float:right">
+            <div class="btn-group">
+                <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                    <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                    @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                    <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu pull-right" role="menu">
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                </ul>
+            </div>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new[]
+        {
+            Lau_LaundryRecordModel.FieldNames.ProfileName,
+            Lau_LaundryRecordModel.FieldNames.CodeEmp,
+            Lau_LaundryRecordModel.FieldNames.OrgStructureName,
+            Lau_LaundryRecordModel.FieldNames.TimeLog,
+            Lau_LaundryRecordModel.FieldNames.Hour,
+            Lau_LaundryRecordModel.FieldNames.MachineCode,
+            Lau_LaundryRecordModel.FieldNames.Type,
+            Lau_LaundryRecordModel.FieldNames.Amount,
+            Lau_LaundryRecordModel.FieldNames.MarkerName,
+            Lau_LaundryRecordModel.FieldNames.LockerLMSName,
+            Lau_LaundryRecordModel.FieldNames.LineLMSName,
+
+        };
+
+            var sizeFields = new Dictionary<string, int>()
+        {
+
+            {Lau_LaundryRecordModel.FieldNames.ProfileName,150},
+            {Lau_LaundryRecordModel.FieldNames.CodeEmp,120},
+            {Lau_LaundryRecordModel.FieldNames.OrgStructureName,100},
+            {Lau_LaundryRecordModel.FieldNames.TimeLog,120},
+            {Lau_LaundryRecordModel.FieldNames.Hour,110},
+            {Lau_LaundryRecordModel.FieldNames.MachineCode,130},
+            {Lau_LaundryRecordModel.FieldNames.Type,90},
+            {Lau_LaundryRecordModel.FieldNames.Amount,90},
+            {Lau_LaundryRecordModel.FieldNames.MarkerName,280},
+            {Lau_LaundryRecordModel.FieldNames.LockerLMSName,170},
+            {Lau_LaundryRecordModel.FieldNames.LineLMSName,150},
+        };
+
+            var displayFields = new Dictionary<string, string>()
+        {
+           {Lau_LaundryRecordModel.FieldNames.ProfileName,ConstantDisplay.HRM_Laundry_LaundryRecord_ProfileName},
+           {Lau_LaundryRecordModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Laundry_LaundryRecord_ProfileID},
+           {Lau_LaundryRecordModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Category_OrgStructure_OrgStructureName},
+           {Lau_LaundryRecordModel.FieldNames.TimeLog,ConstantDisplay.HRM_Laundry_TamScanLog_TimeLog},
+           {Lau_LaundryRecordModel.FieldNames.Hour,ConstantDisplay.HRM_Laundry_TamScanLog_Hours},
+           {Lau_LaundryRecordModel.FieldNames.MachineCode,ConstantDisplay.HRM_Laundry_LaundryRecord_MachineCode},
+           {Lau_LaundryRecordModel.FieldNames.Type,ConstantDisplay.HRM_Attendance_WorkDay_SrcType},
+           {Lau_LaundryRecordModel.FieldNames.Amount,ConstantDisplay.HRM_Laundry_LaundryRecord_Amount},
+           {Lau_LaundryRecordModel.FieldNames.MarkerName,ConstantDisplay.HRM_Laundry_LaundryRecord_MarkerName},
+           {Lau_LaundryRecordModel.FieldNames.LockerLMSName,ConstantDisplay.HRM_Laundry_LaundryRecord_LockerName},
+           {Lau_LaundryRecordModel.FieldNames.LineLMSName,ConstantDisplay.HRM_Laundry_Line_LineName},
+        };
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Lau_LaundryRecordModel.FieldNames.TimeLog, ConstantFormat.HRM_Format_DayMonthYear},
+            {Lau_LaundryRecordModel.FieldNames.Hour,ConstantFormat.HRM_Format_HourMinSecond_TT},
+            {Lau_LaundryRecordModel.FieldNames.Amount,ConstantFormat.HRM_Format_Int},
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = "grid_Lau_LaundryRecord",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ShowCommand = false,
+                ReadActionUrl = _hrm_Hre_Service + "Lau_GetData/GetLaundryRecordList/",
+                ReadData = "filterFieldInfo",
+                EditMode = GridEditMode.InLine,
+                FormatFields = formatFields
+            };
+        }
+
+        @(Html.VnrGrid<Lau_LaundryRecordModel>(grid))
+    </div>
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,240 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Recruitment.Models
+@using HRM.Infrastructure.Security
+@model Rec_GroupConditionSearchModel
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    string[] valueFields = null;
+}
+@{
+    IList<SelectListItem> lstType = Enum.GetValues(typeof(JobVacancyType))
+       .Cast<JobVacancyType>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+       .ToList();
+}
+
+<script>
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            GroupName: $('#@Html.FieldIdFor(model => model.GroupName)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid('gridRec_GroupCondition');
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        EditGridNewPage('gridRec_GroupCondition', '#Hrm_Main_Web/Rec_GroupCondition/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_GroupCondition');
+        if (!isAccess) {
+            return;
+        }
+        KendoRouteMapping('#Hrm_Main_Web/Rec_GroupCondition/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    //Xử Lý grid
+    GridCheckbox('gridRec_GroupCondition');
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportGroupConditionSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Rec_GroupCondition');
+    });
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        debugger;
+        var grid = $('#@ConstantControlName.HRM_Rec_GroupCondition_Grid_Name').data("kendoGrid");
+        if (grid.dataSource._data.length == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportAllGroupConditionsList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_GroupCondition');
+    });
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected('gridRec_GroupCondition', '@_hrm_Main_Web' + "Rec_GroupCondition/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Rec_GroupCondition');
+        return false;
+    });
+
+</script>
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.GroupName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(mode => mode.GroupName)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnGroupCondition", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridRec_GroupCondition_Name + "__Rec_GroupCondition_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridRec_GroupCondition_Name,
+            ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetGroupConditionList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+                            {
+                                Rec_GroupConditionModel.FieldNames.Code,
+                                Rec_GroupConditionModel.FieldNames.GroupName,
+                                Rec_GroupConditionModel.FieldNames.LevelInterview,
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Rec_GroupConditionModel.FieldNames.Code, 100},
+                                {Rec_GroupConditionModel.FieldNames.GroupName, 130},
+                                {Rec_GroupConditionModel.FieldNames.LevelInterview, 130}
+                            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Rec_GroupConditionModel.FieldNames.Code, ConstantDisplay.HRM_Rec_GroupCondition_Code},
+                                {Rec_GroupConditionModel.FieldNames.GroupName, ConstantDisplay.HRM_Rec_GroupCondition_GroupName},
+                                {Rec_GroupConditionModel.FieldNames.LevelInterview, ConstantDisplay.HRM_REC_Candidate_LevelInterview}
+                            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+
+    //    Name = "gridRec_GroupCondition",
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetGroupConditionList",
+    //    ReadData = "filterFieldInfo",
+    //    AutoBind = false,
+    //    ShowDeleteButton = true,
+    //};
+    }
+    @(Html.VnrGrid<Rec_GroupConditionModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnGroupCondition", "Rec_GroupConditionModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

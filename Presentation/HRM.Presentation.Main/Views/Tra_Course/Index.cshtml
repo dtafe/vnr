@@ -1,0 +1,415 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Payroll.Models;
+@using HRM.Presentation.Training.Models;
+@model Tra_CourseSearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Att_Grade.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Services = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@*@{
+        var window = new WindowBuilderInfo
+        {
+            Name = "windownTra_Course",
+            Visible = false,
+            LoadContentFrom = @_hrm_Main_Web + "Tra_Course/TraCourseInfo/",
+        };
+    }
+    @(Html.VnrWindow(window))*@
+<script type="text/javascript">
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    var titleUpdatePopup = '@Html.Raw(ConstantDisplay.HRM_Tra_Course_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Tra_Course_Create_Title.TranslateString())';
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            CourseName: $("#CourseName1").val(),
+            Code: $("#Code1").val(),
+            MinimumScore: $('#@Html.FieldIdFor(model => model.MinimumScore)').val(),
+            MaximumScore: $('#@Html.FieldIdFor(model => model.MaximumScore)').val(),
+            LotsOfClassMin: $('#@Html.FieldIdFor(model => model.LotsOfClassMin)').val(),
+            LotsOfClassMax: $('#@Html.FieldIdFor(model => model.LotsOfClassMax)').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            var grid = $('#' + '@ConstantControlName.HRM_gridTra_Course_Name').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+
+        //Xử Lý Grid
+        GridCheckbox("gridTra_Course");
+
+        //Xử lý nút Delete
+        $('#btnDelete').click(function (e) {
+
+            if (selectedIds.length == 0) {
+                DeleteFail();
+                return;
+            }
+            //  e.preventDefault();
+            DeleteSelected('@ConstantControlName.HRM_gridTra_Course_Name', '@_hrm_Main_Web' + "Tra_Course/RemoveSelected/", selectedIds, '@ConstantPermission.Tra_Course');
+            //selectedIds = [];
+        });
+
+
+        $("#btnCreate").click(function () {
+            KendoRouteMapping('#Hrm_Main_Web/Tra_Course/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        });
+        //Xử lý nút Edit
+        EditGridNewPage('@ConstantControlName.HRM_gridTra_Course_Name', '#Hrm_Main_Web/Tra_Course/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        @*//Xử lý nút Edit
+        var url = '@_hrm_Main_Web' + "Tra_Course/TraCourseInfo/";
+        EditGridPopUp("gridTra_Course", "windownTra_Course", url, '@ConstantPermission.Tra_Course', titleUpdatePopup);*@
+    });
+
+
+
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            traditional: true,
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('@ConstantDisplay.HRM_Payroll_ErrorInProcessing');
+            }
+        });
+    }
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportCourseSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Tra_Course');
+    });
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        debugger;
+        var grid = $('#@ConstantControlName.HRM_gridTra_Course_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportAllCourseList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Tra_Course');
+    });
+
+    $("#btnExportExcelByTemplate").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        //var grid = $('#gridTra_Trainee').data("kendoGrid");
+        //var count = grid.dataSource._data.toJSON().length;
+        //if (count == 0) {
+        //    ExportAllFail();
+        //    return;
+        //}
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportCourseListByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Tra_TraineePass');
+    });
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + "Tra_GetData/ExportCourseListByTemplate", filterFieldInfo(true));
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form id="form-search">
+                    <div class="hrm_box">
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CourseName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("CourseName1")
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.Code)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("Code1")
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Tra_Course_Score.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var numbericmin = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Tra_Course_Min.TranslateString()
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(m => m.MinimumScore, numbericmin)
+                                @{
+                                    var numbericmax = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Tra_Course_Max.TranslateString()
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(m => m.MaximumScore, numbericmax)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Tra_Course_LotsOfClass.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var lotmin = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Tra_Course_Min.TranslateString()
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(m => m.LotsOfClassMin, lotmin)
+                                @{
+                                    var lotmax = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Tra_Course_Max.TranslateString()
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(m => m.LotsOfClassMax, lotmax)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportExcelByTemplate", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnCourse", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Payroll.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridTra_Course_Name + "__Tra_Course_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridTra_Course_Name,
+            ReadActionUrl = @_hrm_Hr_Services + "Tra_GetData/GetCourseList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Tra_CourseModel.FieldNames.Code,
+                Tra_CourseModel.FieldNames.CourseName,
+                Tra_CourseModel.FieldNames.SchoolFee,
+                Tra_CourseModel.FieldNames.TrainCategoryName,
+                Tra_CourseModel.FieldNames.TrainningPlace,
+                Tra_CourseModel.FieldNames.MinimumScore,
+                Tra_CourseModel.FieldNames.MaximumScore,
+                Tra_CourseModel.FieldNames.LotsOfClassMin,
+                Tra_CourseModel.FieldNames.LotsOfClassMax,
+                Tra_CourseModel.FieldNames.TimeCourse,
+                Tra_CourseModel.FieldNames.ScoreStandard,
+               
+                Tra_CourseModel.FieldNames.ExamTimes,
+
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Tra_CourseModel.FieldNames.Code, 135},
+                {Tra_CourseModel.FieldNames.CourseName, 120},
+                {Tra_CourseModel.FieldNames.SchoolFee, 100},
+                {Tra_CourseModel.FieldNames.TrainCategoryName, 120},
+                {Tra_CourseModel.FieldNames.TrainningPlace, 120},
+                {Tra_CourseModel.FieldNames.MinimumScore, 100},
+                {Tra_CourseModel.FieldNames.MaximumScore, 100},
+                {Tra_CourseModel.FieldNames.LotsOfClassMin, 100},
+                {Tra_CourseModel.FieldNames.LotsOfClassMax, 100},
+                {Tra_CourseModel.FieldNames.TimeCourse, 100},
+                {Tra_CourseModel.FieldNames.ScoreStandard, 100},
+                
+                {Tra_CourseModel.FieldNames.ExamTimes, 100},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+
+                {Tra_CourseModel.FieldNames.Code, ConstantDisplay.HRM_Tra_Course_Code},
+                {Tra_CourseModel.FieldNames.CourseName, ConstantDisplay.HRM_Tra_Course_CourseName},
+                {Tra_CourseModel.FieldNames.SchoolFee, ConstantDisplay.HRM_Tra_Course_SchoolFee},
+                {Tra_CourseModel.FieldNames.TrainCategoryName, ConstantDisplay.HRM_Tra_Course_TrainCategoryName},
+                {Tra_CourseModel.FieldNames.TrainningPlace, ConstantDisplay.HRM_Tra_Course_TrainningPlace},
+                {Tra_CourseModel.FieldNames.MinimumScore, ConstantDisplay.HRM_Tra_Course_MinimumScore},
+                {Tra_CourseModel.FieldNames.MaximumScore, ConstantDisplay.HRM_Cat_Topic_MaximumScore},
+                {Tra_CourseModel.FieldNames.LotsOfClassMin, ConstantDisplay.HRM_Tra_Course_LotsOfClassMin},
+                {Tra_CourseModel.FieldNames.LotsOfClassMax, ConstantDisplay.HRM_Tra_Course_LotsOfClassMax},
+                {Tra_CourseModel.FieldNames.TimeCourse, ConstantDisplay.HRM_Tra_Course_TimeCourse},
+                {Tra_CourseModel.FieldNames.ScoreStandard, ConstantDisplay.HRM_Tra_Course_ScoreStandard},
+               
+                {Tra_CourseModel.FieldNames.ExamTimes, ConstantDisplay.HRM_Tra_Course_ExamTimes},
+
+            };
+
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Tra_CourseModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnCourse", "Tra_CourseModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

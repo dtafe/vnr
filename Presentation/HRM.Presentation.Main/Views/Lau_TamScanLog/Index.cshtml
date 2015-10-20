@@ -1,0 +1,375 @@
+﻿@using HRM.Presentation.Laundry.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models;
+@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+
+@model HRM.Presentation.Laundry.Models.Lau_TamScanLogModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Laundry_TAM_Title.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var userID = '@Session["userId"]';
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function paramComputing() {
+        return {
+            Type: '@AsynTask.Download_TimeLog_LMS.ToString()'
+        };
+    }
+
+    var permissionNotAllowDownload_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_DownLoad.TranslateString())';
+    var permissionNotAllowConfig_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Att_TAM_Config.TranslateString())';
+
+    function filterFieldInfo(isExport) {
+
+        var elementPara = {
+            UserID: userID,
+            OrgStructureID: checkedNodes,
+            ProfileID: $('#@Html.FieldIdFor(model => model.ProfileID)').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            DateTo: $('#@Html.FieldIdFor(model => model.DateTo)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return elementPara;
+    }
+
+    var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+
+        //Tam.Le - 8.1.2014 - Vet them phan luu du lieu xuog khi tai xong
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'Lau_GetData/CheckConnectTAM',
+            datatype: 'json',
+            type: 'POST',
+            success: function (strResponse) {
+
+                var arrResponse = strResponse.split("|");
+                var Status = arrResponse[0];
+                var dateFrom = arrResponse[1];
+                var dateTo = arrResponse[2];
+                $("#DateFrom").val(dateFrom);
+                $("#DateTo").val(dateTo);
+                if (Status == "True") {
+                    $("#idTamStatus").attr("style", "color:green; font-weight: bold");
+                    $("#idTamStatus").text("ON");
+                } else {
+                    $("#idTamStatus").attr("style", "color:red; font-weight: bold");
+                    $("#idTamStatus").text("OFF");
+                }
+            },
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnDownload").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Lau_TamScanLog_Download', false);
+            if (!isAccess) {
+                ShowNotificationProcessor(permissionNotAllowDownload_Msg);
+                return;
+            }
+
+
+            if (CheckValidate(data)) {
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '@_hrm_Hre_Service' + "Lau_GetData/GetTAMData",
+                    data: filterFieldInfo(false),
+                    dataType: 'json',
+                    async: false,
+                    success: function (data) {
+                        if (data[0] = 'error') {
+                            ShowNotificationProcessor(data[1]);
+                        } else {
+                            ShowProgressBar(data.ID, "gridLau_TamScanLog");
+                        }
+                    },
+                    error: function (data) {
+                        window.ShowNotificationProcessor("Lỗi trong quá trình xử lý !");
+                    }
+                });
+
+                checkedNodes = [];
+            }
+            return false;
+        });
+    });
+
+
+    $("#btnExportAll").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Lau_TamScanLog');
+        if (!isAccess) {
+            return;
+        }
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var grid = $('#gridLau_TamScanLog').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/ExportLau_TamScanLogList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+
+    //[Tam.Le] - 7.8.2014 - Chuyen qua trang Cau hinh tai du lieu giat la Sys_ConfigDBLau
+    $("#btn_Config").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Lau_TamScanLog_Config', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllowConfig_Msg);
+            return;
+        }
+        KendoRouteMapping('#Hrm_Sys_Web/Sys_ConfigDBLau/Index/', 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div style="display: block; padding-right: 20px; padding-top:10px; float: left">
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                    <div id="div3">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var Profile = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = Lau_TamScanLogModel.FieldNames.ProfileName,
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    MaxSelectedItems = 1,
+                                    Value = @Html.DisplayFor(mode => mode.ProfileID).ToString()
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                        </div>
+
+                    </div>
+                    <div id="4" style="float:left">
+                        <div class="FieldTitle">
+                            @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            <div style="float: left">
+                                <div style="float: left">
+                                    @{
+                                        var _DateFrom = new DateTimePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                            StyleCss = "width:180px;",
+                                            Enable = false
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateFrom, _DateFrom)
+                                </div>
+                                <div style="float: left">
+                                    @{
+                                        var _DateTo = new DateTimePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                            StyleCss = "width:180px;",
+                                            Enable = false
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateTo, _DateTo)
+                                </div>
+                                <script>
+                                    $("#hideDate").click(function () {
+                                        var r = confirm('@Html.Raw(@ConstantDisplay.HRM_ConfirmDowloadTAMData.TranslateString())');
+                                        if (r == true) {
+                                            var dateFrom = $("#DateFrom").data("kendoDateTimePicker");
+                                            var dateTo = $("#DateTo").data("kendoDateTimePicker");
+                                            dateFrom.enable(true);
+                                            dateTo.enable(true);
+                                        }
+                                    });
+                                </script>
+                            </div>
+                            <div style="padding-left: 5px; float: left">
+                                @*<input type="button" id="hideDate" value="Chỉnh Sửa" />*@
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "hideDate", Content = ConstantDisplay.HRM_Att_Modify.TranslateString(), ImageUrl = ConstantPath.IconEditPath })
+                            </div>
+                            <div style="padding-left: 5px; float: left">
+                                @Html.Label(ConstantDisplay.HRM_Att_TAM_Status.TranslateString()) :
+                                <span id="idTamStatus" style="padding-left: 5px; float: left"></span>
+                            </div>
+                            <div style="padding-left: 20px; float: left">
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btn_Config", Content = ConstantDisplay.HRM_Att_TAM_Config.TranslateString(), ImageUrl = "/Content/images/icons/submenu/menu/Conf_UserSetting.png" })
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDownload", Content = ConstantAction.HRM_Common_DownLoad.TranslateString(), ImageUrl = ConstantPath.IconLoadDataPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    
+    @{
+
+        valueFields = new string[]
+        {
+            Sys_AsynTaskModel.FieldNames.Summary,
+            Sys_AsynTaskModel.FieldNames.Status,
+            Sys_AsynTaskModel.FieldNames.UserCreate,
+            Sys_AsynTaskModel.FieldNames.PercentComplete,
+            Sys_AsynTaskModel.FieldNames.TimeStart,
+            Sys_AsynTaskModel.FieldNames.TimeEnd,
+            Sys_AsynTaskModel.FieldNames.Description,
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, 138},
+            {Sys_AsynTaskModel.FieldNames.Status, 80},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, 110},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, 80},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, 135},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd,135},
+            {Sys_AsynTaskModel.FieldNames.Description, 220}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, ConstantDisplay.HRM_System_AsynTask_Summary},
+            {Sys_AsynTaskModel.FieldNames.Status, ConstantDisplay.HRM_System_AsynTask_Status},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantDisplay.HRM_System_AsynTask_PercentComplete},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, ConstantDisplay.HRM_System_AsynTask_UserNameCreate},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantDisplay.HRM_System_AsynTask_TimeStart},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantDisplay.HRM_System_AsynTask_TimeEnd},
+            {Sys_AsynTaskModel.FieldNames.Description, ConstantDisplay.HRM_System_AsynTask_Description},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantFormat.HRM_Format_Percent}
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridLau_TamScanLog",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetAsynTaskList",
+            ReadData = "paramComputing",
+            ShowEditIcon = false,
+            AutoBind = true
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_AsynTaskModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+
+    @*@{
+        string[] valueFields = new string[]
+        {
+            Lau_TamScanLogModel.FieldNames.Code,
+            Lau_TamScanLogModel.FieldNames.TimeLog,
+            Lau_TamScanLogModel.FieldNames.Status
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Lau_TamScanLogModel.FieldNames.Code,100},
+            {Lau_TamScanLogModel.FieldNames.TimeLog,150},
+            {Lau_TamScanLogModel.FieldNames.Status,150}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Lau_TamScanLogModel.FieldNames.Code, ConstantDisplay.HRM_Laundry_TamScanLog_Code},
+            {Lau_TamScanLogModel.FieldNames.TimeLog, ConstantDisplay.HRM_Laundry_TamScanLog_TimeLog},
+            {Lau_TamScanLogModel.FieldNames.Status, ConstantDisplay.HRM_Laundry_TamScanLog_Status}
+        };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Lau_TamScanLogModel.FieldNames.TimeLog,ConstantFormat.HRM_Format_DayMonthYear_HoursMin}
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridLau_TamScanLog",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hre_Service + "Lau_GetData/GetTAMData",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    Khởi tạo Grid
+    @(Html.VnrGrid<HRM.Presentation.Laundry.Models.Lau_TamScanLogModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)*@

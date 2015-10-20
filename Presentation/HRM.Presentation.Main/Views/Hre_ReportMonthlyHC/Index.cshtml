@@ -1,0 +1,478 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+
+@model HRM.Presentation.Hr.Models.Hre_ReportMonthlyHCModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))*@
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExport) {
+
+
+        var elementPara = {
+            dateSearch: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#dateSearch").val()),
+            OrgStructureID: $("#OrgStructureID").val(),
+            OrgStructureTypeID: $('#SOrgStructureTypeID').val() ? $('#SOrgStructureTypeID').val()[0] : null,
+            JobtitleID: $('#@Html.FieldIdFor(model => model.JobtitleID)').val() ? $('#@Html.FieldIdFor(model => model.JobtitleID)').val()[0] : null,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+
+
+
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            showAjaxLoading();
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            //var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+            //checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Hre_GetData/GetReportMonthlyHCValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    hideAjaxLoading();
+                    if (data[0] == "error") {
+
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var treeView = $("#treeviewOrg").data("kendoTreeView");
+                        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+                        var grid = $('#grid_ReportHCSeniority').data("kendoGrid");
+                        grid.dataSource.read();
+
+                        checkedNodes = [];
+                        @*$.ajax({
+                            url: '@_hrm_Hre_Service' + "Hre_GetData/GetReportMonthlyHC",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            success: function (data) {
+                                
+                                GridDynamicColum('grid_ReportHCSeniority', data.Data)
+                            }
+                        });
+                        checkedNodes = [];*@
+                    }
+                }
+            });
+        });
+
+        $("#btnCreateTemplate").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportMonthlyHC');
+            if (!isAccess) {
+                return;
+            }
+            isCreateTemplate = true;
+            isCreateTemplateForDynamicGrid = true;
+            CreateTemplate('@_hrm_Hre_Service' + '/Hre_GetData/GetReportMonthlyHC', filterFieldInfo(true));
+            @*var window1 = window;
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + '/Hre_GetData/GetReportMonthlyHC',
+                data: filterFieldInfo(true),
+                dataType: 'json',
+                success: function (returnValue) {
+                    
+                    var index = returnValue.indexOf(',');
+                    var status = "";
+                    var fullPath = "";
+                    if (index > 0) {
+                        status = returnValue.substring(0, index);
+                        if (status == "Success") {
+                            fullPath = returnValue.substring(index + 1, returnValue.length);
+                            window1.location = '@_hrm_Main_Web' + fullPath;
+                            ShowNotificationProcessor(status);
+                            $.when(kendo.ui.ExtOkCancelDialog.show({
+                                title: "Thông Báo",
+                                message: "Bạn có muốn tải template vừa tạo lên không?",
+                                icon: "k-ext-warning"
+                            })
+                            ).done(function (response) {
+                                if (response.button == "OK") {
+                                    var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                    window2.center().open().title("Tạo mới mẫu template");
+                                }
+                            });
+                        }
+                    } else {
+                        ShowNotificationProcessor(returnValue);
+                    }
+                }
+            });*@
+        });
+
+        $("#btnExport").click(function () {
+            
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = true;
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportMonthlyHC');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + '/Hre_GetData/GetReportMonthlyHC',
+                data: filterFieldInfo(true),
+                dataType: 'json',
+                success: function (returnValue) {
+                     var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                }
+            });
+        });
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div2">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.dateSearch)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.dateSearch).ToString(),
+                                StyleCss = "width:100px;",
+                               
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.dateSearch, DateFrom)
+                    </div>
+                <div>
+                    <div id="div14">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdownForCreate")
+                                @Html.HiddenFor(mode => mode.OrgStructureID)
+                            </div>
+                        </div>
+                    </div>
+                </div>         
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.JobtitleID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var JobTitleName = new MultiSelectBuilderInfo
+                            {
+                                DataTextField = "JobTitleName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                MaxSelectedItems = 1,
+                                Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                            };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.JobtitleID, JobTitleName)
+                    </div>
+                </div>
+                <div id="div4">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.OrgStructureTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                            {
+                                Name = "SOrgStructureTypeID",
+                                DataTextField = "OrgStructureTypeName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                MaxSelectedItems = 1
+                            };
+                        }
+                        @(Html.VnrMultiSelectFor(mode => mode.OrgStructureTypeID, _OrgStructureTypeID))
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl= ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @using HRM.Presentation.UI.Controls.Kendo
+        @{
+            string[] valueFields = new string[]
+        {
+           Hre_ReportMonthlyHCModel.FieldNames.OrgStructureParentName,
+           Hre_ReportMonthlyHCModel.FieldNames.OrgStructureName,
+           Hre_ReportMonthlyHCModel.FieldNames.JobTitleName,
+           
+           Hre_ReportMonthlyHCModel.FieldNames.AppJan,
+           Hre_ReportMonthlyHCModel.FieldNames.AppFeb,
+           Hre_ReportMonthlyHCModel.FieldNames.AppMar,
+           Hre_ReportMonthlyHCModel.FieldNames.AppApr,
+           Hre_ReportMonthlyHCModel.FieldNames.AppMay,
+           Hre_ReportMonthlyHCModel.FieldNames.AppJun,
+           Hre_ReportMonthlyHCModel.FieldNames.AppJul,
+           Hre_ReportMonthlyHCModel.FieldNames.AppAug,
+           Hre_ReportMonthlyHCModel.FieldNames.AppSep,
+           Hre_ReportMonthlyHCModel.FieldNames.AppOct,
+           Hre_ReportMonthlyHCModel.FieldNames.AppNov,
+           Hre_ReportMonthlyHCModel.FieldNames.AppDec,
+           Hre_ReportMonthlyHCModel.FieldNames.AppYear,
+           
+           Hre_ReportMonthlyHCModel.FieldNames.ActJan,
+           Hre_ReportMonthlyHCModel.FieldNames.ActFeb,
+           Hre_ReportMonthlyHCModel.FieldNames.ActMar,
+           Hre_ReportMonthlyHCModel.FieldNames.ActApr,
+           Hre_ReportMonthlyHCModel.FieldNames.ActMay,
+           Hre_ReportMonthlyHCModel.FieldNames.ActJun,
+           Hre_ReportMonthlyHCModel.FieldNames.ActJul,
+           Hre_ReportMonthlyHCModel.FieldNames.ActAug,
+           Hre_ReportMonthlyHCModel.FieldNames.ActSep,
+           Hre_ReportMonthlyHCModel.FieldNames.ActOct,
+           Hre_ReportMonthlyHCModel.FieldNames.ActNov,
+           Hre_ReportMonthlyHCModel.FieldNames.ActDec,
+           Hre_ReportMonthlyHCModel.FieldNames.ActYear,
+           
+           Hre_ReportMonthlyHCModel.FieldNames.LeaJan,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaFeb,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaMar,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaApr,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaMay,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaJun,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaJul,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaAug,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaSep,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaOct,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaNov,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaDec,
+           Hre_ReportMonthlyHCModel.FieldNames.LeaYear,
+        };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Hre_ReportMonthlyHCModel.FieldNames.OrgStructureParentName,90},
+            {Hre_ReportMonthlyHCModel.FieldNames.OrgStructureName,80},
+            {Hre_ReportMonthlyHCModel.FieldNames.JobTitleName,140},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJan,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppFeb,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppMar,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppApr,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppMay,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJun,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJul,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppAug,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppSep,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppOct,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppNov,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppDec,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppYear,70},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJan,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActFeb,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActMar,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActApr,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActMay,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJun,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJul,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActAug,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActSep,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActOct,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActNov,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActDec,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActYear,70},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJan,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaFeb,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaMar,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaApr,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaMay,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJun,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJul,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaAug,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaSep,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaOct,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaNov,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaDec,70},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaYear,70},
+
+    };
+
+            Dictionary<string, string>
+                displayFields = new Dictionary<string, string>
+                    ()
+            {
+            {Hre_ReportMonthlyHCModel.FieldNames.OrgStructureParentName,ConstantDisplay.HRM_Attendance_OrgStructureParentID},
+            {Hre_ReportMonthlyHCModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Attendance_OrgStructureID},
+            {Hre_ReportMonthlyHCModel.FieldNames.JobTitleName,ConstantDisplay.HRM_Attendance_Overtime_JobtitleID},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJan,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Jan},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppFeb,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Feb},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppMar,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Mar},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppApr,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Apr},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppMay,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_May},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJun,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Jun},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppJul,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Jul},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppAug,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Aug},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppSep,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Sep},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppOct,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Oct},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppNov,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Nov},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppDec,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Dec},
+            {Hre_ReportMonthlyHCModel.FieldNames.AppYear,ConstantDisplay.HRM_HR_ReportMonthlyHC_App_Year},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJan,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Jan},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActFeb,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Feb},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActMar,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Mar},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActApr,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Apr},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActMay,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_May},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJun,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Jun},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActJul,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Jul},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActAug,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Aug},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActSep,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Sep},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActOct,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Oct},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActNov,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Nov},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActDec,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Dec},
+            {Hre_ReportMonthlyHCModel.FieldNames.ActYear,ConstantDisplay.HRM_HR_ReportMonthlyHC_Act_Year},
+            
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJan,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Jan},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaFeb,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Feb},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaMar,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Mar},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaApr,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Apr},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaMay,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_May},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJun,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Jun},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaJul,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Jul},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaAug,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Aug},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaSep,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Sep},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaOct,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Oct},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaNov,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Nov},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaDec,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Dec},
+            {Hre_ReportMonthlyHCModel.FieldNames.LeaYear,ConstantDisplay.HRM_HR_ReportMonthlyHC_Lea_Year},
+            };
+
+       
+            var grid = new GridBuilderInfo
+            {
+                Name = "grid_ReportHCSeniority",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportMonthlyHC",
+                ReadData = "filterFieldInfo",
+                PageSize = 1000,
+                ShowEditIcon = false,
+                ShowCheckbox = false,
+
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Hre_ReportMonthlyHCModel>(grid))
+    </div>
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+@*<div id="grid_ReportHCSeniority"></div>*@
+
+

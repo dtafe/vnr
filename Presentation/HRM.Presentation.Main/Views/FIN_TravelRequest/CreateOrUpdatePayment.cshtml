@@ -1,0 +1,521 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+
+@using System.Collections
+@using HRM.Infrastructure.Security
+
+@model FIN_ClaimModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var ContractID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        ContractID = Model.ID;
+    }
+}
+ 
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowTravelRequestItem",
+        Visible = false,
+        Title = @ConstantDisplay.HRM_Category_ExportItem.TranslateString(),
+        Width = 700,
+        LoadContentFrom = _hrm_Main_Web + "FIN_TravelRequest/Claim_TravelRequestItemInfo?TravelRequestID=" + ContractID,
+    };
+}
+@(Html.VnrWindow(window))
+@*@{
+    var windowClaim = new WindowBuilderInfo
+    {
+        Name = "windowClaim",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "FIN_TravelRequest/FIN_ClaimInfo/",
+    };
+}
+@(Html.VnrWindow(windowClaim))*@
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = ConstantDisplay.Hrm_Notification.TranslateString(),
+        Content = ConstantDisplay.HRM_FIN_TravelRequestItem_Create_Title.TranslateString()
+    };
+}
+@(Html.VnrWindow(windowError))
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<script type="text/javascript">
+    SetFieldRequired();
+    var gridName = '@ConstantControlName.HRM_FIN_TravelRequestItem_Grid_Name.TranslateString()';
+    var popUpName = '@ConstantControlName.HRM_FIN_TravelRequestItem_PopUp_Name.TranslateString()';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_Create_Title.TranslateString())';
+    $("#btnCreateTravelRequestItem").click(function () {
+        
+        $("#TravelRequestID").val($("#ID").val());
+       
+        var x = $('#@Html.FieldIdFor(model => model.TravelRequestID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+
+            PopUpCreate("windowTravelRequestItem", titleCreatePopUp , '@ConstantPermission.Hre_AppendixContract')
+        }
+    });
+    //Truyền nhiều id trên lưới
+    function PopData1(idWindow, url, parameter1, parameter2, titlePopUp) {
+        
+        var window = $("#" + idWindow).data("kendoWindow");
+        window.refresh({
+            url: url,
+            data: { TravelRequestID: parameter1, ProfileID: parameter2 }
+        }).center().open().title(titlePopUp);
+    }
+    
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "FIN_TravelRequest/TravelRequestItemInfo/";
+        EditGridPopUp("grid_TravelRequestItem", "windowTravelRequestItem", url, '@ConstantPermission.Hre_Contract', titleEditPopUp);
+        var url1 = '@_hrm_Main_Web' + "FIN_TravelRequest/FIN_ClaimInfo/";
+        EditGridPopUp("gridClaim", "windowClaim", url1, '@ConstantPermission.FIN_Claim', '@Html.Raw(ConstantDisplay.HRM_FIN_Claim_PopUp_Edit_Title.TranslateString())');
+    });
+
+    function filterFieldInfo() {
+        return {
+            TravelRequestID: $("#TravelRequest_ID").val()
+        };
+    }
+
+
+
+
+    GridCheckbox(gridName);
+
+    //Xóa PLHĐ
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_TravelRequestItem", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveSelectedPRItem/", selectedIds.join(","));
+    });
+    $('#btnDeleteClaim').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.FIN_Claim');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("gridClaim", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveFIN_ClaimSelected/", selectedIds.join(","));
+    });
+
+</script>
+
+<div class="VnRMain">
+    <div>
+        @{
+            if(Model == null){
+            <script>
+                $(document).ready(function () {
+                    $("#TravelRequestID").val($("#ID").val());
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hr_Service' + '/Hre_GetData/GetDataByUserLoginID',
+                        data: { ProfileID: _profileID },
+                        dataType: 'json',
+                        success: function (returnValue) {
+                            
+                            $("#UserCreateID").val('@Session[SessionObjects.UserId]');
+                            $("#Position").val(returnValue.PositionName);
+                            $("#Dept").val(returnValue.OrgStructureName);
+                            $("#UserCreateName").val('@Session[SessionObjects.FullName]');
+                        }
+                    });
+                });
+            </script>
+            }
+        }
+    </div>
+    <table style="width:100%">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px;">
+                        @Html.HiddenFor(mode => mode.ID)
+                        @Html.HiddenFor(mode => mode.TravelRequestID)
+                        @Html.HiddenFor(mode => mode.TravelRequest_ID)
+                        @Html.HiddenFor(mode => mode.UserCreateID)
+                        <div style="float:left; width:100%">
+                            <div style="float:left; width: 500px">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.TravelRequestName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.TravelRequestName)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Subject)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Subject)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Type)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Type)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Description)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextAreaFor(mode => mode.Description)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.DateFromEstimate)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var DateFromEstimate = new DatePickerBuilderInfo
+                                            {
+                                                Placeholder = "Từ Ngày",
+                                                StyleCss="width:100px"
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(mode => mode.DateFromEstimate, DateFromEstimate)
+
+                                        @{
+                                            var DateToEstimate = new DatePickerBuilderInfo
+                                            {
+                                                Placeholder = "Đến Ngày",
+                                                StyleCss = "width:100px"
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(mode => mode.DateToEstimate, DateToEstimate)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.DateFromActual)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var DateFromActual = new DatePickerBuilderInfo
+                                            {
+                                                Placeholder = "Từ Ngày"
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(mode => mode.DateFromActual, DateFromActual)
+
+                                        @{
+                                            var DateToActual = new DatePickerBuilderInfo
+                                            {
+                                                Placeholder = "Đến Ngày"
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(mode => mode.DateToActual, DateToActual)
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="float:left; width: 500px">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.DateRequest)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var dateRequest = new DatePickerBuilderInfo(){
+                                                Value = DateTime.Now.ToShortDateString(),
+                                                
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(mode => mode.DateRequest,dateRequest)
+                                    </div>
+                                </div>
+                                <script>
+                                    $(document).ready(function () {
+                                        var dateRequest = $("#DateRequest").data("kendoDatePicker");
+                                        dateRequest.readonly();
+                                    });
+                                </script>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.UserCreateName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var userCreate = new TextBoxBuilderInfo()
+                                            {
+                                                Readonly = true
+                                            };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.UserCreateName, userCreate)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Position)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var Position = new TextBoxBuilderInfo() { 
+                                                Readonly = true
+                                            };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.Position,Position)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Dept)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var Deppt = new TextBoxBuilderInfo()
+                                            {
+                                                Readonly = true
+                                            };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.Dept,Deppt)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Status)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var Status = new TextBoxBuilderInfo()
+                                            {
+                                                Readonly = true
+                                            };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.Status, Status)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTravelRequestItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        //Thông tin hiển column hiển thị
+        string[] valueFields = new string[]
+                            {
+                                FIN_ClaimItemModel.FieldNames.TravelRequestName,
+                                FIN_ClaimItemModel.FieldNames.Date,
+                                FIN_ClaimItemModel.FieldNames.Description,
+                                FIN_ClaimItemModel.FieldNames.Amount
+                                
+                            };
+
+        //Set độ rộng cho từng column
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {FIN_ClaimItemModel.FieldNames.TravelRequestName, 130},
+                                {FIN_ClaimItemModel.FieldNames.Date, 100},
+                                {FIN_ClaimItemModel.FieldNames.Description, 130},
+                                {FIN_ClaimItemModel.FieldNames.Amount, 100},
+                            };
+
+        //Thông tin hiển thị được dịch
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {FIN_ClaimItemModel.FieldNames.TravelRequestName, ConstantDisplay.HRM_FIN_Claim_TravelRequestName},
+                                {FIN_ClaimItemModel.FieldNames.Date, ConstantDisplay.FIN_ClaimItem_Date},
+                                {FIN_ClaimItemModel.FieldNames.Description,ConstantDisplay.FIN_ClaimItem_Description},
+                                {FIN_ClaimItemModel.FieldNames.Amount, ConstantDisplay.FIN_ClaimItem_Amount}
+                                   
+                            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_TravelRequestItem",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            GridHeight = 200,
+            AutoBind = true,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetTravelRequestItemByTravelRequestID?TravelRequestID=" + ContractID,
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<FIN_ClaimItemModel>(grid))
+</div>
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px;">
+                        <div style="float:left; ">
+                            <div class="hrm_box">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Attachment)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.HiddenFor(model => model.Attachment)
+                                        <input type="file" name="files" id="UploadAttachFile" />
+                                        <script>
+                                    var vnrUpload = VnrUploadBuilder;
+                                    vnrUpload.Id = "UploadAttachFile";
+                                    vnrUpload.Host = '@_hrm_Main_Web';
+                                    vnrUpload.Multiple = false,
+                                    vnrUpload.Field = "TemplateFile",
+                                    vnrUpload.FileType = "*.doc*.docx*.xls*.xlsx*.png*.jpeg",
+                                    vnrUpload.Files = '@Html.DisplayFor(model => model.Attachment)';
+                                    vnrUpload.AutoUpload = true;
+                                    vnrUpload.AutoReNameFile = true;
+                                    vnrUpload.Enable = true;
+                                    VnrUpload(vnrUpload);
+                                        </script>
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.CostEstimate)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var CostEstimate = new NumericTextBoxBuilderInfo<double>()
+                                            {
+                                            };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.CostEstimate, CostEstimate)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.CashAdvance)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var CashAdvance = new NumericTextBoxBuilderInfo<double>()
+                                            {
+                                            };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.CashAdvance, CashAdvance)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="float:left; margin-left:50px">
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.CostActual)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var CostActual = new NumericTextBoxBuilderInfo<double>()
+                                        {
+                                        };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(model => model.CostActual, CostActual)
+                                </div>
+
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.Balance)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var Balance = new NumericTextBoxBuilderInfo<double>()
+                                        {
+                                        };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(model => model.Balance, Balance)
+                                </div>
+
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.PaidAmount)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var PaidAmount = new NumericTextBoxBuilderInfo<double>()
+                                        {
+                                        };
+                                    }
+                                    @Html.VnrNumericTextBoxFor(model => model.PaidAmount, PaidAmount)
+                                </div>
+
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>

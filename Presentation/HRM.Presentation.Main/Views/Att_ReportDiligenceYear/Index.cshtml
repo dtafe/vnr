@@ -1,0 +1,254 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+
+@model HRM.Presentation.Attendance.Models.Att_ReportDiligenceYearModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            ValueFields: $('#valueFieldsGrid').val(),
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportDiligenceYearValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridAtt_ReportDiligenceYear').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            return false;
+        });
+    });
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportDiligenceYear');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportDiligenceYear';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportDiligenceYear', filterFieldInfo(true));
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:550px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                            @{
+                                var DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Att_ReportDiligenceYearModel.FieldNames.Date,
+           Att_ReportDiligenceYearModel.FieldNames.DepartmentCode,
+           Att_ReportDiligenceYearModel.FieldNames.ShiftName,
+           Att_ReportDiligenceYearModel.FieldNames.Sizes,
+           Att_ReportDiligenceYearModel.FieldNames.Absence,
+                     Att_ReportDiligenceYearModel.FieldNames.DateFrom,
+           Att_ReportDiligenceYearModel.FieldNames.DateTo,
+           Att_ReportDiligenceYearModel.FieldNames.UserExport,
+           Att_ReportDiligenceYearModel.FieldNames.DataExport,
+
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Att_ReportDiligenceYearModel.FieldNames.Date,85},
+            {Att_ReportDiligenceYearModel.FieldNames.DepartmentCode,100},
+            {Att_ReportDiligenceYearModel.FieldNames.ShiftName,90},
+            {Att_ReportDiligenceYearModel.FieldNames.Sizes,90},
+            {Att_ReportDiligenceYearModel.FieldNames.Absence,90},
+
+    };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+            {Att_ReportDiligenceYearModel.FieldNames.Date,ConstantDisplay.HRM_Attendance_Date},
+            {Att_ReportDiligenceYearModel.FieldNames.DepartmentCode,ConstantDisplay.HRM_Attendance_DepartmentCode},
+            {Att_ReportDiligenceYearModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_ShiftId},
+            {Att_ReportDiligenceYearModel.FieldNames.Sizes,ConstantDisplay.HRM_Attendance_Sizes},
+            {Att_ReportDiligenceYearModel.FieldNames.Absence,ConstantDisplay.HRM_Attendance_Absence},
+                  {Att_ReportDiligenceYearModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+            {Att_ReportDiligenceYearModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+            {Att_ReportDiligenceYearModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+            {Att_ReportDiligenceYearModel.FieldNames.DataExport,ConstantDisplay.HRM_Attendance_DateExport},
+            };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                    {
+                    {Att_ReportDiligenceYearModel.FieldNames.Date,"{0:dd:MM:YYYY}"},
+                    };
+        var hiddenFields = new string[]
+        {
+            Att_ReportDiligenceYearModel.FieldNames.DateFrom,
+           Att_ReportDiligenceYearModel.FieldNames.DateTo,
+           Att_ReportDiligenceYearModel.FieldNames.UserExport,
+           Att_ReportDiligenceYearModel.FieldNames.DataExport,
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportDiligenceYear",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportDiligenceYear",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            HiddenFields = hiddenFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportDiligenceYearModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

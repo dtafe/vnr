@@ -1,0 +1,190 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model HRM.Presentation.Hr.Models.FIN_TravelRequestModel
+@{
+    ViewBag.Title = "Index DetailTravelRequest";
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var rcID = Guid.Empty;
+    if (Model != null)
+    {
+        rcID = Model.ID;
+    }
+}
+<script>
+
+    var _profileID = [];
+
+    var Validator = CheckValidate();
+    // Xử lý lấy trạng thái tiếp theo của bản ghi
+    $(document).ready(function () {
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetNextStatusOfRecord_FIN_TravelRequest',
+            data: { recordID: '@Model.ID' },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                
+                if (data == 1) {
+                    document.getElementById("ApprovedTravelDetail_UserApprovedID").style.visibility = "hidden";
+                } else {
+                    document.getElementById("ApprovedTravelDetail_UserApprovedID").style.display = "none";
+                }
+            }
+        });
+    });
+
+    $("#btnApproved_AprovedTravelRequest").click(function () {
+        
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/ProcessApprovedTravel',
+            data: {
+                host: '@_hrm_Main_Web',
+                _loginID: $("#UserLoginId").val(),
+                _userApprovedID: $("#ApprovedTravelDetail_UserApprovedID").val(),
+                _recordID: '@rcID',
+                type: '@ApproveType.E_FIN_TravelRequest.ToString()'
+            },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                
+                if (data.Status == '@DataErrorCode.Success.ToString()') {
+                    ShowNotificationProcessor('Phê Duyệt Chi Phí Công Tác Thành Công');
+                }
+                else if (data.Status == '@DataErrorCode.Success_Forward.ToString()') {
+                    ShowNotificationProcessor('Phê Duyệt Chi Phí Công Tác Và Chuyển Tiếp Thành Công');
+                }
+                else if (data.Status == '@DataErrorCode.Error_NoUserApproved.ToString()') {
+                    ShowNotificationProcessor('Bạn Chưa Chọn Người Duyệt Kế Tiếp Cho Chi Phí Công Tác');
+                }
+                else if (data.Status == '@DataErrorCode.Error_Reject.ToString()') {
+                    ShowNotificationProcessor('Chi Phí Công Tác Đã Từ Chối Không Được Phép Phê Duyệt');
+                }
+                else if (data.Status == '@DataErrorCode.NoPermission.ToString()') {
+                    ShowNotificationProcessor('Tài Khoản Không Có Quyền Duyệt Chi Phí Công Tác Này');
+                }
+                else if (data.Status == '@DataErrorCode.Locked.ToString()') {
+                    ShowNotificationProcessor('Đối Tượng Này Đã Bị Khóa');
+                }
+                else {
+                    ShowNotificationProcessor('Duyệt Đối Tượng Thất Bại');
+                }
+            }
+        });
+    });
+
+
+    $("#btnReject_AprovedTravelRequest").click(function () {
+        
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/ProcessRejectTravel',
+            data: {
+                host: '@_hrm_Main_Web',
+                _loginID: $("#UserLoginId").val(),
+                _recordID: '@Model.ID',
+                type: '@ApproveType.E_FIN_TravelRequest.ToString()'
+            },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+              
+                if (data.Status == '@DataErrorCode.Success.ToString()') {
+                    ShowNotificationProcessor('Từ Chối Chi Phí Công Tác Thành Công');
+                }
+                else if (data.Status == '@DataErrorCode.Error_Reject.ToString()') {
+                    ShowNotificationProcessor('Chi Phí Công Tác Đã Từ Chối Không Được Phép Thay Đổi');
+                }
+                else if (data.Status == '@DataErrorCode.NoPermission.ToString()') {
+                    ShowNotificationProcessor('Tài Khoản Không Có Quyền Từ Chối Chi Phí Công Tác Này');
+                }
+                else if (data.Status == '@DataErrorCode.Locked.ToString()') {
+                    ShowNotificationProcessor('Đối Tượng Này Đã Bị Khóa');
+                }
+                else {
+                    ShowNotificationProcessor('Từ Chối Đối Tượng Thất Bại');
+                }
+
+            }
+        });
+    });
+
+
+
+    function doEditProfile() {
+        var IsClaim = document.getElementById("IsClaim");
+
+        if (IsClaim != null && IsClaim.checked) {
+            $("#IsClaim").val("true");
+        } else {
+            $("#IsClaim").val("false");
+        }
+        onCreate($('#form-edit'), '@_hrm_Hr_Service', 'api/FIN_TravelRequest/');
+        $("#TravelRequest_ID").val($("#ID").val());
+        return true;
+    };
+
+    function doSaveNew() {
+        if (doEditProfile()) {
+            KendoRouteMapping('#Hrm_Main_Web/FIN_TravelRequest/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+
+
+</script>
+<div>
+    @ViewBag.MsgInsert
+</div>
+<form action="#" method="POST" id="form-create" data-role="validator" novalidate="novalidate">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.HreContractIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_FIN_Detail_TravelRequest.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_FIN_Detail_TravelRequest_Back_To.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApproved_AprovedTravelRequest", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject_AprovedTravelRequest", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })
+
+                        <script>
+                            function ApprovedTravelDetails(e) {
+                                    
+                                    return {
+                                        text: $("#ApprovedTravelDetail_UserApprovedID").data("kendoComboBox")._prev + "|" + '@rcID'
+                                    };
+                                }
+                        </script>
+                        @{
+                            var multiSelectApprovedTravelDetails = new ComboBoxBuilderInfo()
+                            {
+                                Name = "ApprovedTravelDetail_UserApprovedID",
+                                DataTextField = "UserApproveName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Sys_Service + "Sys_GetData/GetUserApproved_Multilevel_E_FIN_TravelRequest",
+                                Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                Data = "ApprovedTravelDetails",
+                            };
+                        }
+                        @Html.VnrComboBox(multiSelectApprovedTravelDetails)
+
+                    </div>
+                </div>
+                @Html.Partial("DetailTravelRequestInfo", Model)
+            </div>
+        </div>
+    </div>
+</form>
+
+
+

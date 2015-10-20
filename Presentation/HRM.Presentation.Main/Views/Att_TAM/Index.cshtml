@@ -1,0 +1,395 @@
+﻿@using HRM.Infrastructure.Security
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.HrmSystem.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_TAMModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    string[] valueFields = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var userID = $('#UserLoginId').val();
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function paramComputing() {
+        return {
+            Type: '@AsynTask.Download_TimeLog.ToString()'
+        };
+    }
+
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL) {
+        var _ProfileIDs = $('#@Html.FieldIdFor(model => model.ProfileID)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileID)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(","),
+            ProfileID: _ProfileIDs,
+            LoginUserID: userID,
+            MachineNo: $('#@Html.FieldIdFor(model => model.MachineNo)').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Att_GetData/CheckConnectTAM',
+            type: 'POST',
+            success: function (Status) {
+
+                if (Status == "True") {
+                    $("#idTamStatus").attr("style", "color:green; font-weight: bold");
+                    $("#idTamStatus").text("ON");
+                } else {
+                    $("#idTamStatus").attr("style", "color:red; font-weight: bold");
+                    $("#idTamStatus").text("OFF");
+                }
+            },
+        });
+
+        // load ngày tổng hợp gần nhất từ hệ thống
+        var _key = '@AppConfig.HRM_ATT_TAM_LOADDATA.ToString()';
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/CheckSys_AllSetting',
+            type: 'POST',
+            datatype: 'json',
+            data: { key: _key },
+            success: function (strResponse) {
+                if (strResponse != null) {
+                    
+                    var dFrom = strResponse.DFrom;
+                    var dTo = strResponse.DTo;
+                    $("#DateFrom").data("kendoDateTimePicker").value(dFrom);
+                    $("#DateTo").data("kendoDateTimePicker").value(dTo);
+                }
+            },
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnDownload").click(function () {
+            //if (CheckValidate(data)) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetTAMDataValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+
+                        var treeView = $("#treeviewOrg").data("kendoTreeView");
+                        SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+                        
+                        $.ajax({
+                            type: 'POST',
+                            url: '@_hrm_Hr_Service' + 'Att_GetData/GetTAMData',
+                            data: filterFieldInfo(false),
+                            dataType: 'json',
+                            async: false,
+                            success: function (data) {
+                                if (data[0] = 'error') {
+                                    ShowNotificationProcessor(data[1]);
+                                } else {
+                                    IsActiveProgress = true;
+                                    ShowProgressBar(data.ID, "gridAtt_TAM");
+                                }
+                            },
+                            error: function (data) {
+                                window.ShowNotificationProcessor("Lỗi trong quá trình xử lý !");
+                            }
+                        });
+
+                        checkedNodes = [];
+                    }
+                }
+            });
+          //  }
+            return false;
+        });
+    });
+
+    $("#btn_Config").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_TAM_Config', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Att_TAM_Config.TranslateString())');
+            return;
+        }
+        KendoRouteMapping('#Hrm_Sys_Web/Sys_ConfigDB/Index/', 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+    });
+
+    $("#gridAtt_TAM").on("dblclick", "tr.k-state-selected", function () {
+
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_TAMData', false)
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Compute.TranslateString())');
+            return;
+        }
+
+        var status = this.childNodes[3].childNodes[0].data;
+        if (status == 'Done') {
+            return;
+        }
+        var idSelected = this.childNodes[0].childNodes[0].defaultValue;
+        IsActiveProgress = true;
+        ShowProgressBar(idSelected, "gridAtt_TAM");
+    });
+</script>
+<style>
+    .FieldTitle{
+        width:170px
+    }
+</style>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div style="display: block; padding-right: 20px; padding-top:10px; float: left">
+                    
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                    </div>
+                    <div id="div3">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var Profile = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = Att_TAMModel.FieldNames.ProfileName,
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    MaxSelectedItems = 1,
+                                    Value = @Html.DisplayFor(mode => mode.ProfileID).ToString()
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                        </div>
+                      
+                    </div>
+                    <div id="div4" style="float:left">
+                        <div class="FieldTitle">
+                            @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            <div style="float: left">
+                                <div style="float: left">
+                                    @{
+                                        var _DateFrom = new DateTimePickerBuilderInfo()
+                                        {
+
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                            StyleCss = "width:160px;",
+                                            Enable = false
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateFrom, _DateFrom)
+                                </div>
+                                <div style="float: left">
+                                    @{
+                                        var _DateTo = new DateTimePickerBuilderInfo()
+                                        {
+
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                            StyleCss = "width:160px;",
+                                            Enable = false
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateTo, _DateTo)
+                                </div>
+                                <script>
+                                    $("#hideDate").click(function () {
+                                        var r = confirm("Sửa Lại Thời Gian Tải Dữ Liệu Có Thể Sẽ Mất Dữ Liệu Vào Ra Đã Nhập Trước!");
+                                        if (r == true) {
+                                            var dateFrom = $("#DateFrom").data("kendoDateTimePicker");
+                                            var dateTo = $("#DateTo").data("kendoDateTimePicker");
+                                            dateFrom.enable(true);
+                                            dateTo.enable(true);
+                                        }
+                                    });
+                                </script>
+                            </div>
+                            <div style="padding-left: 5px; float: left">
+                                @*<input type="button" id="hideDate" value="Chỉnh Sửa" />*@
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "hideDate", Content = ConstantDisplay.HRM_Att_Modify.TranslateString(), ImageUrl = ConstantPath.IconEditPath })
+                            </div>
+                            <div style="padding-left: 5px; float: left">
+                                @Html.Label(ConstantDisplay.HRM_Att_TAM_Status.TranslateString()) :
+                                <span id="idTamStatus" style="padding-left: 5px; float: left"></span>
+                            </div>
+                            <div style="padding-left: 20px; float: left">
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btn_Config", Content = ConstantDisplay.HRM_Att_TAM_Config.TranslateString(), ImageUrl = "/Content/images/icons/submenu/menu/Conf_UserSetting.png" })
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.MachineNo)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.MachineNo, "width:160px")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDownload", Content = ConstantAction.HRM_Common_DownLoad.TranslateString(), ImageUrl = ConstantPath.IconLoadDataPath })
+    </div>
+    <div style="overflow:hidden">
+        <!--Khai báo các thông tin cho Grid-->
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+
+            valueFields = new string[]
+        {
+            Sys_AsynTaskModel.FieldNames.Summary,
+            Sys_AsynTaskModel.FieldNames.Status,
+            Sys_AsynTaskModel.FieldNames.UserCreate,
+            Sys_AsynTaskModel.FieldNames.PercentComplete,
+            Sys_AsynTaskModel.FieldNames.TimeStart,
+            Sys_AsynTaskModel.FieldNames.TimeEnd,
+            Sys_AsynTaskModel.FieldNames.Description,
+        };
+
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, 138},
+            {Sys_AsynTaskModel.FieldNames.Status, 80},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, 110},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, 80},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, 135},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd,135},
+            {Sys_AsynTaskModel.FieldNames.Description, 220}
+        };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, ConstantDisplay.HRM_System_AsynTask_Summary},
+            {Sys_AsynTaskModel.FieldNames.Status, ConstantDisplay.HRM_System_AsynTask_Status},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantDisplay.HRM_System_AsynTask_PercentComplete},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, ConstantDisplay.HRM_System_AsynTask_UserNameCreate},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantDisplay.HRM_System_AsynTask_TimeStart},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantDisplay.HRM_System_AsynTask_TimeEnd},
+            {Sys_AsynTaskModel.FieldNames.Description, ConstantDisplay.HRM_System_AsynTask_Description},
+        };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantFormat.HRM_Format_Percent}
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_TAM",
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetAsynTaskList",
+                ReadData = "paramComputing",
+                ShowEditIcon = false,
+                AutoBind = true
+            };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Sys_AsynTaskModel>(grid))
+    </div>
+
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+
+        @*@{
+            string[] valueFields = new string[]
+        {
+        Att_TAMModel.FieldNames.CardCode,
+        Att_TAMModel.FieldNames.TimeLog,
+        Att_TAMModel.FieldNames.MachineNo,
+        Att_TAMModel.FieldNames.StatusTranslate,
+
+        };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int> ()
+            {
+                {Att_TAMModel.FieldNames.CardCode,105},
+                {Att_TAMModel.FieldNames.TimeLog,145},
+                {Att_TAMModel.FieldNames.MachineNo,120},
+                {Att_TAMModel.FieldNames.StatusTranslate,82},
+            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string> ()
+            {
+                {Att_TAMModel.FieldNames.CardCode,ConstantDisplay.HRM_Attendance_TAM_CodeAttendance},
+                {Att_TAMModel.FieldNames.TimeLog,ConstantDisplay.HRM_Attendance_TAM_TimeLog},
+                {Att_TAMModel.FieldNames.MachineNo,ConstantDisplay.HRM_Canteen_Line_MachineCode},
+                {Att_TAMModel.FieldNames.StatusTranslate,ConstantDisplay.HRM_Attendance_TAM_Status}
+            };
+            Dictionary<string, string> formatFields = new Dictionary<string, string> ()
+            {
+                {Att_TAMModel.FieldNames.TimeLog,ConstantFormat.HRM_Format_DayMonthYear_HoursMin_TT}
+            };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_TAM",
+                ShowEditIcon = false,
+                ShowCheckbox = false,
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetTAMData",
+                ReadData = "filterFieldInfo",
+            };
+        }
+        Khởi tạo Grid
+        @(Html.VnrGrid<Att_TAMModel>(grid))
+    </div>*@

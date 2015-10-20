@@ -1,0 +1,219 @@
+﻿
+@using HRM.Data.Entity
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.Category.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@model Att_ReportProfileByShiftModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    SetFieldRequired();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+        
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            DateFrom:ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val(),
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportID"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportProfileByShift', filterFieldInfo(true));
+    });
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportProfileByShiftValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+
+                        $.ajax({
+                            url: '@_hrm_Hr_Service' + "Att_GetData/GetReportProfileByShift",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            success: function (data) {
+                                
+                                var grid = VnrGridDynamic;
+                                grid.GridName = "grid_Demo";
+                                grid.DataSource = data.Data;
+                                grid.PageSize = 50;
+                                VnrGridDynamicControl(grid);
+                            }
+                        });
+                        checkedNodes = [];
+                    }
+                }
+            });
+
+        });
+
+
+        $("#btnExport").click(function () {
+            
+            var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportProfileByShift');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+            var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportProfileByShift';
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true);
+            ExportAll(urlGetData, dataParameter, urlDownload);
+        });
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div style="float:left; width:450px">
+                            <div id="dvDateFrom">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(m => m.DateFrom)
+                                    @Html.HiddenFor(m => m.UserExport)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateFrom = new DatePickerBuilderInfo()
+                                        {
+                                            Value=DateTime.Today.ToShortDateString(),
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                                    @{
+                                        var DateTo = new DatePickerBuilderInfo()
+                                        {
+                                            Value=DateTime.Today.ToShortDateString(),
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                                </div>
+                            </div>
+                     
+                            <div id="dvOrgStructureID">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+                            @*Nhóm lương*@
+                            <div id="dvPayrollGroupIDs">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.PayrollGroupIDs)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var payrollGroup = new MultiSelectBuilderInfo
+                                        {
+                                            DataTextField = Cat_PayrollGroupModel.FieldNames.PayrollGroupName,
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                            MaxSelectedItems = 2,
+                                            Placeholder = ConstantDisplay.HRM_Category_PayrollGroup_PayrollGroupName.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrMultiSelectFor(mode => mode.PayrollGroupIDs, payrollGroup)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString() , ImageUrl = ConstantPath.IconExportPath })
+
+
+            </div>
+        </div>
+    </div>
+    <div id="grid_Demo"></div>
+    </div>    
+    

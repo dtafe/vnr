@@ -1,0 +1,350 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.Main.Controllers
+@using HRM.Presentation.UI.Controls.Kendo
+@model Hre_ReportSummaryDependantSearchModel
+
+@{
+    ViewBag.Title = "Profiles Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+ 
+}
+@Html.Hidden("Screen", screen)
+
+<style>
+    .k-state-selected {
+        color: #fff !important;
+        background-color: #5A83B1 !important;
+        border-color: #5A83B1 !important;
+    }
+</style>
+<script>
+    SetFieldRequired();
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            MonthOfExpiry: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthOfExpiry").val()),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            JobTitleID: $('#@Html.FieldIdFor(model => model.JobTitleID)').val() ? $('#@Html.FieldIdFor(model => model.JobTitleID)').val()[0] : null,
+            PositionID: $('#@Html.FieldIdFor(model => model.PositionID)').val() ? $('#@Html.FieldIdFor(model => model.PositionID)').val()[0] : null,
+            DependantName: $('#@Html.FieldIdFor(model => model.DependantName)').val(),
+            RelationID: $('#@Html.FieldIdFor(model => model.RelationID)').val() ? $('#@Html.FieldIdFor(model => model.RelationID)').val()[0] : null,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Hre_GetData/GetReportSummaryDependantList',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    CloseHre_ProgressBar();
+                    debugger;
+                    if (typeof (data) == "string") {
+                        ShowNotificationProcessor(data);
+                    }
+                    else {
+                        ReadGrid('gridHre_ReportSummaryDependant');
+                        return false;
+                    }
+                },
+                error: function () {
+                    CloseHre_ProgressBar();
+                }
+            });
+            checkedNodes = [];
+            return false;
+
+            //var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            //var grid = $('#gridHre_ReportProfileHDTNotWork').data("kendoGrid");
+            //grid.dataSource.read();
+            //checkedNodes = [];
+            //isCreateTemplate = false;
+            //isCreateTemplateForDynamicGrid = false;
+            //var grid = $('#gridHre_ReportSummaryDependant').data("kendoGrid");
+            //grid.dataSource.read();
+            //selectedIds = [];
+
+        });
+        ShowHidePanel();
+    });
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportSummaryDependant');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        isCreateTemplate = false;
+        var urlGetData = '@_hrm_Hr_Service' + '/Hre_GetData/GetReportSummaryDependantList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Hre_GetData/GetReportSummaryDependantList', filterFieldInfo(true));
+    });
+</script>
+<div id="grid_Demo"></div>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div3">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.ProfileName)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div5">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.JobTitleID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var JobTitleName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "JobTitleName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiJobTitle",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.PositionID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PositionName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "PositionName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiPosition",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_HR_Dependant_MonthOfExpiry.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var MonthOfExpiry = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Format = ConstantFormat.HRM_Format_MonthYear
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthOfExpiry, MonthOfExpiry)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div7">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.DependantName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.DependantName)
+                                @Html.ValidationMessageFor(model => model.DependantName)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div8">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.RelationID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var Relation = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = Hre_DependantModel.FieldNames.RelativeTypeName,
+                                        DataValueField = Hre_DependantModel.FieldNames.ID,
+                                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiRelativeType",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectRelative.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        Value = new string[] { @Html.DisplayFor(mode => mode.RelationID).ToString() }
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.RelationID, Relation))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        var valueFields = new[]
+            {
+           
+                Hre_ReportSummaryDependantModel.FieldNames.CodeEmp,
+                Hre_ReportSummaryDependantModel.FieldNames.ProfileName,
+                Hre_ReportSummaryDependantModel.FieldNames.CodeTax,
+                Hre_ReportSummaryDependantModel.FieldNames.DependantName,
+                Hre_ReportSummaryDependantModel.FieldNames.CompleteDate,
+                Hre_ReportSummaryDependantModel.FieldNames.MonthOfEffect,
+                Hre_ReportSummaryDependantModel.FieldNames.MonthOfExpiry,
+                Hre_ReportSummaryDependantModel.FieldNames.TotalDependant,
+  
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Hre_ReportSummaryDependantModel.FieldNames.CodeEmp,80},
+                {Hre_ReportSummaryDependantModel.FieldNames.ProfileName,140},
+                {Hre_ReportSummaryDependantModel.FieldNames.CodeTax,90},
+                {Hre_ReportSummaryDependantModel.FieldNames.DependantName,140},
+                {Hre_ReportSummaryDependantModel.FieldNames.CompleteDate,121},
+                {Hre_ReportSummaryDependantModel.FieldNames.MonthOfEffect,111},
+                {Hre_ReportSummaryDependantModel.FieldNames.MonthOfExpiry,130},
+                {Hre_ReportSummaryDependantModel.FieldNames.TotalDependant,138},
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Hre_ReportSummaryDependantModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_ReportSummaryDependantModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Hre_ReportSummaryDependantModel.FieldNames.CodeTax,ConstantDisplay.HRM_HR_Dependant_CodeTax},
+                {Hre_ReportSummaryDependantModel.FieldNames.DependantName,ConstantDisplay.HRM_HR_Dependant_DependantName},
+                {Hre_ReportSummaryDependantModel.FieldNames.CompleteDate,ConstantDisplay.HRM_HR_Dependant_CompleteDate},
+                {Hre_ReportSummaryDependantModel.FieldNames.MonthOfEffect,ConstantDisplay.HRM_HR_Dependant_MonthOfEffect},
+                {Hre_ReportSummaryDependantModel.FieldNames.MonthOfExpiry,ConstantDisplay.HRM_HR_Dependant_MonthOfExpiry},
+   
+                  {Hre_ReportSummaryDependantModel.FieldNames.TotalDependant,ConstantDisplay.HRM_HR_Dependant_TotalDependant},
+
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_ReportSummaryDependant",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Hre_GetData/GetReportSummaryDependantList/",
+            ReadData = "filterFieldInfo",
+            ShowCheckAll = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false
+        };
+    }
+    @(Html.VnrGrid<Hre_ReportSummaryDependantModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

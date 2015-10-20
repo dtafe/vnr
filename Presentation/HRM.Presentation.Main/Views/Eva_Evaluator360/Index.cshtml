@@ -1,0 +1,309 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+
+@model  Eva_EvaluatorSearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_Bank_Title.TranslateString();
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    string gridName = ConstantControlName.HRM_gridEva_Evaluator360_Name;
+}
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+    var selectedIds = [];
+    var gridName = '@gridName';
+    var popUpName = '@ConstantControlName.HRM_Category_Bank_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Bank_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Bank_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+            ReadGrid(gridName);
+        });
+        EditGridNewPage(gridName, '#Hrm_Eva_Web/Eva_Evaluator360/Edit/', 'Hrm_Eva_Web', '@_hrm_Main_Web');
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            ProfileID: $('#@Html.FieldIdFor(model => model.ProfileID)').val() == null ? null : $('#@Html.FieldIdFor(model => model.ProfileID)').val().join(','),
+            PerformanceTypeID: $('#@Html.FieldIdFor(model => model.PerformanceTypeID)').val() == null ? null : $('#@Html.FieldIdFor(model => model.PerformanceTypeID)').val().join(','),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridName);
+    
+    $("#btnCreateEvaEvaluator").click(function () {
+        KendoRouteMapping('#Hrm_Eva_Web/Eva_Evaluator360/Create/', 'Hrm_Eva_Web', '@_hrm_Main_Web');
+    });
+
+    //Xóa
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Eva_Evaluator360');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        if (selectedIds.join(",") != '' && selectedIds.join(",") != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: "Thông Báo",
+                message: "Bạn có chắc chắn muốn xóa?",
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+
+                if (response.button == "OK") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hre_Service' + "Eva_GetData/DeleteByProfile",
+                        dataType: 'json',
+                        data: { id: selectedIds.join(",") },
+                        success: function (data) {
+                            selectedIds = [];
+                            ReadGrid(gridName);
+                            if (data.IsDelete === true && data != null) {
+                                window.ShowNotificationProcessor("Xóa Thành Công");
+                                return;
+                            }
+                            else {
+                                window.ShowNotificationProcessor("Người Đánh Giá Đã Đánh Giá, Bạn Không Thể Xóa!");
+                                return;
+                            }
+                        },
+                        error: function (data) {
+                            window.ShowNotificationProcessor("Thất Bại!");
+
+                        }
+                    });
+                }
+            });
+        } else {
+            window.ShowNotificationProcessor("Không có dữ lệu nào được chọn.");
+        }       
+    });
+    $("#btnExportAll").click(function () {
+        var grid = $("#"+gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Eva_GetData/ExportEvaluatorList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_Evaluator360');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Eva_GetData/ExportEvaluatorSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_Evaluator');
+    });
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.ProfileID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var multiSelectProfileID = new MultiSelectBuilderInfo()
+                             {
+                                 DataTextField = "ProfileName",
+                                 DataValueField = "ID",
+                                 MaxSelectedItems = 1,
+                                 Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                 Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                 Width = 200
+                             };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @ConstantDisplay.HRM_Evaluation_Tag.TranslateString()
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var multiSelectTagID = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "PerformanceTypeID",
+                                    DataTextField = "PerformanceTypeName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 1,
+                                    Url = _hrm_Hre_Service + "Cat_GetData/GetMultiPerformanceType",
+                                    Placeholder = ConstantDisplay.HRM_Evaluation_SelectTagEva.TranslateString(),
+                                    Width = 200
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(p => p.PerformanceTypeID, multiSelectTagID)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge" id="anchor">
+        <div style="float:left">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateEvaEvaluator", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        </div>
+        <div style="float:right">
+            <div style="float:right">
+                <div class="btn-group">
+                    <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                        <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                        @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                        <span class="caret"></span>
+                    </button>
+                    <ul class="dropdown-menu pull-right" role="menu">
+                        <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                        <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                    </ul>
+                </div>
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnEvaluator", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+            </div>
+        </div>
+        <div class="clear"></div>
+    </div>
+    <script>
+        function clickProfile(ProfileID) {
+            KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + ProfileID, 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    </script>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            var columnMode = string.Empty;
+            var defaultColumnMode = string.Empty;
+            var userId = Session[SessionObjects.UserId];
+            //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+            var gridControlName = ConstantControlName.HRM_gridEva_Evaluator_Name + "__Eva_Evaluator_Index";
+            HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+            //Get thông tin cấu hình trong database
+            GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+            var grid = new GridBuilderInfo
+            {
+                Name = gridName,
+                ShowNextPrevious = true,
+                PageSize = 20,
+                ShowPageNumber = true,
+                ShowCommand = false,
+                ReadActionUrl = @_hrm_Hre_Service + "Eva_GetData/GetEvaluatorList/",
+                ReadData = "filterFieldInfo",
+            };
+
+            if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+            {
+                grid.ValueFields = gridInfo.ValueFields;
+                grid.SizeFields = gridInfo.SizeFields;
+                grid.Filterable = gridInfo.FilterFields;
+                grid.DisplayFields = gridInfo.DisplayFields;
+                grid.LockedFields = gridInfo.LockedFields;
+                grid.GroupFields = gridInfo.GroupFields;
+                if (gridInfo.PageSize > 0)
+                {
+                    grid.PageSize = gridInfo.PageSize;
+                }
+                columnMode = gridInfo.StringXml;
+            }
+            else
+            {
+                grid.ValueFields = new[]
+            {
+                Eva_EvaluatorModel.FieldNames.ProfileName,
+                Eva_EvaluatorModel.FieldNames.PerformanceTypeName,
+                Eva_EvaluatorModel.FieldNames.EvaluatorName,
+                Eva_EvaluatorModel.FieldNames.ProfileID,
+            };
+                grid.HiddenFields = new[]
+            {
+                Eva_EvaluatorModel.FieldNames.ProfileID,
+            };
+                var sizeFields = new Dictionary<string, int>()
+            {
+                {Eva_EvaluatorModel.FieldNames.ProfileName,200},
+                {Eva_EvaluatorModel.FieldNames.PerformanceTypeName,180},
+                {Eva_EvaluatorModel.FieldNames.EvaluatorName,500},
+            };
+
+                grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Eva_EvaluatorModel.FieldNames.ProfileName,true},
+                {Eva_EvaluatorModel.FieldNames.PerformanceTypeName,true},
+                {Eva_EvaluatorModel.FieldNames.EvaluatorName,true},
+            };
+
+                grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Eva_EvaluatorModel.FieldNames.ProfileName,ConstantDisplay.HRM_Evaluation_Evaluator_ProfileName},
+                {Eva_EvaluatorModel.FieldNames.PerformanceTypeName,ConstantDisplay.HRM_Evaluation_Tag},
+                {Eva_EvaluatorModel.FieldNames.EvaluatorName,ConstantDisplay.HRM_Evaluation_Evaluator_EvaluatorName},
+            };
+                grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Eva_EvaluatorModel.FieldNames.ProfileName,"clickProfile, ProfileID"},
+            };
+                defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+            }   
+        }
+
+        @(Html.VnrGrid<Eva_EvaluatorModel>(grid))
+        <script>
+            ClickButtonChangeColum("btnChangeColumnEvaluator", "Eva_EvaluatorModel");
+            $(document).ready(function () {
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+            });
+        </script>
+    </div>
+    @{
+        var listValueField = grid.ValueFields;
+        var valueFields1 = string.Empty;
+        if (listValueField != null)
+        {
+            for (int i = 0; i < listValueField.Count(); i++)
+            {
+                valueFields1 += "," + listValueField[i];
+            }
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,110 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Category.Models.CatElementModel
+@{
+    ViewBag.Title = "Index CatElement";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _Hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    function checkDuplicationCode() {
+
+        var _code = $("#ElementCode").val();
+        var _id = '@lineId';
+        var param = {
+            tableName: 'Cat_Element',
+            columnName: 'ElementCode',
+            keyword: _code,
+            id: _id
+        };
+
+        var isduplicate = checkDuplicate('@_hrm_Sys_Service', 'Sys_GetData', 'CheckDuplicate', param, "Code");
+
+        return isduplicate;
+    }
+    var doSave = function () {
+
+        //Kiểm tra mã không có khoảng trắng
+        var elementCode = $("#ElementCode").val();
+        if (elementCode == "" || elementCode.indexOf(" ") != -1) {
+            ShowNotificationProcessor("Mã Phải Được Viết Liền Và Không Dấu !");//Chưa Dịch!
+            return false;
+        }
+        //Kiểm tra mã không có đấu các các ký tự đặt biệt
+        var patt = new RegExp("^[a-zA-Z][a-zA-Z0-9_]+$");
+        var res = patt.test(elementCode);
+        if (!res) {
+            ShowNotificationProcessor("Mã Phải Được Viết Liền Và Không Dấu !");//Chưa Dịch!
+            return false;
+        }
+
+        //Gán lại Formula từ div qua textbox
+        if ($('#Formula').val() != "") {
+            if (!CheckFormula()) {
+                return false;
+            }
+        }
+        else {
+            ShowNotificationProcessor("Chưa Nhập Công Thức !");//Chưa Dịch!
+            return false;
+        }
+        var result = false;
+        //if (CheckValidate(data)) {
+            //Gán lại Formula từ div qua textbox
+            //Load lại lưới tương ứng
+        var GridName = $("#ElementType").val();
+
+        //xử lý dấu cộng
+        var formula = $("#Formula").val();
+        $("#Formula").val(formula.replace(/\+/g, '[+]'));
+
+        onCreate($('#form-create'), '@_hrm_Hr_Service', 'api/CatElement/');
+
+        //hiện lại dấu cộng như bình thường
+        $("#Formula").val(formula.replace(/\[+]/g, "+"));
+
+            if (GridName != null)
+            {
+                ReadGrid(GridName);
+            }
+            return true;
+        //}
+        return result;
+    }
+    function doSaveNew() {
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Cat_ElementCommission/Create/', 'Hrm_Main_Web', '@_Hrm_Main_Web');
+        }
+    }
+</script>
+<div>
+    @ViewBag.MsgInsert
+</div>
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.ElementIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Category_Element_Edit.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_Category_Back_To_Element_List.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-continue", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("CreateOrUpdate", Model)
+            </div>
+        </div>
+    </div>
+</form>
+

@@ -1,0 +1,306 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model Hre_ReportSeniorityModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))*@
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            DateSeniority: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateSeniority").val()),
+            OrgStructureID: checkedNodes.join(','),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    function CheckEmpty() {
+        
+        var datefrom = $("#DateFrom").val();
+        var dateto = $("#DateTo").val();
+        if (datefrom == "") {
+            ShowNotificationProcessor("Error,Ngày Áp Dụng Từ Ngày Không Được Rỗng !");
+            return;
+        }
+        if (dateto == "") {
+            ShowNotificationProcessor("Error,Ngày Áp Dụng Đến Ngày Không Được Rỗng !"); return;
+        }
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        @*$("#DateSeniority").val(@DateTime.Now.ToString("dd/MM/yyyy"));*@
+        //Show Hide Panel
+        ShowHidePanel();
+    $("#btnSearch").click(function () {
+        
+        CheckEmpty();
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+        var grid = $('#gridHre_ReportSeniority').data("kendoGrid");
+        
+        grid.dataSource.read();
+        //selectedIds = [];
+        checkedNodes = [];
+
+    });
+    });
+    $("#btnExport").click(function () {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+       var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportSeniority');
+       if (!isAccess) {
+           return;
+       }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Hre_GetData/GetReportSeniority";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+   });
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hre_Service' + "Hre_GetData/GetReportSeniority", filterFieldInfo(true));
+        @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportSeniority');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        var window12 = window;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + "Hre_GetData/GetReportSeniority",
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var index = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (index > 0) {
+                    status = returnValue.substring(0, index);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(index + 1, returnValue.length);
+                        window12.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                        $.when(kendo.ui.ExtOkCancelDialog.show({
+                            title: "Thông Báo",
+                            message: "Bạn có muốn tải template vừa tạo lên không?",
+                            icon: "k-ext-warning"
+                        })
+                        ).done(function (response) {
+                            if (response.button == "OK") {
+                                var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                window2.center().open().title("Tạo mới mẫu template");
+                            }
+                        });
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+            }
+        });*@
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div2">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.DateSeniority)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateSeniority = new DatePickerBuilderInfo() 
+                            {
+                                Name = "DateSeniority",
+                                StyleCss = "width:120px;",
+                                Placeholder = ConstantDisplay.HRM_HR_ReportSeniority_DateSeniority.TranslateString(),
+                                Value = DateTime.Now.ToString("dd/MM/yyyy"),
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateSeniority, DateSeniority)
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+               
+                <div id="div14">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                    </div>
+                    <div class="FieldValue">
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                    </div>
+                </div>
+               
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div >
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+                            {
+                                Hre_ReportSeniorityModel.FieldNames.CodeEmp,
+                                Hre_ReportSeniorityModel.FieldNames.ProfileName,
+                                Hre_ReportSeniorityModel.FieldNames.E_DEPARTMENT,
+                                Hre_ReportSeniorityModel.FieldNames.E_SECTION,
+                                Hre_ReportSeniorityModel.FieldNames.JobTitleName,
+                                Hre_ReportSeniorityModel.FieldNames.PositionName,
+                                Hre_ReportSeniorityModel.FieldNames.DateHire,
+                                Hre_ReportSeniorityModel.FieldNames.YearSeniority,
+                                Hre_ReportSeniorityModel.FieldNames.MonthSeniority,
+                                Hre_ReportSeniorityModel.FieldNames.ContractTypeName,
+                                Hre_ReportSeniorityModel.FieldNames.DateStart,
+                                Hre_ReportSeniorityModel.FieldNames.DateEnd,
+                                Hre_ReportSeniorityModel.FieldNames.GrossAmount,
+                                Hre_ReportSeniorityModel.FieldNames.AnnualYearRest,
+                                Hre_ReportSeniorityModel.FieldNames.Notes,
+                            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Hre_ReportSeniorityModel.FieldNames.CodeEmp,80},
+                                {Hre_ReportSeniorityModel.FieldNames.ProfileName,150},
+                                {Hre_ReportSeniorityModel.FieldNames.E_DEPARTMENT,150},
+                                {Hre_ReportSeniorityModel.FieldNames.E_SECTION,150},
+                                {Hre_ReportSeniorityModel.FieldNames.JobTitleName,150},
+                                {Hre_ReportSeniorityModel.FieldNames.PositionName,150},
+                                {Hre_ReportSeniorityModel.FieldNames.DateHire,100},
+                                {Hre_ReportSeniorityModel.FieldNames.YearSeniority,110},
+                                {Hre_ReportSeniorityModel.FieldNames.MonthSeniority,120},
+                                {Hre_ReportSeniorityModel.FieldNames.ContractTypeName,155},
+                                {Hre_ReportSeniorityModel.FieldNames.DateStart,100},
+                                {Hre_ReportSeniorityModel.FieldNames.DateEnd,105},
+                                {Hre_ReportSeniorityModel.FieldNames.GrossAmount,110},
+                                {Hre_ReportSeniorityModel.FieldNames.AnnualYearRest,110},
+                                {Hre_ReportSeniorityModel.FieldNames.Notes,150},
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Hre_ReportSeniorityModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Hre_ReportSeniorityModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_ReportBirthday_ProfileName},
+                                {Hre_ReportSeniorityModel.FieldNames.E_DEPARTMENT,ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                                {Hre_ReportSeniorityModel.FieldNames.E_SECTION,ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                                {Hre_ReportSeniorityModel.FieldNames.JobTitleName,ConstantDisplay.HRM_HR_Profile_JobTitleName},
+                                {Hre_ReportSeniorityModel.FieldNames.PositionName,ConstantDisplay.HRM_HR_ReportBirthday_PositionName},
+                                {Hre_ReportSeniorityModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_ReportBirthday_DateHire},
+                                {Hre_ReportSeniorityModel.FieldNames.YearSeniority,ConstantDisplay.HRM_HR_ReportSeniority_YearSeniority},
+                                {Hre_ReportSeniorityModel.FieldNames.MonthSeniority,ConstantDisplay.HRM_HR_ReportSeniority_MonthSeniority},
+                                {Hre_ReportSeniorityModel.FieldNames.ContractTypeName,ConstantDisplay.HRM_HR_Contract_ContractTypeID},
+                                {Hre_ReportSeniorityModel.FieldNames.DateStart,ConstantDisplay.HRM_HR_Contract_DateStart},
+                                {Hre_ReportSeniorityModel.FieldNames.DateEnd,ConstantDisplay.HRM_HR_Contract_DateEnd},
+                                {Hre_ReportSeniorityModel.FieldNames.GrossAmount,ConstantDisplay.HRM_HR_ReportSeniority_GrossAmount},
+                                {Hre_ReportSeniorityModel.FieldNames.AnnualYearRest,ConstantDisplay.HRM_Attendance_AttendanceTable_AnlDayAvailable},
+                                {Hre_ReportSeniorityModel.FieldNames.Notes,ConstantDisplay.HRM_HR_Profile_Notes},
+                       
+                                
+                            };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_ReportSeniority",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowNextPrevious = true,
+            PageSize = 20,
+            ShowPageNumber = true,
+            ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportSeniority",
+            ReadData = "filterFieldInfo",
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_ReportSeniorityModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

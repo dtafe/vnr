@@ -1,0 +1,287 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+@using VnResource.ARTS.Library
+@model HRM.Presentation.HrmSystem.Models.Sys_UserSettingModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    IList<SelectListItem> listTheme = Enum.GetValues(typeof(EnumDropDown.ETheme))
+        .Cast<EnumDropDown.ETheme>()
+        .Select(x => new SelectListItem { Value = EnumDropDown.GetEnumDescription(x), Text = x.ToString() }).OrderBy(p=>p.Text)
+        .ToList();
+
+
+    IList<SelectListItem> languages = AppSettings.Languages.Select(d =>
+        new SelectListItem
+        {
+            Value = d,
+            Text = d.TranslateString()
+        }).OrderBy(p=>p.Text).ToList();
+
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Rec_Web = ConstantPathWeb.Hrm_Rec_Web;
+    var _hrm_Eva_Web = ConstantPathWeb.Hrm_Eva_Web;
+    var _hrm_Hre_Web = ConstantPathWeb.Hrm_Hre_Web;
+    var _hrm_Att_Web = ConstantPathWeb.Hrm_Att_Web;
+    var _hrm_Sal_Web = ConstantPathWeb.Hrm_Sal_Web;
+    var _hrm_Can_Web = ConstantPathWeb.Hrm_Can_Web;
+    var _hrm_Lau_Web = ConstantPathWeb.Hrm_Lau_Web;
+    var _hrm_Cat_Web = ConstantPathWeb.Hrm_Cat_Web;
+    var _hrm_Ins_Web = ConstantPathWeb.Hrm_Ins_Web;
+
+    var language = string.Empty;
+    var theme = string.Empty;
+    if (Model != null) 
+    {
+        language = Model.LanguageName;
+        theme = Model.ThemeName;
+    }
+    
+}
+<script>
+    SetFieldRequired();
+    function onActivate() {
+        //Nhận id từ Hidden Field
+        var id = $("#h-id").val();
+
+        //Xác định tab nào đang được select
+        var tabIndex = $("#tabStripUserSetting").data("kendoTabStrip").select().index();
+
+        //Danh sách các hidden field theo từng tab
+        var hiddenfield = ["h-tabinfobase", "h-tabexp"];
+
+        //Nếu id !=null (trường hợp chạy lần đầu tiên) và giá trị id khác với value của hidden field thì get dữ liệu mới
+        if (id != null && document.getElementById(hiddenfield[tabIndex]).value != id) {
+            var tabid = ("tabStripUserSetting-" + (tabIndex + 1));
+            var controlerNames = ["/UserSetting/General", "/UserSetting/Tab"];
+            $.ajax({
+                url: controlerNames[tabIndex],
+                data: { id: id },
+                type: 'POST',
+                success: function (data) {
+
+                    //Gán dữ liệu vào tab tương ứng khi xử lý lấy dữ liệu xong
+                    $("#" + tabid).html(data);
+                    //Gán id vào hidden field để xử lý không load lại tab
+                    document.getElementById(hiddenfield[tabIndex]).value = id;
+                }
+            });
+        }
+
+    }
+
+
+    function getCookie(w) {
+        cName = "";
+        pCOOKIES = new Array();
+        pCOOKIES = document.cookie.split('; ');
+        for (bb = 0; bb < pCOOKIES.length; bb++) {
+            NmeVal = new Array();
+            NmeVal = pCOOKIES[bb].split('=');
+            if (NmeVal[0] == w) {
+                cName = unescape(NmeVal[1]);
+            }
+        }
+        return cName;
+    }
+
+
+
+    function setCookie(name, value, expires, path, domain, secure) {
+        document.cookie = name + "=" + escape(value) + "; ";
+
+        if (expires) {
+            expires = setExpiration(expires);
+            document.cookie += "expires=" + expires + "; ";
+        }
+        if (path) {
+            document.cookie += "path=" + path + "; ";
+        }
+        if (domain) {
+            document.cookie += "domain=" + domain + "; ";
+        }
+        if (secure) {
+            document.cookie += "secure; ";
+        }
+    }
+
+    function setParam() {
+        var themeName = $('#@Html.FieldIdFor(model => model.ThemeName)').data("kendoDropDownList").value();
+        if (themeName == '@Html.Raw(ConstantDisplay.PlaceHolder.TranslateString())') {
+            themeName = '';
+        }
+        return {
+            LanguageValue: $('#@Html.FieldIdFor(model => model.LanguageName)').val(),
+            LanguageName: $('#@Html.FieldIdFor(model => model.LanguageName)').val(),
+            ThemeName: themeName,
+            UserCreateID: $("#UserLoginId").val()
+        };
+    }
+
+    $(document).ready(function () {
+        setTimeout(function () {
+            $.ajax({
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetLanguageNTheme',
+                data: { id: $("#UserLoginId").val() },
+                type: 'POST',
+                async: false,
+                datatype: 'json',
+                success: function (result) {
+                    var dropdownlistLanguageName = $("#LanguageName").data("kendoDropDownList");
+                    var dropdownlistThemeName = $("#ThemeName").data("kendoDropDownList");
+                    dropdownlistLanguageName.value(result.LanguageName);
+                    dropdownlistThemeName.value(result.ThemeName);
+                }
+            });
+        }, 500);
+
+      
+    });
+
+    $("#btnSetting").click(function () {
+        //////////////////////////////////////////////////
+        var isValidateSuccess = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetUserSettingValidate',
+            data: setParam(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                debugger;
+                if (data[0] == "error") {
+                    ShowNotificationProcessor("Error," + data[1]);
+                    isValidateSuccess = false;
+                    return true;
+                }
+            }
+        });
+        //////////////////////////////////////////////////
+        if (isValidateSuccess) {
+            var lang = $('#@Html.FieldIdFor(model => model.LanguageName)').val();
+            $.ajax({
+                url: '@_hrm_Sys_Web' + '/Sys_UserSetting/ChangeLanguage/',
+                data: setParam(),
+                type: 'POST',
+                datatype: 'json',
+                success: function (result) {
+                    debugger;
+                    SetLanguageHRM(lang, '@_hrm_Rec_Web', '@_hrm_Eva_Web', '@_hrm_Hre_Web', '@_hrm_Att_Web', '@_hrm_Sal_Web', '@_hrm_Can_Web', '@_hrm_Lau_Web', '@_hrm_Cat_Web', '@_hrm_Ins_Web', '@_hrm_Sys_Web', '@_hrm_Main_Web');
+                    ShowNotificationProcessor("@ConstantMessages.Succeed.TranslateString()");
+                    //KendoRouteMapping('#Hrm_Sys_Web/Sys_UserSetting/Index/', 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+
+                    document.location.reload(true);
+
+                    @*SetLanguageHRM(lang, '@_hrm_Hre_Web');
+                    SetLanguageHRM(lang, '@_hrm_Att_Web');
+                    SetLanguageHRM(lang, '@_hrm_Cat_Web');
+                    SetLanguageHRM(lang, '@_hrm_Rec_Web');
+                    SetLanguageHRM(lang, '@_hrm_Main_Web');
+                    SetLanguageHRM(lang, '@_hrm_Can_Web');
+                    SetLanguageHRM(lang, '@_hrm_Eva_Web');
+                    SetLanguageHRM(lang, '@_hrm_Sal_Web');
+                    SetLanguageHRM(lang, '@_hrm_Lau_Web');
+                    SetLanguageHRM(lang, '@_hrm_Ins_Web');*@
+                },
+                error: function (e) {
+                    if (e.errors) {
+                        var message = "Errors:\n";
+                        $.each(e.errors, function (key, value) {
+                            if ('errors' in value) {
+                                $.each(value.errors, function () {
+                                    message += this + "\n";
+                                });
+                            }
+                        });
+                        alert(message);
+                    }
+                }
+            });
+        }
+    });
+
+    /// Event Drop Change Theme
+    function onChangeTheme(e) {
+        var dropdownlist = $("#ThemeName").data("kendoDropDownList");
+        if (dropdownlist.value().length > 0) {
+            document.getElementById("pagestyle").setAttribute("href", dropdownlist.value());
+        }
+        setCookie("ts", dropdownlist.value());
+    }
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <div class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.LanguageName)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var Language = new DropDownListBuilderInfo()
+                            {
+                                BindTo = languages,
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                StyleCss = "width:200px;",
+                                Value = language
+                            };
+                        }
+                        @Html.VnrDropDownListFor(model => model.LanguageName, Language)
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+                <div id="div3">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.ThemeName)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var ThemeName = new DropDownListBuilderInfo()
+                            {
+                                BindTo = listTheme,
+                                DataValueField = "Value",
+                                DataTextField = "Text",
+                                StyleCss = "Id='IdThemeName';width:200px;",
+                                Value = theme
+                                
+                            };
+                        }
+                        @Html.VnrDropDownListFor(model => model.ThemeName, ThemeName)
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSetting", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath, EventClick = "onChangeTheme" })
+    @*<input type="button" id="btnSetting" style="width:100px" value="Lưu" class="k-button" onclick="onChangeTheme()">*@
+</div>
+
+
+
+
+
+
+
+
+
+
+
+
+

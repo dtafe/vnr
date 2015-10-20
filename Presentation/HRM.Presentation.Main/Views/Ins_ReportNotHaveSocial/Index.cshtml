@@ -1,0 +1,314 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Insurance.Models
+@model Ins_ReportNotHaveSocialModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+ 
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+  
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listCompareType = Enum.GetValues(typeof(EnumDropDown.CompareType))
+        .Cast<EnumDropDown.CompareType>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+        .ToList();
+    
+}
+@Html.Hidden("Screen", screen)
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))*@
+
+
+<script type="text/javascript">
+    SetFieldRequired();
+    var titleCreatePopUpItemForShop = '@Html.Raw(ConstantDisplay.HRM_Sal_ItemForShop_PopUp_Create_Title.TranslateString())';
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+          
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            ReadGrid('gridIns_ReportNotHaveSocial');
+        });
+    });
+
+    // Nút export selected
+    $("#btnExportByTemplate").click(function () {
+
+
+        
+        if (selectedIds == "") {
+            
+            ErrorMessages('Vui Lòng Chọn Dữ Liệu Để Xuất.');
+            return;
+        }
+        var currentLocation = window.location.href;
+        //Tách link thành 2 phần: trước và sau dấu #
+        var strArray = currentLocation.split('#');
+        var strArray2 = strArray[1].split('/');
+
+        //Ẩn hết tất cả các validate default của kendo
+        $(document.body).find("span.k-tooltip-validation").hide();
+
+        var controllerName = strArray2[1];
+        var screenName = strArray2[1] + "/" + strArray2[2];
+
+        //return;
+        var urlGetData = '@_hrm_Hr_Service' + "Ins_GetData/ExportNotHaveSocialByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        //alert(selectedIds);
+        ExportSelected(urlGetData, listIds, screenName, urlDownload, '@ConstantPermission.Hre_Contract');
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + 'Ins_GetData/ExportNoHaveSocial', filterFieldInfo(true));
+
+    });
+
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportC70A');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hre_Service' + 'Ins_GetData/ExportNoHaveSocial';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        return false;
+    });
+</script>
+
+
+@Html.Hidden("valueFields")
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+               <div style="float:left;width:500px">
+                   <div>
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.DateFrom)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var dateFrom = new DatePickerBuilderInfo()
+                               {
+                                   StyleCss = "width:100px;",
+                                   Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                               };
+                           }
+                           @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                           @{
+                               var dateTo = new DatePickerBuilderInfo()
+                               {
+                                   StyleCss = "width:100px;",
+                                   Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                               };
+                           }
+                           @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                       </div>
+                   </div>
+
+                   <div id="div4">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                       </div>
+                       <div class="FieldValue">
+                           @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                       </div>
+                   </div>
+
+                   
+               </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+
+            <div class="FieldValue" style="margin-top: 0;">
+               
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportByTemplate", Content = ConstantAction.HRM_Common_ExportByTemplate.TranslateString(), ImageUrl = ConstantPath.IconWord })
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                        StyleCss = "width:200px;",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Ins_ReportNotHaveSocialModel.FieldNames.CodeEmp,
+           Ins_ReportNotHaveSocialModel.FieldNames.ProfileName,
+              Ins_ReportNotHaveSocialModel.FieldNames.E_UNIT,
+                       Ins_ReportNotHaveSocialModel.FieldNames.E_DIVISION,
+                Ins_ReportNotHaveSocialModel.FieldNames.E_DEPARTMENT,
+                 Ins_ReportNotHaveSocialModel.FieldNames.E_TEAM,
+                Ins_ReportNotHaveSocialModel.FieldNames.E_SECTION,
+
+
+           Ins_ReportNotHaveSocialModel.FieldNames.Gender,
+           Ins_ReportNotHaveSocialModel.FieldNames.DateOfBirth,
+           Ins_ReportNotHaveSocialModel.FieldNames.PAddress,
+           Ins_ReportNotHaveSocialModel.FieldNames.TAddress,
+           Ins_ReportNotHaveSocialModel.FieldNames.DateHire,
+           Ins_ReportNotHaveSocialModel.FieldNames.PositionName,
+           Ins_ReportNotHaveSocialModel.FieldNames.EthnicGroupName,
+           Ins_ReportNotHaveSocialModel.FieldNames.IDNo,
+           Ins_ReportNotHaveSocialModel.FieldNames.LaborBookNo,
+           Ins_ReportNotHaveSocialModel.FieldNames.IDDateOfIssue,
+           Ins_ReportNotHaveSocialModel.FieldNames.IDPlaceOfIssue,
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+           {Ins_ReportNotHaveSocialModel.FieldNames.CodeEmp,80},
+           {Ins_ReportNotHaveSocialModel.FieldNames.ProfileName,140},
+           {Ins_ReportNotHaveSocialModel.FieldNames.E_DEPARTMENT,135},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_DIVISION,135},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_SECTION,135},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_TEAM,135},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_UNIT,135},
+
+           {Ins_ReportNotHaveSocialModel.FieldNames.Gender,70},
+           {Ins_ReportNotHaveSocialModel.FieldNames.DateOfBirth,120},
+           {Ins_ReportNotHaveSocialModel.FieldNames.PAddress,200},
+           {Ins_ReportNotHaveSocialModel.FieldNames.TAddress,200},
+           {Ins_ReportNotHaveSocialModel.FieldNames.DateHire,100},
+           {Ins_ReportNotHaveSocialModel.FieldNames.PositionName,110},
+           {Ins_ReportNotHaveSocialModel.FieldNames.EthnicGroupName,110},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDNo,110},
+           {Ins_ReportNotHaveSocialModel.FieldNames.LaborBookNo,110},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDDateOfIssue,110},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDPlaceOfIssue,110},
+
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+           {Ins_ReportNotHaveSocialModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+           {Ins_ReportNotHaveSocialModel.FieldNames.ProfileName,ConstantDisplay.HRM_Att_Report_ProfileName},
+                         {Ins_ReportNotHaveSocialModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Ins_ReportNotHaveSocialModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+           {Ins_ReportNotHaveSocialModel.FieldNames.Gender,ConstantDisplay.HRM_HR_Profile_Gender},
+           {Ins_ReportNotHaveSocialModel.FieldNames.DateOfBirth,ConstantDisplay.HRM_Attendance_TAM_CodeAttendance},
+           {Ins_ReportNotHaveSocialModel.FieldNames.TAddress,ConstantDisplay.HRM_HR_Relatives_PAStreet},
+           {Ins_ReportNotHaveSocialModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_Profile_DateHire},
+           {Ins_ReportNotHaveSocialModel.FieldNames.PositionName,ConstantDisplay.HRM_Category_EmployeeType_EmployeeTypeName},
+           {Ins_ReportNotHaveSocialModel.FieldNames.EthnicGroupName,ConstantDisplay.HRM_Att_Report_PositionName},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDNo,ConstantDisplay.HRM_Att_Report_OrgName},
+           {Ins_ReportNotHaveSocialModel.FieldNames.LaborBookNo,ConstantDisplay.HRM_Att_Report_OrgName},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDDateOfIssue,ConstantDisplay.HRM_Att_Report_OrgName},
+           {Ins_ReportNotHaveSocialModel.FieldNames.IDPlaceOfIssue,ConstantDisplay.HRM_Att_Report_OrgName},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+           
+            ShowEditIcon = false,
+            Name = "gridIns_ReportNotHaveSocial",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Ins_GetData/GetReportNotHaveSocial",
+            ReadData = "filterFieldInfo",
+            PageSize = 30
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Ins_ReportNotHaveSocialModel>(grid))
+</div>
+
+
+
+

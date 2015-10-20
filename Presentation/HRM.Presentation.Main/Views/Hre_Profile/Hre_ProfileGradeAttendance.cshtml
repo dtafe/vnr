@@ -1,0 +1,173 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Attendance.Models
+
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.Category.Models
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+
+@{
+    Layout = null;
+    ViewBag.Title = "Hre_CardHistory";
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var Hrm_Hre_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var profileID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+    }
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Att_Grade_PopUp_Name,
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @Hrm_Hre_Web + "Hre_Profile/GradeAttendanceInfo?profileID=" + profileID + "&ProfileName=" + ProfileName
+    };
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Chưa Có Nhân Viên!!!</b></center>"
+    };
+}
+@(Html.VnrWindow(windowError))
+<script type="text/javascript">
+    var titleEditPopUpGradeAttendance = '@Html.Raw(ConstantDisplay.HRM_Attendance_GradeAttendance_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpGradeAttendance = '@Html.Raw(ConstantDisplay.HRM_Attendance_GradeAttendance_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        @*$("#btnCreateCardHistory").click(function () {
+            KendoRouteMapping('#Hrm_Hre_Web/Hre_CardHistory/Create/', 'Hrm_Hre_Web', '@Hrm_Hre_Web');
+        });*@
+        EditGridPopUp('gridHre_CatGradeAttendance', '@ConstantControlName.HRM_Att_Grade_PopUp_Name', '@Hrm_Hre_Web' + "Hre_Profile/GradeAttendanceInfo/", '@ConstantPermission.Att_Grade', titleEditPopUpGradeAttendance);
+
+    });
+    function filterFieldInfo() {
+        return {
+            ProfileID: SelectID
+        };
+    }
+
+    $("#btnCreate_Grade").click(function () {
+        debugger;
+        var x = SelectID;
+        if (x == '' || x == '00000000-0000-0000-0000-000000000000') {
+            PopUpCreate("windowError");
+        }
+        else {
+            var url = '@Hrm_Hre_Web' + "Hre_Profile/GradeAttendanceInfo/";
+            PopUpEdit('@ConstantControlName.HRM_Att_Grade_PopUp_Name', url, "", titleCreatePopUpGradeAttendance);
+        }
+    });
+
+    $("#btnExport_Grade").click(function () {
+        var grid = $('#gridHre_CatGradeAttendance').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Att_GetData/GetGradeAttendanceByProIDandCutOID";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo_Reload(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Grade');
+    });
+
+    $('#btnDelete_Grade').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#gridHre_CatGradeAttendance').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("gridHre_CatGradeAttendance", '@_hrm_Main_Web' + "Att_Grade/RemoveSelected/", selectedIds, '@ConstantPermission.Att_LeaveDay');
+    })
+</script>
+@(Html.TextBox("txt_HiddenProfileCardHistory", null, new { style = "display: none" }))
+<div>
+    @{
+        if (Model != null)
+        {
+            @Html.HiddenFor(m => m.ID)
+            @Html.HiddenFor(m => m.ProfileName)
+        }
+        else
+        {
+            @Html.Hidden("ProfileName", ProfileName)
+        }
+
+    }
+</div>
+<div style="padding-top:3px">
+    <div class="commandToolBarWidge">
+        <div class="GridTitle">
+            @Html.VnrLabel(ConstantDisplay.HRM_Att_Grade_GradeAttendanceID.TranslateString())
+        </div>
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_Grade", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport_Grade", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_Grade", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div style=" width:100%; height:580px">
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new string[]
+                            {
+
+                                Att_GradeModel.FieldNames.GradeAttendanceName,
+                                Att_GradeModel.FieldNames.MonthStart,
+                                Att_GradeModel.FieldNames.MonthEnd,
+                                Att_GradeModel.FieldNames.DateCreate,
+                                Att_GradeModel.FieldNames.DateUpdate
+                            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Att_GradeModel.FieldNames.GradeAttendanceName,130},
+                                {Att_GradeModel.FieldNames.MonthStart,100},
+                                {Att_GradeModel.FieldNames.MonthEnd,110},
+                                {Att_GradeModel.FieldNames.DateCreate,110},
+                                {Att_GradeModel.FieldNames.DateUpdate,110}
+                            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Att_GradeModel.FieldNames.GradeAttendanceName, ConstantDisplay.HRM_Att_Grade_GradeAttendanceID},
+                                {Att_GradeModel.FieldNames.MonthStart, ConstantDisplay.HRM_Att_Grade_MonthStart},
+                                {Att_GradeModel.FieldNames.MonthEnd, ConstantDisplay.HRM_Att_Grade_MonthEnd},
+                                {Att_GradeModel.FieldNames.DateCreate, ConstantDisplay.HRM_Canteen_DateCreate},
+                                {Att_GradeModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_Overtime_DateUpdate}
+                            };
+
+            var grid = new GridBuilderInfo
+            {
+
+                Name = "gridHre_CatGradeAttendance",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _Hrm_Hre_Service + "Att_GetData/GetGradeAttendanceByProIDandCutOID",
+                ReadData = "filterFieldInfo_Reload",
+                AutoBind = true,
+                GridHeight = 530,
+                ShowDeleteButton = true,
+                ShowEditIcon = true,
+                ShowCheckAll = true,
+                ShowCheckbox = true,
+            };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_GradeModel>(grid))
+    </div>
+
+</div>

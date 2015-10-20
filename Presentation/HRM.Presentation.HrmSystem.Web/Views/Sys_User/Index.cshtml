@@ -1,0 +1,219 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using MvcSiteMapProvider.Web.Html
+@using HRM.Infrastructure.Security;
+
+@model Sys_UserModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSysUser",
+        Visible = false,
+        Width = 700,
+        Title = "Thông tin người dùng",
+        LoadContentFrom = @hrm_Sys_Web + "Sys_User/SysUserInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Sys_User_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Sys_User_Create_Title.TranslateString())';
+    var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_System_User_Permission.TranslateString())';
+    var permissionNotAllowResetPass_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_System_User_ResetPassword.TranslateString())';
+
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        return {
+            UserInfoName: $('#UserName1').val(),
+            UserLogin: $('#UserLogin1').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            debugger;
+            ReadGrid("gridUser");
+        });
+        //Xử lý Edit popup
+        var url = '@hrm_Sys_Web' + "Sys_User/SysUserInfo/";
+        EditGridPopUp("gridUser", "windowSysUser", url, '@ConstantPermission.Sys_User', titleEditPopUp);
+    });
+
+
+    $("#btnCreate").click(function () {
+        PopUpCreate("windowSysUser", titleCreatePopUp, '@ConstantPermission.Sys_User');
+    });
+
+    //Chức năng phân quyền
+    function eventAddPermission() {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_User_Permission', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg);
+            return;
+        }
+
+        var grid = $("#gridUser").data("kendoGrid");
+        var rowSelected = grid.select();
+
+        if (rowSelected.length == 0) {
+            ShowNotificationProcessor("Vui lòng chọn một người dùng");
+        }
+        var id = grid.dataItem(rowSelected).ID;
+        KendoRouteMapping('#Hrm_Sys_Web/Sys_DataPermission/Index/' + id, 'Hrm_Sys_Web', '@hrm_Sys_Web');
+    }
+
+    //Chức năng Reset Password
+    function eventResetPassword() {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_User_ResetPassword', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllowResetPass_Msg);
+            return;
+        }
+
+        var listIds = selectedIds.join(",");
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Vui lòng chọn người dùng");
+            return;
+        }
+
+
+        VnrConfirm("Bạn Muốn Reset mật khẩu không ?", selectedIds, function onSuccess(dataSelected) {
+            ShowHre_ProgressBar();
+            $.ajax({
+                url: '@hrm_Sys_Service' + 'Sys_GetData/ResetPasswordByListUsers',
+                data: { userIds: dataSelected },
+                traditional:true,
+                type: 'POST',
+                success: function (data) {                   
+                    ShowNotificationProcessor("@ConstantDisplay.HRM_System_ResetPassowrdSuccess.TranslateString()");
+                    CloseHre_ProgressBar();
+                }
+            });
+        })
+    }
+
+
+    //Xử Lý grid
+    GridCheckbox("gridUser");
+
+
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        //  e.preventDefault();
+        DeleteSelected("gridUser", '@hrm_Sys_Web' + "Sys_User/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_User');
+    })
+</script>
+
+ 
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                   
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                
+                    <div class="contendSearchWidge">
+                        <form action="#" method="POST" id="form-search">
+                            <div id="dvUserName">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.UserInfoName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBox("UserName1","Width:200px;")
+
+                                </div>
+                            </div>
+                            
+                            <div id="dvLoginName">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.UserLogin)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBox("UserLogin1","Width:200px;")
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl=ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(),  ImageUrl=ConstantPath.IconSearchPath})
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() {  Name = "btnAddPermission", EventClick = "eventAddPermission", Content = ConstantDisplay.HRM_System_User_Permission.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnResetPassword", EventClick = "eventResetPassword", Content = ConstantDisplay.HRM_System_User_ResetPassword.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath})
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+       
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->        
+        @{
+          
+            string[] valueFields = new string[]
+        {
+            //Sys_UserModel.FieldNames.Code,
+            Sys_UserModel.FieldNames.UserLogin,
+            Sys_UserModel.FieldNames.UserInfoName,
+            Sys_UserModel.FieldNames.GroupPermission,
+            Sys_UserModel.FieldNames.EffectedDate,
+            Sys_UserModel.FieldNames.IsActivate,
+            Sys_UserModel.FieldNames.Email
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            //{Sys_UserModel.FieldNames.Code, 100},
+            {Sys_UserModel.FieldNames.UserLogin, 150},
+            {Sys_UserModel.FieldNames.UserInfoName, 200},
+            {Sys_UserModel.FieldNames.GroupPermission, 350},
+            {Sys_UserModel.FieldNames.EffectedDate, 130},
+            {Sys_UserModel.FieldNames.IsActivate, 100},
+            {Sys_UserModel.FieldNames.Email, 150}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            //{Sys_UserModel.FieldNames.Code, ConstantDisplay.HRM_System_User_Code},
+            {Sys_UserModel.FieldNames.UserLogin, ConstantDisplay.HRM_System_User_LoginName},
+            {Sys_UserModel.FieldNames.UserInfoName, ConstantDisplay.HRM_System_User_UserName},
+            {Sys_UserModel.FieldNames.GroupPermission, ConstantDisplay.HRM_System_User_GroupPermission},
+            {Sys_UserModel.FieldNames.EffectedDate, ConstantDisplay.HRM_System_User_EffectedDate},
+            {Sys_UserModel.FieldNames.IsActivate, ConstantDisplay.HRM_System_User_IsActivate},
+            {Sys_UserModel.FieldNames.Email, ConstantDisplay.HRM_System_User_Email}
+            //{Sys_UserModel.FieldNames.UserType, ConstantDisplay.HRM_System_User_UserType},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridUser",
+            ValueFields = valueFields,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetUserList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadData = "filterFieldInfo",
+        };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Sys_UserModel>(grid))
+    </div>

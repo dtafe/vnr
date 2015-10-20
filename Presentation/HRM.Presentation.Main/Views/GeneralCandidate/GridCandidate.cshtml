@@ -1,0 +1,207 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Recruitment.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@{
+    Layout = null;
+    var _hrm_Att_Web = ConstantPathWeb.Hrm_Att_Web;
+    var _Hrm_Rec_Web = ConstantPathWeb.Hrm_Rec_Web;
+    var _Hrm_Rec_Service = ConstantPathWeb.Hrm_Rec_Service;
+    var _hrm_Att_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var checkedNodes = []; 
+    var IsEdit = false;
+    function filterFieldInfo() {
+        
+         
+        if (!IsEdit) {
+            IsEdit = true;
+            var codeCandidate = location.href.split('/');
+            return {
+                CandidateID: codeCandidate[codeCandidate.length - 1],
+                Keyword: $('#searchBox').val(),
+                OrgStructureID: checkedNodes.join(',')
+            };
+        }
+        else {
+            return {
+                CandidateID: null,
+                Keyword: $('#searchBox').val(),
+                OrgStructureID: checkedNodes.join(',')
+            };
+        }
+    }
+
+
+    function searchButton() {
+        
+        checkedNodes = [];
+        var treeView = $("#CandidateDetail_OrgStructureID").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var grid = $('#HRM_REC_GeneralCandidate_GridName').data("kendoGrid");
+        grid.dataSource.read();
+    }
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_Candidate');
+        if (!isAccess) {
+            return;
+        }*@ 
+        
+        KendoRouteMapping('#Hrm_Rec_Web/Rec_Candidate/Create', 'Hrm_Rec_Web', '@_Hrm_Rec_Web', true);
+    });
+    $("#btnEdit").click(function () { 
+        var url = '#Hrm_Rec_Web/Rec_Candidate/Edit/';
+        KendoRouteMapping(url + SelectID, 'Hrm_Rec_Web', '@_Hrm_Rec_Web', true);
+    });
+    $('#btnDelete').click(function (e) { 
+        if (SelectID == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault(); 
+        DeleteSelected('@ConstantDisplay.HRM_Rec_GeneralCandidate_GridName' , '@_Hrm_Rec_Web' + "Rec_Candidate/RemoveSelected/", SelectID, '@ConstantPermission.Cat_OrgStructure'); 
+        return false;
+    });
+    $("#btnRefesh").click(function () {
+        
+        var grid = $('#HRM_REC_GeneralCandidate_GridName').data("kendoGrid");
+        grid.dataSource.read(); 
+    });
+
+    $('#searchBox').keypress(function (event) {
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if (keycode == '13') {
+            searchButton();
+        }
+    });
+</script>
+
+<div style="width:300px;max-height:100%;">
+    <!--Textbox tìm kiếm, chưa được xử lý-->
+    <div>
+        <span class="k-textbox k-space-right" style="width: 100%">
+            <input type="text" id="searchBox" placeholder="Nhập tên hoặc mã..." onkeypress="handleEnter(this.value, event)" />
+            <a id="btnSearchCandidate" class="k-icon k-i-search" onclick="searchButton();">&nbsp;</a>
+        </span>
+    </div>
+    @{
+        var valueFields = new[]
+        {
+            Rec_CandidateModel.FieldNames.CandidateName,
+            Rec_CandidateModel.FieldNames.CodeCandidate
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+            {Rec_CandidateModel.FieldNames.CandidateName, 170},
+            {Rec_CandidateModel.FieldNames.CodeCandidate, 120}
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            {Rec_CandidateModel.FieldNames.CandidateName, ConstantDisplay.HRM_Rec_Candidate_CandidateName},
+            {Rec_CandidateModel.FieldNames.CodeCandidate, ConstantDisplay.HRM_Rec_Candidate_CodeCandidate}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantDisplay.HRM_Rec_GeneralCandidate_GridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _Hrm_Rec_Service + "Rec_GetData/GetListCandidate/",
+            ReadData = "filterFieldInfo",
+            ShowInputPageNumber = false,
+            ShowNextPrevious = false,
+            ShowPageNumber = false,
+            //ShowPageSize = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Scrollable = false,
+            GridHeight=530,
+            PageSize = 25,
+            SelectionMode = GridSelectionMode.Single,
+            SelectionType = GridSelectionType.Row,
+            AutoBind = true,
+            EventDataBound = "onDataBound",
+            SelectionHandler = "onSelectRow"
+        };
+    }
+
+    <!--Xử lý load dữ liệu cho tabstrip default-->
+    <script>
+       
+
+
+    //Khi load grid lên thì default là chọn dòng đầu tiên
+    function onDataBound(e) {
+
+        var grid = $("#" + '@ConstantDisplay.HRM_Rec_GeneralCandidate_GridName').data("kendoGrid");
+            if (grid == null) {
+                return;
+            }
+            grid.select(e.sender.tbody.find("tr:first"));
+            $("#btnInfoPersional").click();
+
+
+        //set lại total row của grid
+            setTimeout(function () {
+                var count = grid.dataSource.total();
+                var t = $("#HRM_REC_GeneralCandidate_GridName .k-pager-info").prev();
+                $("#HRM_REC_GeneralCandidate_GridName .k-pager-info").remove();
+                if (count > 0) {
+                    t.after('<span style="float:right;">' + count + ' item</span>');
+                }
+            }, 1000);
+        }
+         
+        function onSelectRow(e) {
+            //lấy lại tab Index đã lưu trong sự kiện changetab
+            var grid = $("#" + '@ConstantDisplay.HRM_Rec_GeneralCandidate_GridName').data("kendoGrid");
+            UpdateTabIndex();
+            
+            //Xác định row đang select
+            var rowSelected = grid.select();
+            //Lấy được id của row tương ứng khi select
+            SelectID = grid.dataItem(rowSelected).ID;
+            
+            $("#CandidateNameGenarel").val(grid.dataItem(rowSelected).CandidateName);
+
+            //update select id
+            $("#" + '@ConstantDisplay.HRM_Rec_GeneralCandidate_H_IdCandidate').val(SelectID);
+
+            LoadForm();
+
+            //Cập nhật lại tên hiển thị trên breadcrumb
+            $("#candidateNameView").html(grid.dataItem(rowSelected).CandidateName);
+            $("#CandidateName").val(grid.dataItem(rowSelected).CandidateName);
+        };
+    </script>
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Rec_CandidateModel>(grid))
+    <div class="commandToolBarWidge" id="anchor">
+        <div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnEdit", ImageUrl = ConstantPath.IconEditPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", ImageUrl = ConstantPath.IconDeletePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnRefesh",  ImageUrl = ConstantPath.IconRefeshPath })
+        </div>
+    </div>
+     
+</div>
+
+<!--Hidden file main, chứa Id của row khi select 1 row trên lưới-->
+@(Html.TextBox(ConstantDisplay.HRM_Rec_GeneralCandidate_H_IdCandidate, null, new { style = "display: none" }))
+@(Html.TextBox(ConstantDisplay.HRM_Rec_GeneralCandidate_H_ListActionTab, null, new { style = "display: none" }))
+
+@Html.Hidden("CandidateNameGenarel")
+
+

@@ -1,0 +1,350 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+
+@model HRM.Presentation.Hr.Models.Hre_ReportHCGenderModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.GenderType))
+        .Cast<EnumDropDown.Gender>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+        .ToList();
+}
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            MonthSearch: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthSearch").val()),
+            OrgStructureID: $("#OrgStructureID").val(),
+            isIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeQuitEmp)').checked,
+            OrgStructureTypeID: $('#SOrgStructureTypeID').val() ? $('#SOrgStructureTypeID').val()[0] : null,
+            JobtitleID: $('#@Html.FieldIdFor(model => model.JobtitleID)').val() ? $('#@Html.FieldIdFor(model => model.JobtitleID)').val()[0] : null,
+            Gender: $("#Gender").val(),
+            ValueFields: $("#valueFields").val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            var isCreateTemplateForDynamicGrid = false;
+            ShowHre_ProgressBar();
+            
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Hre_GetData/GetReportHCGenderValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        CloseHre_ProgressBar();
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        $.ajax({
+                            url: '@_hrm_Hre_Service' + "Hre_GetData/GetReportHCGender",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            success: function (data) {
+                                CloseHre_ProgressBar();
+                                
+                                var grid = VnrGridDynamic;
+                                grid.GridName = "grid_ReportHCGender";
+                                grid.DataSource = data.Data;
+                                VnrGridDynamicControl(grid);
+                                //data.Data.splice(0, 1);
+                                //var valueField = '';
+                                //var data1 = data.Data[data.Data.length - 1];
+                                //for (var name in data1) {
+                                //    
+                                //    valueField += data1[name] + ",";
+                                //}
+                                //$("#valueFields").val(valueField);
+                                //GridDynamicColum('grid_ReportHCGender', data.Data)
+                                //var grid = VnrGridDynamic;
+                                //grid.GridName = "grid_ReportHCGender";
+                                //grid.DataSource = data.Data;
+
+                                //VnrGridDynamicControl(grid);
+                            }
+                        });
+                        checkedNodes = [];
+                    }
+                },
+                error: function myfunction() {
+                    CloseHre_ProgressBar();
+                }
+
+
+
+            });
+        });
+
+        $("#btnCreateTemplate").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCGender');
+            if (!isAccess) {
+                return;
+            }
+            isCreateTemplate = true;
+            isCreateTemplateForDynamicGrid = true;
+            var window1 = window;
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + '/Hre_GetData/GetReportHCGender',
+                data: filterFieldInfo(true),
+                dataType: 'json',
+                success: function (returnValue) {
+                    
+                    var index = returnValue.indexOf(',');
+                    var status = "";
+                    var fullPath = "";
+                    if (index > 0) {
+                        status = returnValue.substring(0, index);
+                        if (status == "Success") {
+                            fullPath = returnValue.substring(index + 1, returnValue.length);
+                            window1.location = '@_hrm_Main_Web' + fullPath;
+                            ShowNotificationProcessor(status);
+                            $.when(kendo.ui.ExtOkCancelDialog.show({
+                                title: '@ConstantDisplay.HRM_CreateTemplate_Title.TranslateString()',
+                                message: '@ConstantDisplay.HRM_CreateTemplate_Message.TranslateString()',
+                                icon: "k-ext-warning"
+                            })
+                            ).done(function (response) {
+                                if (response.button == "OK") {
+                                    var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                    window2.center().open().title('@ConstantDisplay.HRM_CreateTemplate_Popup_Title.TranslateString()');
+                                }
+                            });
+                        }
+                    } else {
+                        ShowNotificationProcessor(returnValue);
+                    }
+                }
+
+            });
+        });
+
+        $("#btnExport").click(function () {
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = true;
+            
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCGender');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + '/Hre_GetData/GetReportHCGender',
+                data: filterFieldInfo(true),
+                dataType: 'json',
+                success: function (returnValue) {
+                    
+                    var strSplit = returnValue.indexOf(',');
+                    var status = "";
+                    var fullPath = "";
+                    if (strSplit > 0) {
+                        status = returnValue.substring(0, strSplit);
+                        if (status == "Success") {
+                            fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                            window.location = '@_hrm_Main_Web' + fullPath;
+                            ShowNotificationProcessor(status);
+                        }
+                    } else {
+                        ShowNotificationProcessor(returnValue);
+                    }
+                    @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+                }
+            });
+        });
+    });
+</script>
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div2">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.MonthSearch)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.MonthSearch).ToString(),
+                                StyleCss = "width:100px;",
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.MonthSearch, DateFrom)
+                    </div>
+                    </div>
+                <div class="DivContentTitleValue" id="div13">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelForNoneIcon(model => model.Gender)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var ddlGender = new DropDownListBuilderInfo()
+                            {
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                BindTo = listGender,
+                                OptionLabel = " ",
+                                StyleCss = "width:100px"
+                            };
+                        }
+                        @Html.VnrDropDownListFor(model => model.Gender, ddlGender)
+                    </div>
+                </div>
+
+                <div>
+                    <div id="div14">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdownForCreate")
+                                @Html.HiddenFor(mode => mode.OrgStructureID)
+                            </div>
+                        </div>
+                    </div>
+                </div>         
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.JobtitleID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var JobTitleName = new MultiSelectBuilderInfo
+                            {
+                                DataTextField = "JobTitleName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                MaxSelectedItems = 1,
+                                Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                            };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.JobtitleID, JobTitleName)
+                    </div>
+                </div>
+                <div id="div4">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.OrgStructureTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                            {
+                                Name = "SOrgStructureTypeID",
+                                DataTextField = "OrgStructureTypeName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                MaxSelectedItems = 1
+                            };
+                        }
+                        @(Html.VnrMultiSelectFor(mode =>mode.OrgStructureTypeID,_OrgStructureTypeID))
+                    </div>
+                </div>
+                <div id="div6">
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue" style="font-weight:bold">
+
+                        @{
+                            var IsIncludeQuitEmp = new CheckBoxBuilderInfo()
+                           {
+
+                           };
+                        }
+                        @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp)
+                        @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                    </div>
+                </div>
+                
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl= ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+<div id="grid_ReportHCGender"></div>
+
+

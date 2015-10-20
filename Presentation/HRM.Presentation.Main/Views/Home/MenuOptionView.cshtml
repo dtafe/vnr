@@ -1,0 +1,211 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Menu
+@model HRM.Presentation.HrmSystem.Models.Sys_AllSettingModel
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var siteMap = (XmlSiteMap)HttpContext.Current.Cache["SiteMap"];
+    IEnumerable<TreeViewItemModel> listTreeViewItem = null;
+    var lstrMenuParent = new List<string>();
+    var strValueTemp = string.Empty;
+    if (Model != null && !string.IsNullOrEmpty(Model.Value1) && !string.IsNullOrEmpty(Model.Value2))
+    {
+        //Xử lý cắt chuổi và tạo ra list cha/con
+        lstrMenuParent = Model.Value1.Split(',').ToList();
+        var arrMenuChild = Model.Value2.Split('|');
+        var coMenuParent = lstrMenuParent.Count;
+        if (coMenuParent == arrMenuChild.Length)
+        {
+            for (int i = 0; i < coMenuParent; i++)
+            {
+                strValueTemp += lstrMenuParent[i] + "|" + arrMenuChild[i] + "||";
+            }
+        }
+    }
+    if (siteMap != null)
+    {
+        listTreeViewItem = from e in siteMap.RootNode.ChildNodes
+            where e.ChildNodes != null && e.ChildNodes.Count > 0
+            select new TreeViewItemModel
+            {
+                Text = e.NopResource.TranslateString(),
+                Id = e.NopResource,
+                Checked = lstrMenuParent.Contains(e.NopResource)
+            };
+    }
+}
+
+<script>
+    var treeParentName = '@ConstantControlName.HRM_MenuOption_TreeParentName';
+    var treeChildName = '@ConstantControlName.HRM_MenuOption_TreeChildName';
+    var parentName = "";
+    var childNodes = [], parentNodes = [];
+    var arrNode = new Array();
+
+    var strValueTemp = '@strValueTemp';
+    if (strValueTemp != "") {
+        var splitValue = strValueTemp.split("||");
+        if (splitValue != "" && splitValue.length > 0) {
+            for (var i = 0; i < splitValue.length; i++) {
+                var splitItem = splitValue[i].split("|");
+                if (splitItem.length > 1) {
+                    arrNode[splitItem[0]] = splitItem[1];
+                }
+            }
+        }
+    }
+    $("#btnSaveMenuOption").click(function () {
+        debugger;
+        if (parentName != "") {
+            arrNode[parentName] = childNodes.join(",");
+        }
+        var strParent = "", strChild = "";
+        for (var item in arrNode) {
+            if (arrNode[item] != "" && parentNodes.indexOf(item) > -1) {
+                strParent += item + ",";
+                strChild += arrNode[item] + "|";
+            }
+        }
+        strParent = strParent.substring(0, strParent.length - 1);
+        strChild = strChild.substring(0, strChild.length - 1);
+
+        $.ajax({
+            url: '@_hrm_Main_Web' + "Home/MenuOptionView",
+            type: 'POST',
+            data: { parent: strParent, child: strChild },
+            success: function(data) {
+                var window = $("#" + '@ConstantControlName.HRM_CONFIG_MENU_OPTION_POPUP_NAME').data("kendoWindow");
+                window.close();
+                location.reload();
+                ShowNotificationProcessor('@NotificationType.Success.ToString()');
+            },
+            error: function(data) {
+                alert('error MenuOptionView');
+            }
+        });
+    });
+    
+    function ShowChildNode() {
+       var tree = $("#" + treeChildName).data("kendoTreeView");
+        tree.dataSource.read();
+    }
+
+    function SetValueSession() {
+        debugger;
+        if (parentName != "") {
+            var currentValue = null;
+            if (arrNode[parentName] != undefined) {
+                currentValue = arrNode[parentName];
+            }
+            $.ajax({
+                url: '@_hrm_Main_Web' + "Home/CreateSession",
+                data: { parent: parentName, childCheck: currentValue },
+                type: 'POST',
+                async: false,
+                success: function (data) {
+                    debugger;
+                },
+                error: function (data) {
+                    alert('Lỗi: Không gán giá trị được cho Session.');
+                }
+            });
+        }
+    }
+    function GetSession() {
+        debugger;
+        $.ajax({
+            url: '@_hrm_Main_Web' + "Home/GetChildCheckSession",
+            type: 'POST',
+            async: false,
+            success: function (strChildCheck) {
+                debugger;
+                if (parentName != "") {
+                    if (arrNode.indexOf(parentName) == -1) {
+                        arrNode[parentName] = strChildCheck;
+                    }
+                }
+            },
+            error: function (data) {
+                alert('Lỗi không lấy được Session.');
+            }
+        });
+    }
+    function onSelectParent(e) {
+        debugger;
+        if (parentName != "") {
+            arrNode[parentName] = childNodes.join(",");
+        }
+        childNodes = [];
+        parentName = e.node.dataset.id;
+        SetValueSession();
+        ShowChildNode();
+        GetSession();
+    }
+</script>
+
+<div>
+    <div class="tree-wrapper">
+        <label>@ConstantDisplay.HRM_ChoseModule.TranslateString()</label>
+        <div class="tree-node">
+            @{
+                var parentTree = new TreeViewBuilderInfo()
+                {
+                    Name = ConstantControlName.HRM_MenuOption_TreeParentName,
+                    BindTo = listTreeViewItem,
+                    Id = "Id",
+                    DataTextField = "Text",
+                    Icon = "IconPath",
+                    EventSelect = "onSelectParent",
+                };
+            }
+            @Html.VnrTreeView(parentTree)
+        </div>
+    </div>
+    <div class="tree-wrapper">
+        <label>@ConstantDisplay.HRM_ChoseMenuChild.TranslateString()</label>
+        <div class="tree-node">
+            @{
+                var childTree = new TreeViewBuilderInfo()
+                {
+                    Name = ConstantControlName.HRM_MenuOption_TreeChildName,
+                    Url = _hrm_Main_Web + "Home/GetDataTreeview",
+                    Id = "id",
+                    DataTextField = "Name",
+                    Icon = "IconPath",
+                    AutoBind = false,
+                };
+            }
+            @Html.VnrTreeView(childTree)
+        </div>
+    </div>
+    <div class="clear"></div>
+    <div class="tree-botton">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSaveMenuOption", Content = ConstantAction.HRM_Common_SaveConfig.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+    </div>
+</div>
+
+<script>
+    function checkedNodeIds(nodes, checkedNodes) {
+        
+        if (nodes != null && nodes != "" && nodes.length > 0) {
+            var nodeLength = nodes.length;
+            for (var i = 0; i < nodeLength; i++) {
+                var id = nodes[i].id;
+                if (nodes[i].checked && checkedNodes.indexOf(id) == -1) {
+                    checkedNodes.push(id);
+                }
+            }
+        }
+    }
+
+    $("#" + treeParentName).data("kendoTreeView").dataSource.bind("change", function (e) {
+        var treeView = $("#" + treeParentName).data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), parentNodes);
+    });
+    $("#" + treeChildName).data("kendoTreeView").dataSource.bind("change", function () {
+        var treeView = $("#" + treeChildName).data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), childNodes);
+    });
+
+</script>

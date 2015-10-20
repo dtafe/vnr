@@ -1,0 +1,202 @@
+﻿@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var Hrm_Hre_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@using HRM.Infrastructure.Security
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+@{
+    var profileID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+        ProfileName = Model.ProfileName;
+    }
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_HR_Dependant_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @Hrm_Hre_Web + "Hre_Profile/DependantInfo?profileID=" + profileID + "&ProfileName=" + ProfileName
+    };
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Chưa Có Nhân Viên!!!</b></center>"
+    };
+}
+@(Html.VnrWindow(windowError))
+<script type="text/javascript">
+
+    var selectedIds = [];
+    var checkedNodes = [];
+
+    var gridName = '@ConstantControlName.HRM_HR_Dependant_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_HR_Dependant_PopUp_Name';
+    var titleEditPopUpDependant = '@Html.Raw(ConstantDisplay.HRM_HR_Dependant_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpDependant = '@Html.Raw(ConstantDisplay.HRM_HR_Dependant_PopUp_Create_Title.TranslateString())';
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid("@ConstantControlName.HRM_HR_Dependant_Grid_Name");
+        });
+        EditGridPopUp(gridName, popUpName, '@Hrm_Hre_Web' + "Hre_Profile/DependantInfo/", '@ConstantPermission.Hre_Dependant', titleEditPopUpDependant);
+    });
+
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            CutOffDurationID: $('#CutOffDurationID').val(),
+            ProfileID: SelectID,
+            IsExport: isExport,
+            ValueFields: $("#valueFieldsGrid").val()
+        };
+    }
+
+    //Xử Lý grid
+    GridCheckbox("gridDependant");
+
+    //Xử lý nút Create
+    $("#btnCreateDependant").click(function () {
+        // KendoRouteMapping('#Hrm_Hre_Web/Hre_Dependant/Create/', 'Hrm_Hre_Web', '@_hrm_Main_Web');
+        // PopUpCreate("windowWorkHistory", "Create Retives Info", '@ConstantPermission.Hre_Dependant');
+        
+        var x = '@profileID';
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+         else {
+             var url = '@Hrm_Hre_Web' + "Hre_Profile/DependantInfo/";
+            PopUpEdit('@ConstantControlName.HRM_HR_Dependant_PopUp_Name', url, SelectID, titleCreatePopUpDependant);
+        }
+    });
+
+    //Xử Lý button delete
+    $('#btnDelete_Dependant').click(function (e) {
+        //  e.preventDefault();
+        DeleteSelected("@ConstantControlName.HRM_HR_Dependant_Grid_Name", '@_hrm_Main_Web' + "Hre_Profile/RemoveSelectedDependant/", selectedIds.join(","), '@ConstantPermission.Hre_Dependant');
+    })
+
+    $("#btnExportDependant").click(function () {
+        var grid = $('#' + '@ConstantControlName.HRM_HR_Dependant_Grid_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_hre_Service' + "Hre_GetData/GetDependantByProfileID/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_TAMScanLog');
+
+    });
+
+</script>
+<div style="padding-top:3px">
+    <div class="commandToolBarWidge">
+        <div class="GridTitle">
+            @Html.VnrLabel(ConstantDisplay.HRM_HR_Dependant.TranslateString())
+        </div>
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateDependant", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportDependant", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_Dependant", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+
+        var valueFields = new[]
+        {
+            Hre_DependantModel.FieldNames.DependantName,
+            Hre_DependantModel.FieldNames.DateOfBirth,
+            Hre_DependantModel.FieldNames.Gender,
+            Hre_DependantModel.FieldNames.RelativeTypeName,
+            Hre_DependantModel.FieldNames.MonthOfEffect,
+            Hre_DependantModel.FieldNames.MonthOfExpiry
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Hre_DependantModel.FieldNames.DependantName, 145},
+            {Hre_DependantModel.FieldNames.DateOfBirth, 100},
+            {Hre_DependantModel.FieldNames.Gender, 70},
+            {Hre_DependantModel.FieldNames.RelativeTypeName, 95},
+            {Hre_DependantModel.FieldNames.MonthOfEffect, 110},
+            {Hre_DependantModel.FieldNames.MonthOfExpiry, 140}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Hre_DependantModel.FieldNames.DependantName, ConstantDisplay.HRM_HR_Dependant_DependantName},
+            {Hre_DependantModel.FieldNames.DateOfBirth, ConstantDisplay.HRM_HR_Dependant_DateOfBirth},
+            {Hre_DependantModel.FieldNames.Gender, ConstantDisplay.HRM_HR_Dependant_Gender},
+            {Hre_DependantModel.FieldNames.RelativeTypeName, ConstantDisplay.HRM_HR_Dependant_RelationID},
+            {Hre_DependantModel.FieldNames.MonthOfEffect, ConstantDisplay.HRM_HR_Dependant_MonthOfEffect},
+            {Hre_DependantModel.FieldNames.MonthOfExpiry, ConstantDisplay.HRM_HR_Dependant_MonthOfExpiry}
+        };
+        
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Hre_DependantModel.FieldNames.MonthOfEffect, ConstantFormat.HRM_Format_Grid_MonthYear},
+            {Hre_DependantModel.FieldNames.MonthOfExpiry, ConstantFormat.HRM_Format_Grid_MonthYear}
+        };
+
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_HR_Dependant_Grid_Name,
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_hre_Service + "Hre_GetData/GetDependantByProfileID",
+            SizeFields = sizeFields,
+            AutoBind = true,
+            GridHeight = 550,
+            ShowCheckAll = false,
+            ReadData = "filterFieldInfo_Reload",
+            DisplayFields = displayFields,
+        };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Hre_DependantModel>(grid))
+    </div>
+    </div>
+    <script>
+        $("#gridDependant .k-grid-pager").css('display', 'none');
+    </script>
+@{
+    var valueFields1 = ",ProfileName,CodeEmp";
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+<script>
+    $(document).ready(function () {
+        $("#valueFieldsGrid").val('@valueFields1');
+    });
+</script>

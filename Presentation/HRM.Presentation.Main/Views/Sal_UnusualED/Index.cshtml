@@ -1,0 +1,412 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models;
+@using HRM.Infrastructure.Security;
+
+@model Sal_UnusualEDSearchModel
+
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    Layout = null;
+
+    IList<SelectListItem> listUnusualEDType = Enum.GetValues(typeof(EnumDropDown.UnusualEDType))
+  .Cast<EnumDropDown.UnusualEDType>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+  .ToList();
+
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        //Name = "windowCat_AccountType",
+        Name = ConstantControlName.HRM_Payroll_UnusualED_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_UnusualED/UnusualEDInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+@*@{
+    var ComputeBonus = new WindowBuilderInfo
+    {
+        //Name = "windowCat_AccountType",
+        Name = "WindowComputeBonus",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_UnusualED/Sal_BonusEvalutionYearInfo/",
+    };
+}
+@(Html.VnrWindow(ComputeBonus))*@
+
+
+<script>
+     
+    var gridName = '@ConstantControlName.HRM_Payroll_UnusualED_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Payroll_UnusualED_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_UnusualED_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_UnusualED_Create_Title.TranslateString())';
+
+
+    //Data khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            CodeEmp: $('#CodeEmp').val(),
+            ProfileName: $('#ProfileName').val(),
+            UnusualEDTypeID: $('#@Html.FieldIdFor(model => model.UnusualEDTypeID)').val(),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            WorkPlaceID: $('#WorkPlaceID').val(),
+            Type: $('#SType').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            
+            //var grid = $('#grid_UnusualED').data("kendoGrid");
+            //grid.dataSource.read();
+            ReadGrid(gridName);
+        });
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Sal_UnusualED/UnusualEDInfo/";
+        EditGridPopUp("grid_UnusualED", '@ConstantControlName.HRM_Payroll_UnusualED_PopUp_Name', url, '@ConstantPermission.Sal_UnusualED', titleEditPopUp);
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        
+        PopUpCreate(popUpName, titleCreatePopUp, '@ConstantPermission.Sal_UnusualED');
+    });
+
+    //Xử Lý grid
+    GridCheckbox("grid_UnusualED");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        e.preventDefault();
+        DeleteSelected("grid_UnusualED", '@_hrm_Main_Web' + "Sal_UnusualED/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sal_UnusualED');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportUnusualEDSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val(); 
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_UnusualED');
+    });
+
+    $("#btnExportAll").click(function () {
+      @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#@ConstantControlName.HRM_Payroll_UnusualED_Grid_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllUnusualEDList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_UnusualED');
+    });
+    @*function CombuteBonus() {
+        PopUpCreate('WindowComputeBonus', '@Html.Raw(ConstantAction.HRM_Common_ComputeBonus.TranslateString())', '@ConstantPermission.Sal_UnusualED');
+    };*@
+
+</script>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + id,'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(m => m.CodeEmp, "width:200px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(m => m.ProfileName, "width:200px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.UnusualEDTypeID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ddlUnusualEDType = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "UnusualAllowanceCfgName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUnusualAllowanceCfg",
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.UnusualEDTypeID, _ddlUnusualEDType)
+                        </div>
+                    </div>
+                    
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.DateStart)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ds = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "Width: 100px",
+                                    Placeholder = ConstantDisplay.HRM_Att_Report_DateFrom.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateStart, _ds)
+
+                            @{
+                                var _de = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "Width: 100px",
+                                    Placeholder = ConstantDisplay.HRM_Att_Report_DateTo.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateEnd, _de)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Payroll_UnusualED_UnusualAllowanceCfgType.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var UnusualEDType = new DropDownListBuilderInfo()
+                                {
+                                    Name = "SType",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listUnusualEDType,
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.Type, UnusualEDType))
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "WorkPlaceName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                    StyleCss = "width:200px;",
+                                    Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString()
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "CombuteBonus", Name = "btnCombuteBonus", Content = ConstantAction.HRM_Common_ComputeBonus.TranslateString(), ImageUrl = ConstantPath.IconComputePath })*@
+
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnUnusualED", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Payroll_UnusualED_Grid_Name + "__Sal_UnusualED_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Payroll_UnusualED_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetUnusualEDList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+
+                Sal_UnusualAllowanceModel.FieldNames.CodeEmp,
+                Sal_UnusualAllowanceModel.FieldNames.ProfileName,
+                Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,
+                Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgTypeName,
+                Sal_UnusualAllowanceModel.FieldNames.Amount,
+                Sal_UnusualAllowanceModel.FieldNames.ChargePIT,
+                Sal_UnusualAllowanceModel.FieldNames.MonthStart,
+                Sal_UnusualAllowanceModel.FieldNames.MonthEnd,
+                Sal_UnusualAllowanceModel.FieldNames.UserUpdate,
+                Sal_UnusualAllowanceModel.FieldNames.DateUpdate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,80},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,150},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,170},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgTypeName,120},
+                {Sal_UnusualAllowanceModel.FieldNames.Amount,110},
+                {Sal_UnusualAllowanceModel.FieldNames.ChargePIT,70},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthStart,105},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthEnd,110},
+                {Sal_UnusualAllowanceModel.FieldNames.UserUpdate,110},
+                {Sal_UnusualAllowanceModel.FieldNames.DateUpdate,100}
+            };
+
+            var filterable = new Dictionary<string, bool>()
+            { 
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,true},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Payroll_UnusualED_ProfileID},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,ConstantDisplay.HRM_Payroll_UnusualED_ProfileName},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,ConstantDisplay.HRM_Payroll_UnusualED_UnusualEDTypeID},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgTypeName,ConstantDisplay.HRM_Payroll_UnusualED_UnusualAllowanceCfgType},
+                {Sal_UnusualAllowanceModel.FieldNames.Amount,ConstantDisplay.HRM_Payroll_UnusualED_Amount},
+                {Sal_UnusualAllowanceModel.FieldNames.ChargePIT,ConstantDisplay.HRM_Payroll_UnusualED_ChargePIT},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthStart,ConstantDisplay.HRM_Payroll_UnusualED_MonthStart},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthEnd,ConstantDisplay.HRM_Payroll_UnusualED_MonthEnd},
+                {Sal_UnusualAllowanceModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Payroll_UnusualED_UserUpdate},
+                {Sal_UnusualAllowanceModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Payroll_UnusualED_DateUpdate}
+            };
+
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        @*//var grid = new GridBuilderInfo
+        //{
+        //    Name = ConstantControlName.HRM_Payroll_UnusualED_Grid_Name,
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetUnusualEDList/",
+        //    ReadData = "filterFieldInfo",
+        //    HyperlinkFields = hyperlinkFields
+        //};*@
+    }
+
+    @(Html.VnrGrid<Sal_UnusualAllowanceModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnUnusualED", "Sal_UnusualAllowanceModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,165 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Category.Models;
+@model CatExportModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_ExportWord_Title.TranslateString();
+    //var _hrm_Main_Web = ConstantPathWeb._hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Category_ExportWord_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_ExportWord/Cat_ExportWordInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+     
+    var gridName = '@ConstantControlName.HRM_Category_ExportWord_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_ExportWord_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Export_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Export_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            ReadGrid(gridName);
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Export');
+        if (!isAccess) {
+            return;
+        }*@
+        EditGridPopUp(gridName, popUpName, '@_hrm_Main_Web' + "Cat_ExportWord/Cat_ExportWordInfo/", '@ConstantPermission.Cat_ExportWord', titleEditPopUp);
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            ExportName: $('#ExportName1').val(),
+            IsExport: false
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridName);
+    //Tạo mới cấu hình xuất file word
+    $("#btnCreateCatExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_ExportWord');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(popUpName, titleCreatePopUp);
+    });
+    //Chỉnh sửa ngân hàng
+    
+    //Xóa ngân hàng
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_ExportWord');
+        if (!isAccess) {
+            return;
+        }
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Cat_ExportWord/RemoveSelected/", selectedIds.join(","));
+    });
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Category_Export_ExportName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtExportName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "ExportName1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtExportName)
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCatExport", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new[]
+        {
+            
+            CatExportModel.FieldNames.Code,
+            CatExportModel.FieldNames.ExportName,
+            CatExportModel.FieldNames.ScreenName
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+          
+            {CatExportModel.FieldNames.Code,100},
+            {CatExportModel.FieldNames.ExportName,150},
+            {CatExportModel.FieldNames.ScreenName,200}
+        };
+
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            
+            {CatExportModel.FieldNames.Code,ConstantDisplay.HRM_Category_Export_Code},
+            {CatExportModel.FieldNames.ExportName,ConstantDisplay.HRM_Category_Export_ExportName},
+            {CatExportModel.FieldNames.ScreenName,ConstantDisplay.HRM_Category_Export_ScreenName}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_ExportWord_Grid_Name,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetExportWordList/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    @(Html.VnrGrid<CatExportModel>(grid))
+</div>

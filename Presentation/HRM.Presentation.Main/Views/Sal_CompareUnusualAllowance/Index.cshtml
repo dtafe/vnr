@@ -1,0 +1,324 @@
+﻿ @using HRM.Infrastructure.Utilities
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Payroll.Models
+@model HRM.Presentation.Payroll.Models.Sal_CompareUnusualAllowanceModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> listTransfer = Enum.GetValues(typeof(EnumDropDown.Transfer))
+  .Cast<EnumDropDown.Transfer>()
+  .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+  .ToList();
+    IList<SelectListItem> lstStatus = Enum.GetValues(typeof(EnumDropDown.StatusEmployee))
+.Cast<EnumDropDown.StatusEmployee>()
+.Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+.ToList();
+
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    SetFieldRequired();
+    var selectedIds = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+      
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var WorkingPlace = $("#WorkingPlaceID").data("kendoComboBox");
+        var elementPara = {
+            CutOffDurationID: $('#CutOffDurationID').val(),
+            OrgStructureID: checkedNodes.join(','),
+            @*DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),*@
+            WorkingPlaceID: WorkingPlace.value(),
+            WorkingPlace: WorkingPlace.text(),
+            UserID: '@Session[SessionObjects.ProfileID]',
+            StatusSyn: $('#@Html.FieldIdFor(model=>model.StatusSyn)').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnSearch").click(function () {
+        //var from = $("#DateFrom").val();
+        //var to = $("#DateTo").val();
+        var _CutOffDurationID = $('#CutOffDurationID').val();
+        if (_CutOffDurationID == '') {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Sal_CompareUnusualAllowance_CutOffDurationID.TranslateString() ' + ' @ConstantDisplay.HRM_Common_NotEmtpy.TranslateString()');
+            return;
+        }
+        ShowHre_ProgressBar();
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Sal_GetData/ReportCompareUnusualAllowance",
+            type: 'POST',
+            data: filterFieldInfo(false),
+            datatype: 'json',
+            success: function (data) {
+                CloseHre_ProgressBar();
+                debugger;
+                var grid = VnrGridDynamic;
+                grid.GridName = "grid_ReportCompareUnusualAllowance";
+                grid.ShowCheckbox = false;
+                grid.DataSource = data.Data;
+                grid.PageSize = 50;
+                VnrGridDynamicControl(grid);
+            }
+        });
+    });
+
+    @*$("#btnExport").click(function () {
+
+        var from = $("#DateFrom").val();
+        var to = $("#DateTo").val();
+        if (from == '' || to == '') {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Category_UsualAllowanceLevel_MonthApply.TranslateString() ' + ' Thể Bỏ Trống !');
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCSeniority');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/ReportCompareUnusualAllowance',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;
+            }
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/ReportCompareUnusualAllowance', filterFieldInfo(true));
+    });*@
+
+    $("#btnExport").click(function () {
+
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Sal_CompareUnusualAllowance');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Sal_GetData/ReportCompareUnusualAllowance';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/ReportCompareUnusualAllowance', filterFieldInfo(true));
+    });
+
+    
+    function DoActionData(gridName, actionURL, parameter) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+</script>
+
+
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div style="float:left;width:500px">
+                    @*<div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.DateFrom)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ds = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "Width: 100px",
+                                    Placeholder = ConstantDisplay.HRM_Att_Report_DateFrom.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, _ds)
+
+                            @{
+                                var _de = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "Width: 100px",
+                                    Placeholder = ConstantDisplay.HRM_Att_Report_DateTo.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, _de)
+                        </div>
+                    </div>*@
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.CutOffDurationID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var cutOffDurationName = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "CutOffDurationName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hre_Service + "Att_GetData/GetMultiCutOffDuration",
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(model => model.CutOffDurationID, cutOffDurationName))
+                        </div>
+                    </div>
+
+                    <div id="div4">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.StatusSyn)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _StatusSyn = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstStatus,
+                                    OptionLabel = "Vui Lòng Chọn ...",
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.StatusSyn, _StatusSyn))
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.WorkingPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _WorkingPlaceID = new ComboBoxBuilderInfo()
+                                {
+                                    StyleCss = "width:200px;",
+                                    // Name = "SShopID",
+                                    DataTextField = "WorkPlaceName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                    ServerFilter = true
+                                };
+                            }
+                            @(Html.VnrComboBoxFor(mode => mode.WorkingPlaceID, _WorkingPlaceID))
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+<div id="grid_ReportCompareUnusualAllowance">
+
+</div>
+
+
+
+

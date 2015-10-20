@@ -1,0 +1,203 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model Eva_KPISearchModel
+@{
+    //ViewBag.Title = "Eval Level Index";
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    string[] valueFields = null;
+}
+@{
+    var windowLevel = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Evaluation_KPI_PopUp_Name,
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Eva_KPI/EvalKPIInfo/",
+    };
+}
+@(Html.VnrWindow(windowLevel))
+
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+
+</style>
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Evaluation_KPI_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Evaluation_KPI_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_KPI_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_KPI_PopUp_Create_Title.TranslateString())';
+     
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            KPIName: $("#KPIName1").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Eva_KPI/EvalKPIInfo/";
+        EditGridPopUp(gridName, popUpName, url, '@ConstantPermission.Eva_KPI', titleEditPopUp);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        PopUpCreate('@ConstantControlName.HRM_Evaluation_KPI_PopUp_Name', titleCreatePopUp, '@ConstantPermission.Eva_KPI');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_KPI/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_KPI');
+        return false;
+    });
+    //Expoprt
+   $("#btnExportAll").click(function () {
+       var grid = $('#@ConstantControlName.HRM_Evaluation_KPI_Grid_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportKPIList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_KPI');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportKPISelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_Level');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div14">
+                    <div class="FieldTitle170">
+                       @ConstantDisplay.HRM_Evaluation_KPIName.TranslateString()
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var txtKPIName = new TextBoxBuilderInfo()
+                            {
+                                Name = "KPIName1"
+                            };
+                            
+                        }
+                        @Html.VnrTextBox(txtKPIName)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+                        {
+                            Eva_KPIModel.FieldNames.NameEntityObject,
+                            Eva_KPIModel.FieldNames.Code,
+                            Eva_KPIModel.FieldNames.KPIName,
+                            Eva_KPIModel.FieldNames.Level,
+                            Eva_KPIModel.FieldNames.Rate,
+                            Eva_KPIModel.FieldNames.Comment,
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Eva_KPIModel.FieldNames.NameEntityObject, 150},
+                            {Eva_KPIModel.FieldNames.Code, 70},
+                            {Eva_KPIModel.FieldNames.KPIName, 200},
+                            {Eva_KPIModel.FieldNames.Level, 160},
+                            {Eva_KPIModel.FieldNames.Rate, 130},
+                            {Eva_KPIModel.FieldNames.Comment, 500},
+                        };
+
+        var displayFields = new Dictionary<string, string>()
+                        {
+                            {Eva_KPIModel.FieldNames.NameEntityObject, ConstantDisplay.HRM_Evaluation_NameEntityObject},
+                            {Eva_KPIModel.FieldNames.Code, ConstantDisplay.HRM_Evaluation_Code},
+                            {Eva_KPIModel.FieldNames.KPIName, ConstantDisplay.HRM_Evaluation_KPIName},
+                            {Eva_KPIModel.FieldNames.Level, ConstantDisplay.HRM_Evaluation_MaxMinRate},
+                            {Eva_KPIModel.FieldNames.Rate, ConstantDisplay.HRM_Evaluation_Rate},
+                            {Eva_KPIModel.FieldNames.Comment, ConstantDisplay.HRM_Evaluation_Comment},
+                        };
+
+
+        var grid = new GridBuilderInfo
+        {
+
+            Name = ConstantControlName.HRM_Evaluation_KPI_Grid_Name,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _Hrm_Hre_Service + "Eva_GetData/GetKPIList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+    }
+    @(Html.VnrGrid<Eva_KPIModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

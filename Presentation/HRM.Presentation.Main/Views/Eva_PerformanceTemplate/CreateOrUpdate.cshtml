@@ -1,0 +1,378 @@
+﻿@using HRM.Infrastructure.Security
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+
+@using HRM.Infrastructure.Utilities
+@using System.Collections;
+
+@model HRM.Presentation.Evaluation.Models.Eva_PerformanceTemplateModel
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string orgStructureName = string.Empty;
+    if (Model != null && !string.IsNullOrEmpty(Model.OrgStructureName))
+    {
+        orgStructureName = Model.OrgStructureName;
+    }
+
+}
+
+<script language="javascript">
+    var gridName = 'gridEva_PerformanceDetail';
+    var selectedIds = [];
+
+    //Truyền param khi tìm kiếm của lưới
+    function filterFieldInfo() {
+        return {
+            PerformanceTemplateID: $("#ID").val()
+        };
+    }
+
+    //Truyền param cho multiSelect EvaKPI
+    function filterEvaKPIParams() {
+        var ddlCategoryKPI = $("#CategoryKPIID").data("kendoDropDownList");
+        var valueDDLCategoryKPI = ddlCategoryKPI.value();
+        return {
+            Keyword: valueDDLCategoryKPI
+        };
+    }
+
+    //nut them tieu chi danh gia vào lưới
+    function onKPIAdding() {
+        debugger;
+        var ddlevaKPI = $("#evaKPI").data("kendoMultiSelect");
+        var evaKPIID = ddlevaKPI.value();
+
+        var templateID = $("#ID").val();
+        if (templateID == '') {
+            ShowNotificationProcessor("Vui lòng Lưu trước khi thêm vào tiêu chí đánh giá");
+            return;
+        }
+
+        if (evaKPIID == '') {
+            ShowNotificationProcessor("Vui lòng chọn tiêu chí đánh giá");
+            return;
+        }
+        else {
+            evaKPIID = evaKPIID.join(',');
+        }
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'Eva_GetData/AddPerformanceDetail',
+            data: { KPIIDs: evaKPIID, PerformanceTemplateID: templateID },
+            type: 'POST',
+            success: function (data) {
+                var grid = $('#gridEva_PerformanceDetail').data("kendoGrid");
+                grid.dataSource.read();
+                ShowNotificationProcessor("Lưu Thành Công");
+            }
+        });
+    }
+
+    //su kien changing cua dropdownlist categoryKPI
+    function categoryKPI_Changing() {
+        var ddlCategoryKPI = $("#CategoryKPIID").data("kendoDropDownList");
+        var valueDropdown = ddlCategoryKPI.value();
+        var id = valueDropdown;
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'Eva_GetData/GetMultiCategoryKPI',
+            data: { Keyword: id },
+            type: 'Get',
+            success: function (data) {
+                var multiselect = $("#evaKPI").data("kendoMultiSelect");
+                multiselect.value([]);//clear selected value
+                multiselect.dataSource.read(); //Đọc lại datasource với tham so của filterEvaKPIParams()
+            }
+        });
+    }
+
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Eva_PerformanceTemplate');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@hrm_Main_Web' + "Eva_PerformanceTemplate/RemoveSelectedTemplateDetail/", selectedIds.join(","));
+    });
+
+    function onSavePerformanceTemplate(e) {
+        //goi tu edit tren luoi
+    }
+
+
+</script>
+
+<div>
+    <table style="width:100%">
+        <tbody>
+            <tr>
+                <td valign="top">
+                    <div>
+                        <div style="display: block; padding-top: 10px;">
+                            <fieldset>
+                                <legend>
+                                    Bảng đánh Giá
+                                </legend>
+
+                                <div style="float:left; width:579px">
+                                    <div id="dvTemplateName">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(mode => mode.TemplateName)
+                                            @Html.HiddenFor(mode => mode.ID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.TemplateName)
+                                        </div>
+                                    </div>
+
+                                    <div id="dvPerformanceTypeID">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(mode => mode.PerformanceTypeID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var dropdownPerformanceTypeId = new DropDownListBuilderInfo()
+                                                {
+                                                    DataTextField = "PerformanceTypeName",
+                                                    DataValueField = "ID",
+                                                    Url = _hrm_Hre_Service + "Cat_GetData/GetMultiPerformanceType",
+                                                    Value = @Html.DisplayFor(mode => mode.PerformanceTypeID).ToString(),
+                                                    //  OptionLabel = "Chọn Loại Đánh Giá ...",
+                                                    StyleCss = "width:200px"
+                                                };
+                                            }
+                                            @(Html.VnrDropDownListFor(mode => mode.PerformanceTypeID, dropdownPerformanceTypeId))
+                                            <script>
+                                                var dropdownlist = $("#PerformanceTypeID").data("kendoDropDownList");
+                                                dropdownlist.value('@Html.DisplayFor(mode => mode.PerformanceTypeID).ToString()');
+                                            </script>
+                                        </div>
+                                    </div>
+
+                                    <div id="dvOrg">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabel(ConstantDisplay.HRM_HR_Profile_OrgStructureName.TranslateString())
+                                        </div>
+                                        <div class="FieldValue">
+
+                                            @{
+                                                var org = new TreeViewDropdDownBuilderInfo()
+                                                {
+                                                    IsShowCheckBox = false,
+                                                    SetFieldName = "OrgID",
+                                                    Value = orgStructureName
+                                                };
+                                            }
+                                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+
+                                            @Html.HiddenFor(m => m.OrgID)
+                                        </div>
+                                    </div>
+
+                                    <div id="dvOrg">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(mode=>mode.JobTitleID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var jobTitleID = new ComboBoxBuilderInfo
+                                                {
+                                                    DataTextField = "JobTitleName",
+                                                    DataValueField = "ID",
+                                                    Url = _hrm_Hre_Service + "Cat_GetData/GetMultiJobTitle",
+                                                    Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                                    Value = Model != null ? Model.JobTitleID.ToString() : string.Empty,
+                                                    Autobind = true,
+                                                    ServerFilter = true,
+                                                    StyleCss="width:250px",
+                                                    FilterType = FilterType.Contains,
+                                                };
+                                            }
+                                            @Html.VnrComboBoxFor(mode => mode.JobTitleID, jobTitleID).Text(Model != null ? Model.JobTitleName : string.Empty)
+                                        </div>
+                                    </div>
+
+                                    <div id="dvComment">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(mode => mode.Comment)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextAreaFor(model => model.Comment)
+                                        </div>
+                                    </div>
+                                   
+                                </div>
+                                <div style="display: block; float: left; width: 600px">
+                                    <div style="display: block; float: left; width: 600px">
+                                        <div id="dvComment">
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(mode => mode.Formula1)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextAreaFor(model => model.Formula1)
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div style="display: block; float: left; width: 600px">    
+                                    <div id="dvComment">
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(mode => mode.Formula)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextAreaFor(model => model.Formula)
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </fieldset>
+                        </div>
+                    </div>
+
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<fieldset>
+    <legend> Chi Tiết Bảng Đánh Giá</legend>
+
+
+
+    <div class="commandToolBarWidge" id="anchor">
+        <div style="float:left">
+            <div style="float:left;" id="dvPerformanceTypeID">
+                <div class="FieldTitle170">
+                    @Html.VnrLabelFor(mode => mode.CategoryKPIID)
+                </div>
+                <div class="FieldValue">
+                    @{
+                        var dropdownCategoryKPI = new DropDownListBuilderInfo()
+                        {
+                            DataTextField = "NameEntityName",
+                            DataValueField = "ID",
+                            Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCategoryKPI",
+                            Value = @Html.DisplayFor(mode => mode.PerformanceTypeID).ToString(),
+                            EventChange = "categoryKPI_Changing",
+                            //  OptionLabel = "Chọn Danh Mục Đánh Giá ...",
+                            StyleCss = "width:200px"
+                        };
+                    }
+                    @(Html.VnrDropDownListFor(mode => mode.CategoryKPIID, dropdownCategoryKPI))
+                </div>
+            </div>
+
+            <div style="float:left;" id="dvPerformanceTypeID">
+                <div class="FieldTitle170">
+                    @Html.VnrLabelFor(mode => mode.EvaKPIID)
+                </div>
+                <div class="FieldValue">
+                    @(Html.Kendo().MultiSelect()
+                       .Name("evaKPI")
+                      .HtmlAttributes(new { style = "width:400px" })
+                      .DataTextField("KPIName")
+                      .DataValueField("ID")
+                            // .Placeholder("Chọn Tiêu Chí...")
+                      .DataSource(source =>
+                          {
+                              source.Read(read =>
+                                  {
+                                      read.Url(_hrm_Hre_Service + "Eva_GetData/GetMultiCategoryKPI")
+                                          .Data("filterEvaKPIParams");
+                                  })
+                                    .ServerFiltering(true);
+                          })
+                      .AutoBind(false)
+                    )
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onKPIAdding", Name = "KPIAdding", Content = "Thêm", ImageUrl = ConstantPath.IconAddNewPath })
+                </div>
+            </div>
+
+        </div>
+
+
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new[]
+        {
+         Eva_KPIModel.FieldNames.OrderNumber,
+         Eva_KPIModel.FieldNames.NameEntityName,
+         Eva_KPIModel.FieldNames.KPIName,
+         Eva_KPIModel.FieldNames.MinimumRating,
+         Eva_KPIModel.FieldNames.MaximumRating,
+         Eva_KPIModel.FieldNames.Rate,
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+        {Eva_KPIModel.FieldNames.OrderNumber,100},
+        {Eva_KPIModel.FieldNames.NameEntityName,200},
+        {Eva_KPIModel.FieldNames.KPIName,200},
+        {Eva_KPIModel.FieldNames.MinimumRating,120},
+        {Eva_KPIModel.FieldNames.MaximumRating,100},
+        {Eva_KPIModel.FieldNames.Rate,100}        
+        };
+
+        var filterable = new Dictionary<string, bool>()
+        {
+        {Eva_KPIModel.FieldNames.NameEntityName,true},
+        {Eva_KPIModel.FieldNames.KPIName,true},
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+        {Eva_KPIModel.FieldNames.OrderNumber,ConstantDisplay.HRM_Category_OrgStructure_OrderNumber},
+        {Eva_KPIModel.FieldNames.NameEntityName,ConstantDisplay.HRM_Evaluation_NameEntityObject},
+        {Eva_KPIModel.FieldNames.KPIName,ConstantDisplay.HRM_Evaluation_KPIName},
+        {Eva_KPIModel.FieldNames.MinimumRating,ConstantDisplay.HRM_Evaluation_MinimumRating},
+        {Eva_KPIModel.FieldNames.MaximumRating,ConstantDisplay.HRM_Evaluation_MaximumRating},
+        {Eva_KPIModel.FieldNames.Rate,ConstantDisplay.HRM_Evaluation_Rate}
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridEva_PerformanceDetail",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ShowCommand = true,
+            ShowEditButton = true,
+            ShowEditIcon = false,
+            EditActionUrl = _hrm_Hre_Service + "Eva_GetData/EditPerformanceDetail",
+            AutoBind = true,
+            EditMode = GridEditMode.InLine,
+            ReadActionUrl = _hrm_Hre_Service + "Eva_GetData/GetKPIByTemplateIDList/",
+            ReadData = "filterFieldInfo",
+        };
+        }
+
+        @(Html.VnrGrid<Eva_KPIModel>(grid).Events(e => e.Save("onSavePerformanceTemplate"))
+        .HtmlAttributes(new { style = "height:400px" })
+        .DataSource(dataSource => dataSource
+        .Ajax()
+        .Model(model => model.Field(o => o.NameEntityName).Editable(false))
+        .Model(model => model.Field(o => o.KPIName).Editable(false))
+        .Model(model => model.Field(o => o.MinimumRating).Editable(false))
+        .Model(model => model.Field(o => o.MaximumRating).Editable(false))
+        )
+        )
+
+
+    </div>
+
+</fieldset>

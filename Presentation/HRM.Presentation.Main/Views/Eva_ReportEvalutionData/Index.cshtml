@@ -1,0 +1,593 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model Eva_ReportEvalutionDataModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    string[] valueFields = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> lstTime = Common.Time();
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    document.getElementById("ReportEvalutionData_DateStart").readOnly = true;
+    document.getElementById("ReportEvalutionData_DateEnd").readOnly = true;
+    SetFieldRequired();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+        debugger;
+
+        var checkedNodes = [];
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _HistoryYearEvalution = $('#@Html.FieldIdFor(model => model.HistoryYearEvalution)').val();
+        var _TimesGetDataID = $('#ReportEvalutionData_TimesGetDataID').val();
+        var year = $('#@Html.FieldIdFor(model => model.YearEvalution)').val();
+        var fullDate = 1 + "/" + 1 + "/" + year;
+        var elementPara = {
+
+            JobTitleID: $('#JobTitleID').val() ? $('#JobTitleID').val()[0] : null,
+            PositionID: $('#PositionID').val() ? $('#PositionID').val()[0] : null,
+            WorkPlaceID: $('#WorkPlaceID').val(),
+            RankID: $('#RankID').val(),
+
+            OrgStructureID: checkedNodes.join(','),
+            YearEvalution: year,
+            //Time: _time,
+            Year: fullDate,
+            TimesGetDataID: _TimesGetDataID,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ReportEvalutionData_DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ReportEvalutionData_DateEnd").val()),
+            HistoryYearEvalution: _HistoryYearEvalution
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    $("#btnSearch").click(function () {
+        debugger;
+        ShowHre_ProgressBar()
+        var _TimesGetDataID = $('#ReportEvalutionData_TimesGetDataID').val();
+        if (_TimesGetDataID == "") {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_EvalutionData_Time.TranslateString()' + " " + '@ConstantDisplay.HRM_Common_NotEmtpy.TranslateString()');
+            CloseHre_ProgressBar();
+            return;
+        }
+
+
+        var _year = $('#@Html.FieldIdFor(model => model.YearEvalution)').val();
+        var _HistoryYearEvalution=$('#@Html.FieldIdFor(model=>model.HistoryYearEvalution)').val();
+        if (_HistoryYearEvalution == '' )
+        {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_EvalutionData_DateHistory.TranslateString()'+'@ConstantDisplay.HRM_Common_NotEmtpy.TranslateString()');
+            CloseHre_ProgressBar();
+            return;
+        }
+        if (_year == '' || _year == '0' || _year == '1') {
+
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_EvalutionData_YearEvalutionValidate.TranslateString()');
+            CloseHre_ProgressBar();
+            return;
+        }
+        else {
+            $.ajax({
+                url: '@_hrm_Hr_Service' + "Eva_GetData/GetReportEvalutionData",
+                data: filterFieldInfo(false),
+                type: 'POST',
+                datatype: 'json',
+                success: function (data) {
+                    var grid = VnrGridDynamic;
+                    grid.gridName = "gridEva_ReportEvalutionData";
+                    grid.DataSource = data.Data;
+                    grid.PageSize = 50;
+                    VnrGridDynamicControl(grid);
+                    CloseHre_ProgressBar();
+                }
+            });
+        }
+    });
+
+    $("#btnExport").click(function () {
+
+        var _TimesGetDataID = $('#ReportEvalutionData_TimesGetDataID').val();
+        if (_TimesGetDataID == "") {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_EvalutionData_Time.TranslateString()' + " " + '@ConstantDisplay.HRM_Common_NotEmtpy.TranslateString()');
+            return;
+        }
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportGeneralMonthlyAttendance');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Eva_GetData/GetReportEvalutionData';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Eva_GetData/GetReportEvalutionData', filterFieldInfo(true));
+    });
+    function showdate(e) {
+        debugger;
+        
+        var _year = $('#@Html.FieldIdFor(model => model.YearEvalution)').val();
+        if (_year == '' || _year == '0' || _year == '1') {
+
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Eva_EvalutionData_YearEvalutionValidate.TranslateString()');
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetDateByTime',
+            data: { year: _year },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                debugger;
+                var _dateStart = $("#ReportEvalutionData_DateStart").data("kendoDatePicker");
+                _dateStart.value('');
+                var _dateEnd = $("#ReportEvalutionData_DateEnd").data("kendoDatePicker");
+                _dateEnd.value('');
+                if (data.DateStart != null) {
+                    _dateStart.value(data.DateStart);
+                }
+                if (data.DateEnd != null) {
+                    _dateEnd.value(data.DateEnd);
+                }
+            }
+
+        });
+    };
+</script>
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.YearEvalution)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _YearEvalution = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        Value = int.Parse(DateTime.Now.Year.ToString()) - 1,
+                                        Format = ConstantFormat.HRM_Format_Number_Integer,
+                                        StyleCss = "width:60px"
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.YearEvalution, _YearEvalution).Events(m => m.Change("showdate")))
+                                @{
+                                    var _DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "ReportEvalutionData_DateStart",
+                                        StyleCss = "width:120px;background-color:WhiteSmoke;",
+                                    };
+
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, _DateStart)
+                                @{
+                                    var _DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "ReportEvalutionData_DateEnd",
+                                        StyleCss = "width:120px;background-color:WhiteSmoke;",
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, _DateEnd)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.TimesGetDataID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _TimesGetDataID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "ReportEvalutionData_TimesGetDataID",
+                                        DataTextField = "NameEntityName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiTimeEvalutionData",
+                                        Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.TimesGetDataID, _TimesGetDataID)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        @*<div>
+            <div class="FieldTitle150">
+                @Html.VnrLabelFor(mode => mode.DateFrom)
+            </div>
+            <div class="FieldValue">
+                @{
+                    var _DateFrom = new DatePickerBuilderInfo()
+                    {
+                        Name = "ReportEvalutionData_DateFrom",
+                        StyleCss = "width:92px;",
+                        Placeholder = ConstantDisplay.HRM_Common_From.TranslateString(),
+
+                    };
+                }
+                @Html.VnrDatePickerFor(model => model.DateFrom, _DateFrom).Format(ConstantFormat.HRM_Format_Year)
+                @{
+                    var _dateTo = new DatePickerBuilderInfo()
+                    {
+                        Name = "ReportEvalutionData_DateTo",
+                        StyleCss = "width:92px;",
+                        Placeholder = ConstantDisplay.HRM_Common_To.TranslateString(),
+
+
+                    };
+                }
+                @Html.VnrDatePickerFor(model => model.DateTo, _dateTo).Format(ConstantFormat.HRM_Format_Year)
+            </div>
+        </div>*@
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.HistoryYearEvalution)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _HistoryYearEvalution = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        Value = int.Parse(DateTime.Now.Year.ToString()) - 1,
+                                        Format = ConstantFormat.HRM_Format_Number_Integer,
+                                        StyleCss = "width:60px"
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.HistoryYearEvalution, _HistoryYearEvalution))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.JobTitleID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var JobTitleName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "JobTitleName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.PositionID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PositionName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "PositionName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                                        StyleCss = "width:200px"
+
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.RankID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _RankID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "SalaryClassName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiSalaryClass",
+                                        Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.RankID, _RankID)
+                            </div>
+                        </div>
+                    </div>
+                       
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+@*<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new string[]
+        {
+            Eva_ReportEvalutionDataModel.FieldNames.CodeEmp,
+            Eva_ReportEvalutionDataModel.FieldNames.ProfileName,
+            Eva_ReportEvalutionDataModel.FieldNames.UnitName,
+            Eva_ReportEvalutionDataModel.FieldNames.UnitAbb,
+            Eva_ReportEvalutionDataModel.FieldNames.DivisionName,
+            Eva_ReportEvalutionDataModel.FieldNames.DivisionAbb,
+            Eva_ReportEvalutionDataModel.FieldNames.DepartmentName,
+            Eva_ReportEvalutionDataModel.FieldNames.DepartmentAbb,
+            Eva_ReportEvalutionDataModel.FieldNames.GroupCode,
+            Eva_ReportEvalutionDataModel.FieldNames.LocationByGroupCode,
+            Eva_ReportEvalutionDataModel.FieldNames.ActualWokingPlace,
+            Eva_ReportEvalutionDataModel.FieldNames.ReportEvalutionDataNode,
+            Eva_ReportEvalutionDataModel.FieldNames.Age,
+            Eva_ReportEvalutionDataModel.FieldNames.Entering,
+            Eva_ReportEvalutionDataModel.FieldNames.ServiceYear,
+            Eva_ReportEvalutionDataModel.FieldNames.PayRankSalary,
+            Eva_ReportEvalutionDataModel.FieldNames.BasicSalary,
+            Eva_ReportEvalutionDataModel.FieldNames.Rank,
+            Eva_ReportEvalutionDataModel.FieldNames.RankZone,
+            Eva_ReportEvalutionDataModel.FieldNames.JobTitle,
+            Eva_ReportEvalutionDataModel.FieldNames.QualificationAbilitytitle,
+            Eva_ReportEvalutionDataModel.FieldNames.BasicSalary1,
+            Eva_ReportEvalutionDataModel.FieldNames.AreaAllowance,
+            Eva_ReportEvalutionDataModel.FieldNames.SpecialAllowance,
+            Eva_ReportEvalutionDataModel.FieldNames.DrivingAllowance,
+            Eva_ReportEvalutionDataModel.FieldNames.AdjustmentAllowanceForVP,
+            Eva_ReportEvalutionDataModel.FieldNames.ChildCareAllowance,
+            Eva_ReportEvalutionDataModel.FieldNames.TotalSalaryAllowance,
+            Eva_ReportEvalutionDataModel.FieldNames.C1,
+            Eva_ReportEvalutionDataModel.FieldNames.C2,
+            Eva_ReportEvalutionDataModel.FieldNames.C3,
+            Eva_ReportEvalutionDataModel.FieldNames.C4,
+            Eva_ReportEvalutionDataModel.FieldNames.C5,
+            Eva_ReportEvalutionDataModel.FieldNames.C6,
+            Eva_ReportEvalutionDataModel.FieldNames.C7,
+            Eva_ReportEvalutionDataModel.FieldNames.C8,
+            Eva_ReportEvalutionDataModel.FieldNames.C9,
+            Eva_ReportEvalutionDataModel.FieldNames.C10,
+            Eva_ReportEvalutionDataModel.FieldNames.C11,
+            Eva_ReportEvalutionDataModel.FieldNames.C12,
+            Eva_ReportEvalutionDataModel.FieldNames.C13,
+            Eva_ReportEvalutionDataModel.FieldNames.C14,
+            Eva_ReportEvalutionDataModel.FieldNames.C15,
+            Eva_ReportEvalutionDataModel.FieldNames.C16,
+
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Eva_ReportEvalutionDataModel.FieldNames.CodeEmp, 96},
+            {Eva_ReportEvalutionDataModel.FieldNames.ProfileName, 140},
+            
+            
+            
+            {Eva_ReportEvalutionDataModel.FieldNames.UnitName, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.UnitAbb, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.DivisionName, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.DivisionAbb, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.DepartmentName, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.DepartmentAbb, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.GroupCode, 120},
+            {Eva_ReportEvalutionDataModel.FieldNames.LocationByGroupCode, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.ActualWokingPlace, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.ReportEvalutionDataNode, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.Age, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.Entering, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.ServiceYear, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.PayRankSalary, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.BasicSalary, 120},
+            {Eva_ReportEvalutionDataModel.FieldNames.Rank, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.RankZone, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.JobTitle, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.QualificationAbilitytitle, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.BasicSalary1, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.AreaAllowance, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.SpecialAllowance, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.DrivingAllowance, 120},
+            {Eva_ReportEvalutionDataModel.FieldNames.AdjustmentAllowanceForVP, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.ChildCareAllowance, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.TotalSalaryAllowance, 100},
+
+            
+            
+            {Eva_ReportEvalutionDataModel.FieldNames.C1, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.C2, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.C3, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.C4, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.C5, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.C6, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.C7, 120},
+            {Eva_ReportEvalutionDataModel.FieldNames.C8, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.C9, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.C10, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.C11, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.C12, 100},
+            {Eva_ReportEvalutionDataModel.FieldNames.C13, 110},
+            {Eva_ReportEvalutionDataModel.FieldNames.C14, 90},
+            {Eva_ReportEvalutionDataModel.FieldNames.C15, 120},
+            {Eva_ReportEvalutionDataModel.FieldNames.C16, 90},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+
+            {Eva_ReportEvalutionDataModel.FieldNames.CodeEmp, ConstantDisplay.HRM_Sal_HoldSalary_CodeEmp},
+            {Eva_ReportEvalutionDataModel.FieldNames.ProfileName, ConstantDisplay.HRM_Sal_HoldSalary_ProfileName},
+
+                {Eva_ReportEvalutionDataModel.FieldNames.UnitName, "UnitName"},
+            {Eva_ReportEvalutionDataModel.FieldNames.UnitAbb, "UnitAbb"},
+            {Eva_ReportEvalutionDataModel.FieldNames.DivisionName, "DivisionName"},
+            {Eva_ReportEvalutionDataModel.FieldNames.DivisionAbb, "DivisionAbb"},
+            {Eva_ReportEvalutionDataModel.FieldNames.DepartmentName, "DepartmentName"},
+            {Eva_ReportEvalutionDataModel.FieldNames.DepartmentAbb, "DepartmentAbb"},
+            {Eva_ReportEvalutionDataModel.FieldNames.GroupCode, "GroupCode"},
+            {Eva_ReportEvalutionDataModel.FieldNames.LocationByGroupCode, "LocationByGroupCode"},
+            {Eva_ReportEvalutionDataModel.FieldNames.ActualWokingPlace,"ActualWokingPlace"},
+            {Eva_ReportEvalutionDataModel.FieldNames.ReportEvalutionDataNode, "ReportEvalutionDataNode"},
+            {Eva_ReportEvalutionDataModel.FieldNames.Age, "Age"},
+            {Eva_ReportEvalutionDataModel.FieldNames.Entering, "Entering"},
+            {Eva_ReportEvalutionDataModel.FieldNames.ServiceYear, "ServiceYear"},
+            {Eva_ReportEvalutionDataModel.FieldNames.PayRankSalary, "PayRankSalary"},
+            {Eva_ReportEvalutionDataModel.FieldNames.BasicSalary, "BasicSalary"},
+            {Eva_ReportEvalutionDataModel.FieldNames.Rank, "Rank"},
+            {Eva_ReportEvalutionDataModel.FieldNames.RankZone, "RankZone"},
+            {Eva_ReportEvalutionDataModel.FieldNames.JobTitle, "JobTitle"},
+            {Eva_ReportEvalutionDataModel.FieldNames.QualificationAbilitytitle, "QualificationAbilitytitle"},
+            {Eva_ReportEvalutionDataModel.FieldNames.BasicSalary1, "BasicSalary1"},
+            {Eva_ReportEvalutionDataModel.FieldNames.AreaAllowance, "AreaAllowance"},
+            {Eva_ReportEvalutionDataModel.FieldNames.SpecialAllowance, "SpecialAllowance"},
+            {Eva_ReportEvalutionDataModel.FieldNames.DrivingAllowance, "DrivingAllowance"},
+            {Eva_ReportEvalutionDataModel.FieldNames.AdjustmentAllowanceForVP, "AdjustmentAllowanceForVP"},
+            {Eva_ReportEvalutionDataModel.FieldNames.ChildCareAllowance, "ChildCareAllowance"},
+            {Eva_ReportEvalutionDataModel.FieldNames.TotalSalaryAllowance, "TotalSalaryAllowance"},
+
+
+            {Eva_ReportEvalutionDataModel.FieldNames.C1, "Paid leave"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C2, "Special leave"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C3, "Sick leave"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C4, "Authoried unpaid leave"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C5, "Others"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C6, "Total G2"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C7, "Unauthorized leave"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C8, "Remark"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C9, "Late in or early out"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C10, "Failing to record E. card"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C11, "Verbal warning"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C12, "Written warning"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C13, "Delay len luong"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C14, "Others 2"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C15, "No. of sugession"},
+            {Eva_ReportEvalutionDataModel.FieldNames.C16, "Accumulated point"},
+        };
+
+        var _gridReportEvalutionData = new GridBuilderInfo
+        {
+            Name = "gridEva_ReportEvalutionData",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hr_Service + "Eva_GetData/GetReportEvalutionData",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            ShowCheckAll = false
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Eva_ReportEvalutionDataModel>(_gridReportEvalutionData))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)*@
+
+<div id="gridEva_ReportEvalutionData">
+
+</div>
+<div>
+    <script>
+        $(document).ready(function () {
+            showdate();
+        })
+    </script>
+</div>
+
+
+

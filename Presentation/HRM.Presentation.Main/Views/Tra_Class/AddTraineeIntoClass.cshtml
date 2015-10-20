@@ -1,0 +1,207 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Security;
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Training.Models
+
+@model Tra_TraineeForAddSearchModel
+@{
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> listTraineeStatus = Enum.GetValues(typeof(EnumDropDown.TraineeStatus))
+        .Cast<EnumDropDown.TraineeStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+}
+<script>
+    var checkedNodes = [];
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return dataParameter;
+    }
+    function AddTrainee() {
+        $.ajax({
+            traditional: true,
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + "Tra_GetData/AddTraineeForClass/",
+            data: { selectedIds: selectedIds, classID: $("#Class_ID").val() },
+            dataType: 'json',
+            success: function (data) {
+                debugger;
+                if (data == "Success") {
+                    ShowNotification('Thông Báo', '@ConstantDisplay.Hrm_Succeed.TranslateString()', "k-block k-success-colored");
+                    ReadGrid('grid_TraineeInClass');
+                }
+                if (data == '@Html.Raw(ConstantMessages.WarningProfileNotDependantOrgStructure.TranslateString())') {
+                    ShowNotification('Thông Báo', '@ConstantMessages.WarningTraineeOverLimit.TranslateString()', "k-block k-info-colored");
+                    ReadGrid('grid_TraineeInClass');
+                }
+                if (data == '@Html.Raw(ConstantMessages.WarningTraineeOverLimit.TranslateString())') {
+                    ShowNotification('Thông Báo', '@ConstantMessages.WarningProfileNotDependantOrgStructure.TranslateString()', "k-block k-info-colored");
+                    ReadGrid('grid_TraineeInClass');
+                }
+            }
+        });
+    }
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridTra_TraineeForAdd').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        ShowHidePanel();
+    });
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Tra_TraineeAdd" }))
+{
+    <table>
+        <tr>
+            <td style="width:600px">
+                <div class="panel-wrap">
+                    <div id="main-content">
+                        <div class="widget">
+                            <div class="contendSearchWidge" style="overflow:visible">
+                                <form id="form-search">
+                                    <div class="hrm_box">
+                                        <div>
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(model => model.CodeEmp)
+                                            </div>
+                                            <div class="FieldValue">
+                                               @Html.VnrTextBoxFor(mode => mode.CodeEmp)
+                                            </div>
+                                        </div>
+                                        <div id="div3">
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(model => model.ProfileName)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(mode => mode.ProfileName)
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="hrm_box">
+                                        <div>
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="commandToolBarWidge">
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+                </div>
+                <div class="commandToolBarWidge" style="height:28px">
+                    <div style="float:left; padding-top:7px">
+                        @Html.VnrLabel(ConstantDisplay.HRM_Tra_Trainee_Title.TranslateString())
+                    </div>
+                </div>
+                <div>
+                    <!--Khai báo các thông tin cho Grid-->
+                    @using HRM.Presentation.Recruitment.Models
+                    @using HRM.Presentation.UI.Controls.Kendo
+                    @{
+    Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {Tra_TraineeModel.FieldNames.Status,new object[]
+               { "Value", "Text", listTraineeStatus, ConstantDisplay.HRM_Tra_Trainee_Status,""}},
+        };
+
+    valueFields = new string[]
+        {
+            Tra_TraineeModel.FieldNames.CodeEmp,
+            Tra_TraineeModel.FieldNames.ProfileName,
+            Tra_TraineeModel.FieldNames.OrgStructureName,
+            Tra_TraineeModel.FieldNames.ClassName,
+            Tra_TraineeModel.FieldNames.TrainLevelName,
+            Tra_TraineeModel.FieldNames.Status,
+            
+        };
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Tra_TraineeModel.FieldNames.CodeEmp,110},
+            {Tra_TraineeModel.FieldNames.ProfileName,130},
+            {Tra_TraineeModel.FieldNames.OrgStructureName,130},
+            {Tra_TraineeModel.FieldNames.ClassName,130},
+            {Tra_TraineeModel.FieldNames.TrainLevelName,110},
+            {Tra_TraineeModel.FieldNames.Status,90}
+        };
+
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Tra_TraineeModel.FieldNames.CodeEmp, ConstantDisplay.HRM_Att_Report_CodeEmp},
+            {Tra_TraineeModel.FieldNames.ProfileName, ConstantDisplay.HRM_Tra_Trainee_ProfileID},
+            {Tra_TraineeModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Tra_Trainee_OrgStructureID},
+            {Tra_TraineeModel.FieldNames.ClassName,  ConstantDisplay.HRM_Tra_Trainee_ClassID},
+            {Tra_TraineeModel.FieldNames.TrainLevelName,  ConstantDisplay.HRM_Tra_Trainee_TrainLevelID},
+            {Tra_TraineeModel.FieldNames.Status, ConstantDisplay.HRM_Att_Report_Status},
+           
+
+        };
+
+    var grid = new GridBuilderInfo
+    {
+        Name = "gridTra_TraineeForAdd",
+        ForeignKey = foreignKey,
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        ReadActionUrl = _hrm_Hre_Service + "Tra_GetData/GetTraineeForAddList/",
+        ReadData = "filterFieldInfo",
+        AutoBind = true
+    };
+                    }
+                    <!--Khởi tạo Grid-->
+                    @(Html.VnrGrid<HRM.Presentation.Training.Models.Tra_TraineeModel>(grid))
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150"></div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "AddTrainee", Name = "Add-Trainee", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

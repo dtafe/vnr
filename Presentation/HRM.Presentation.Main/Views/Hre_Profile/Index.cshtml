@@ -1,0 +1,657 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.Main.Controllers
+@using HRM.Presentation.UI.Controls.Kendo
+@model Hre_ProfileActiveSearchModel
+
+@{
+    ViewBag.Title = "Profiles Index";
+    var host = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+    //string[] valueFields = null;
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+    .Cast<EnumDropDown.Gender>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+    var userLoginName = Session[SessionObjects.LoginUserName];
+}
+@Html.Hidden("Screen", screen)
+@{
+    var windowChangeColum = new WindowBuilderInfo
+    {
+        Name = "popUpChangeColumn",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Sys_ColumnMode/Index",
+    };
+}
+@(Html.VnrWindow(windowChangeColum))
+
+<script>
+    var checkedNodes = [];
+    var IsCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+
+    function filterFieldInfo(isExport) {
+        debugger;
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+
+       
+        var treeView = $("#OrgStructureTreeView").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+
+        var dataParameter = {
+            ProfileName: $('#SProProfileName').val(),
+            CodeEmp: $('#SCodeEmp').val(),
+            OrgStructureID: checkedNodes.join(','),
+            JobTitleID: $('#SJobTitleID').val() ? $('#SJobTitleID').val()[0] : null,
+            PositionID: $('#SPositionID').val() ? $('#SPositionID').val()[0] : null,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IDNo: $('#SIDNo').val(),
+            Gender: $('#SGender').val(),
+            WorkPlaceID: $('#Profile_WorkPlaceID').val(),
+            RankID: $('#SRankID').val(),
+            EmpTypeID: $('#SEmpTypeID').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: IsCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Profile');
+        if (!isAccess) {
+            return;
+        }
+        KendoRouteMapping('#Hrm_Hre_Web/Hre_Profile/Create/', 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử lý nút Delete
+    DeleteGrid("gridHre_Profile", '@_hrm_Main_Web' + "Hre_Profile/Remove/");
+    //var Validator = CheckValidate();
+
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+            ReadGrid('gridHre_Profile');
+        });
+        ShowHidePanel();
+        EditGridNewPage("gridHre_Profile", '#Hrm_Hre_Web/Hre_Profile/Edit/', 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    });
+
+    GridCheckbox("gridHre_Profile");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        var grid = $('#gridHre_Profile').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("gridHre_Profile", '@_hrm_Main_Web' + "Hre_Profile/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Profile');
+        return false;
+    });
+
+    //nút phân ca làm việc
+    $("#btnRosterForMultiProfiles").click(function () {
+        if (selectedIds.length > 1) {
+            alert("Vui lòng chọn một nhân viên để phân ca làm việc");
+            return;
+        }
+
+        var entityGrid = $("#gridHre_Profile").data("kendoGrid");
+        profileName = entityGrid.dataItem(entityGrid.select()).ProfileName;
+        KendoRouteMapping('#Hrm_Att_Web/Att_Roster/Create?profileIds=' + selectedIds + '&profileName=' + profileName, 'Hrm_Att_Web', '@_hrm_Main_Web');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridHre_Profile').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/ExportProfileList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Profile');
+    });
+
+    $("#btnExportExcelByTemplate").click(function () {
+        IsCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        var grid = $('#gridHre_Profile').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/ExportProfileListByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Profile');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/ExportSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Profile');
+    });
+
+    function onDataBoundGrid() {
+        CheckedGrid("gridHre_Profile", selectedIds.join(","));
+    }
+
+    // Nút export selected
+    $("#btnExportByTemplate").click(function () {
+        if (selectedIds == "") {
+
+            ErrorMessages('@ConstantDisplay.HRM_HR_Contract_PleaseSelectData.TranslateString()');
+            return;
+        }
+        var _ExportWordID = $('#ddlScreenNameWord').val();
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/ExportProfileWorkingByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        ExportSelected(urlGetData, listIds, _ExportWordID, urlDownload, '@ConstantPermission.Hre_Profile');
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        debugger;
+        IsCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@hrm_Hr_Service' + '/Hre_GetData/ExportProfileListByTemplate', filterFieldInfo(true));
+
+    });
+
+    $("#btnImportData").click(function () {
+        debugger;
+        SetTempData('@_hrm_Main_Web' + "Home/SetTempData", '@controller');
+        debugger;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Import/Import_List#NewTab', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    @*$("#btnExportByTemplateTNCN").click(function () {
+        var attachFileName = 'ToKhaiQuyetToanTNCN.doc';
+        if (selectedIds == "") {
+            var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+            notificationWidget.show('Vui Lòng Chọn Dữ Liệu Để Kết Xuất ', 'error');
+            return;
+        }
+        if (selectedIds.length > 1) {
+            attachFileName = 'ToKhaiQuyetToanTNCN.zip';
+        }
+        if (attachFileName != undefined) {
+            var url = "@host" + "Templates/" + attachFileName;
+            window.location = url;
+        }
+    });*@
+</script>
+<div id="grid_Demo"></div>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue" id="test">
+                                @{
+                                    var _ProfileName = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "SProProfileName",
+                                        Width = 200
+                                    };
+                                }
+
+                                @Html.VnrTextBoxFor(model => model.ProfileName, _ProfileName)
+                            </div>
+                        </div>
+                        <div id="dropdownlist"></div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var CodeEmp = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "SCodeEmp",
+                                        Width = 200
+                                    };
+                                }
+
+                                @Html.VnrTextBoxFor(model => model.CodeEmp, CodeEmp)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var org = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Name = "OrgStructureTreeView",
+                                        WidthTreeView = "350px",
+                                        Width = "200px"
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.IDNo)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var IDNo = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "SIDNo",
+                                        Width = 200
+                                    };
+                                }
+
+                                @Html.VnrTextBoxFor(model => model.IDNo, IDNo)
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.JobTitleID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var JobTitleName = new MultiSelectBuilderInfo
+                                    {
+                                        Name = "SJobTitleID",
+                                        DataTextField = "JobTitleName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.PositionID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PositionName = new MultiSelectBuilderInfo
+                                    {
+                                        Name = "SPositionID",
+                                        DataTextField = "PositionName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.EmpTypeID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var empTypeID = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "SEmpTypeID",
+                                        DataTextField = "EmployeeTypeName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiEmployeeType",
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectEmployeeType.TranslateString(),
+                                        Autobind = false
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.EmpTypeID, empTypeID))
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Gender)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var gender = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "SGender",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listGender,
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectGender.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.Gender, gender)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.DateFrom)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                                @{
+                                    var dateTo = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "Profile_WorkPlaceID",
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                                        StyleCss = "width:200px"
+
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.RankID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _RankID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "SRankID",
+                                        DataTextField = "SalaryClassName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiSalaryClass",
+                                        Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.RankID, _RankID)
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+        </script>
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportByTemplateTNCN", Content = "Kết Xuất Tờ Khai Quyết Toán TNCN", ImageUrl = ConstantPath.IconWord })*@
+        
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImportData", Content = ConstantAction.HRM_Common_ImportData.TranslateString(), ImageUrl = ConstantPath.IconCopyPath })
+        @{
+            var screenNameWord = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenNameWord",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = hrm_Hr_Service + "Cat_GetData/GetScreenNameWord",
+                Data = "GetScreenName"
+            };
+        }
+        @Html.VnrDropDownList(screenNameWord)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportByTemplate", Content = ConstantAction.HRM_Common_ExportByTemplate.TranslateString(), ImageUrl = ConstantPath.IconWord })
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportExcelByTemplate", Content = ConstantAction.HRM_Common_ExportByTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+
+
+        
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnProfile", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+</div>
+
+    <div class="clear"></div>
+</div>
+
+<script>
+    function clickProfile(id) {
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id, 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = "gridHre_Profile__Hre_Profile_Index";
+        Sys_ColumnModeController control = new Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_Profile",
+            ReadActionUrl = hrm_Hr_Service + "Hre_GetData/GetProfileList/",
+            ReadData = "filterFieldInfo",
+          //  EventDataBound = "onDataBoundGrid",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Hre_ProfileModel.FieldNames.CodeEmp,
+                Hre_ProfileModel.FieldNames.ProfileName,
+                              Hre_ProfileModel.FieldNames.E_UNIT,
+                       Hre_ProfileModel.FieldNames.E_DIVISION,
+                Hre_ProfileModel.FieldNames.E_DEPARTMENT,
+                 Hre_ProfileModel.FieldNames.E_TEAM,
+                Hre_ProfileModel.FieldNames.E_SECTION,
+
+                Hre_ProfileModel.FieldNames.Gender,
+                Hre_ProfileModel.FieldNames.Cellphone,
+                Hre_ProfileModel.FieldNames.Email,
+   
+
+                Hre_ProfileModel.FieldNames.JobTitleName,
+                Hre_ProfileModel.FieldNames.PositionName,
+                Hre_ProfileModel.FieldNames.DateHire,
+                Hre_ProfileModel.FieldNames.IDNo,
+                Hre_ProfileModel.FieldNames.EmployeeTypeName,
+                Hre_ProfileModel.FieldNames.SalaryClassCode,
+                Hre_ProfileModel.FieldNames.AbilityTitleVNI,
+                Hre_ProfileModel.FieldNames.DateUpdate,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Hre_ProfileModel.FieldNames.CodeEmp, 80},
+                {Hre_ProfileModel.FieldNames.ProfileName, 140},
+                              {Hre_ProfileModel.FieldNames.E_UNIT,135},
+                {Hre_ProfileModel.FieldNames.E_DIVISION,135},
+
+                {Hre_ProfileModel.FieldNames.E_TEAM,135},
+                {Hre_ProfileModel.FieldNames.E_DEPARTMENT,135},
+                {Hre_ProfileModel.FieldNames.E_SECTION,135},
+
+                {Hre_ProfileModel.FieldNames.Gender, 70},
+                {Hre_ProfileModel.FieldNames.Cellphone, 100},
+                {Hre_ProfileModel.FieldNames.Email, 185},
+             
+
+
+                {Hre_ProfileModel.FieldNames.JobTitleName, 100},
+                {Hre_ProfileModel.FieldNames.PositionName, 100},
+                {Hre_ProfileModel.FieldNames.DateHire, 100},
+                {Hre_ProfileModel.FieldNames.IDNo, 80},
+                {Hre_ProfileModel.FieldNames.EmployeeTypeName, 140},
+                {Hre_ProfileModel.FieldNames.SalaryClassCode, 120},
+                {Hre_ProfileModel.FieldNames.AbilityTitleVNI, 120},
+                {Hre_ProfileModel.FieldNames.DateUpdate, 110},
+            };
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Hre_ProfileModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_ProfileModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                                {Hre_ProfileModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_ProfileModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_ProfileModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_ProfileModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_ProfileModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Hre_ProfileModel.FieldNames.Gender, ConstantDisplay.HRM_HR_Profile_Gender},
+                {Hre_ProfileModel.FieldNames.Cellphone, ConstantDisplay.HRM_HR_Profile_CellPhone},
+                {Hre_ProfileModel.FieldNames.Email, ConstantDisplay.HRM_HR_Profile_Email},
+   
+                {Hre_ProfileModel.FieldNames.JobTitleName, ConstantDisplay.HRM_HR_Profile_JobTitleName},
+                {Hre_ProfileModel.FieldNames.PositionName, ConstantDisplay.HRM_HR_Profile_PositionName},
+                {Hre_ProfileModel.FieldNames.DateHire, ConstantDisplay.HRM_HR_Profile_DateHire},
+                {Hre_ProfileModel.FieldNames.IDNo, ConstantDisplay.HRM_HR_Profile_IDNo},
+                {Hre_ProfileModel.FieldNames.EmployeeTypeName, ConstantDisplay.HRM_HR_Profile_EmployeeTypeName},
+                {Hre_ProfileModel.FieldNames.SalaryClassCode, ConstantDisplay.HRM_Category_SalaryClass_Code},
+                {Hre_ProfileModel.FieldNames.AbilityTitleVNI, ConstantDisplay.HRM_HR_Profile_AbilityTitleVNI},
+                {Hre_ProfileModel.FieldNames.DateUpdate, ConstantDisplay.HRM_HR_Profile_DateUpdate},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+
+        grid.LockedFields = new[]
+            {
+                Hre_ProfileModel.FieldNames.ProfileName
+            };
+
+        grid.HyperlinkFields = new Dictionary<string, string>()
+        {
+            {Hre_ProfileModel.FieldNames.ProfileName,"clickProfile"},
+        };
+    }
+    
+    @(Html.VnrGrid<Hre_ProfileModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnProfile", "Hre_ProfileModel");
+        $(document).ready(function() {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

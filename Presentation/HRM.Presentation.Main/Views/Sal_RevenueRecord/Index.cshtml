@@ -1,0 +1,553 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models
+@using HRM.Infrastructure.Security
+
+@model Sal_RevenueRecordSearchModel
+@{
+    //ViewBag.Title = "Salary CostCentre Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+}
+<style>
+    .ChildGrid div.k-grid-pager {
+        height: 0;
+        border-bottom-width: 0;
+        display: none;
+        overflow: hidden;
+    }
+</style>
+
+<script>
+
+    //set color for child grid
+    function ChangeColor(e) {
+        
+        var field2 = ["Percent", "1", 'white', 'blue', ">="];
+        var field4 = ["Percent", "1", 'white', 'red', "<"];
+        var field = [field2, field4];
+        SetRowColor(e.sender.table.context.id, field);
+
+        
+        $('#mastercheckbox').prop('checked', false);
+        var result = $("input[type=checkbox][id!=mastercheckbox][class=checkboxGroups]");
+        for (var i = 0; i < result.length; i++) {
+            if (SelectedGuid.indexOf(result[i].parentNode.parentNode.attributes["data-uid"].value) != -1) {
+                result[i].checked = true;
+            }
+        }
+    };
+
+
+
+    var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Compute_Comission.TranslateString())';
+
+
+    //Tìm kiếm
+    function filterFieldInfo(isExport) {
+        if ($("#ShopTreeinput").val() != "")
+        {
+            var tv = $('#ShopTree').data('kendoTreeView'),
+                  selected = tv.select(),
+                  item = tv.dataItem(selected);
+                return {
+                    Month: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Month").val()),
+                    ShopID: item.id,
+                    IsExport: isExport,
+                    ValueFields: $('#valueFieldsGrid').val()
+                };
+        }
+        else {
+            return {
+                Month: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Month").val()),
+                ShopID: "",
+                IsExport: isExport,
+                ValueFields: $('#valueFieldsGrid').val()
+            };
+        }
+    }
+    function dataGrid(month, shopId, kpiBonusID, type) {
+        return {
+            Month: kendo.parseDate(month),
+            ShopID: shopId,
+            KPIBonusID: kpiBonusID,
+            type: type
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid('@ConstantControlName.HRM_grid_Sal_RevenueRecorde_Name');
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+
+    });
+
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportSal_RevenueRecordSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_RevenueRecord');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#'+'@ConstantControlName.HRM_grid_Sal_RevenueRecorde_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllSal_RevenueRecordList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_RevenueRecord');
+    });
+
+    //Even tính hoa hồng cho cửa hàng
+    function ComputeComission() {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_RevenueRecord_Compute', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg);
+            return;
+        }
+        $.when(kendo.ui.ExtOkCancelDialog.show({
+            title: "Thông Báo",
+            message: "Bạn có chắc chắn muốn tính?",//Chưa dịch!
+            icon: "k-ext-warning"
+        })
+        ).done(function (response) {
+            
+            if (response.button == "OK") {
+                ShowHre_ProgressBar();
+                $.ajax({
+                    type: 'POST',
+                    data: filterFieldInfo(false),
+                    url: '@_hrm_Hr_Service' + "Sal_GetData/ComputeComission/",
+                    dataType: 'json',
+                    success: function (returnValue) {
+                        
+                        ShowNotificationProcessor("@ConstantDisplay.HRM_Sal_RevenueRecord_Success.TranslateString()");//Chưa Dịch!
+                        CloseHre_ProgressBar();
+                        ReadGrid("@ConstantControlName.HRM_grid_Sal_RevenueRecorde_Name");
+                        UpdateDisplayValue("");
+                    },
+                    error: function (data) {
+                        ShowNotificationProcessor("@ConstantDisplay.MessageError.TranslateString()");//Chưa Dịch!
+                        CloseHre_ProgressBar();
+                    }
+                });
+            }
+        });
+    };
+
+    function UpdateDisplayValue(e) {
+
+        if (e==undefined || e.node == undefined) {
+            var tv = $('#ShopTree').data('kendoTreeView'),
+                    selected = tv.select(),
+                    item = tv.dataItem(selected);          
+        }
+        else {
+            var item = $('#ShopTree').data('kendoTreeView').dataItem(e.node);
+            $("#ShopTreeinput").val(item.Name);
+        }
+        if (item.Group == 1) {
+            var shopID = item.id;
+            var Month = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Month").val());
+
+            $.ajax({
+                url: '@_hrm_Hr_Service' + "Sal_GetData/GetDataByShopID",
+                data: { ShopID: shopID, Month: Month },
+                type: 'POST',
+                datatype: 'json',
+                success: function (data) {
+                    
+                    if (data != "") {
+                        $("#revenueForShop").show();
+                        //document.getElementById("NoShiftLeader").innerHTML = data.NoShiftLeader;
+                        document.getElementById("TotalProfile").innerHTML = data.TotalProfile;
+                        document.getElementById("Target").innerHTML = kendo.toString(data.Target, 'n2');
+                        document.getElementById("Actual").innerHTML = kendo.toString(data.Actual, 'n2');
+                        document.getElementById("PrinceSL").innerHTML = data.PrinceSL;
+                        document.getElementById("TotalPrince").innerHTML = kendo.toString(data.TotalPrince, 'n2');
+                        document.getElementById("StrOrg").innerHTML = data.StrOrg;
+                    }
+                    else {
+                        $("#revenueForShop").hide();
+                    }
+                }
+            });
+        }
+        else {
+            $("#revenueForShop").hide();
+        }
+    };
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ShopID)
+                        </div>
+                        <div class="FieldValue">
+                            @*@{
+                                var _ShopID = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "SShopID",
+                                    DataTextField = "ShopName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hr_Service + "Cat_GetData/GetMultiShop",
+                                    EventChange = "UpdateDisplayValue",
+                                   // EventSelect = "onSelected"
+                                   ServerFilter=true,
+                                   StyleCss="width:200px"
+                                   
+                                };
+                            }
+                            @(Html.VnrComboBoxFor(mode => mode.ShopID, _ShopID))*@
+
+                            @{
+                                var ShopTree = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Name="ShopTree",
+                                    IsShowCheckBox=false,
+                                    DataValueField="ID",
+                                    DataTextField="Name",
+                                    Url = _hrm_Hr_Service + "Cat_GetData/GetTreeViewShop",
+                                    Placeholder="",
+                                    EvenSelect = "UpdateDisplayValue",
+                                    LoadOnDemand=true,
+                                    Width="200px;",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", ShopTree)
+                            
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Month)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dateFrom = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    Value=DateTime.Now.ToString(),
+                                    EventSelect = "UpdateDisplayValue"
+
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.Month, dateFrom)
+
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="float:left;" id="revenueForShop" hidden="hidden">
+                    <div style="float:left;">
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueRecord_StrOrg.TranslateString())
+                            </div>
+                            <div class="FieldValueView" id="StrOrg">
+                                @Html.Display("StrOrg",@"\")
+                            </div>
+                        </div>
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueForProfile_TotalProfile.TranslateString())
+                            </div>
+                            <div class="FieldValueView" id="TotalProfile">
+                                @Html.Display("TotalProfile", "0")
+                            </div>
+                        </div>
+                      
+                    </div>
+                    <div style="float:left;">
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueForProfile_Target.TranslateString())
+                            </div>
+                            <div style="width: 150px;" class="FieldValueView" id="Target">
+                                @Html.Display("Target","0")
+                            </div>
+                        </div>
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueForProfile_Actual.TranslateString())
+                            </div>
+                            <div style="width:150px;" class="FieldValueView" id="Actual">
+                                @Html.Display("Actual", "0")
+                            </div>
+                        </div>
+                    </div> 
+                    <div style="float:left;">
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueForProfile_TotalPrince.TranslateString())
+                            </div>
+                            <div style="width: 150px;" class="FieldValueView" id="TotalPrince">
+                                @Html.Display("TotalPrince", "0")
+                            </div>
+                        </div>
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Sal_RevenueForProfile_PrinceSL.TranslateString())
+                            </div>
+                            <div style="width: 150px;" class="FieldValueView" id="PrinceSL">
+                                @Html.Display("PrinceSL", "0")
+                            </div>
+                        </div>
+
+
+                    </div>              
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @* @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCostCentre", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "ComputeComission", Name = "btnComputeComission", Content = ConstantAction.HRM_Compute_Comission.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnRevenueRecord", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        
+      </div>
+    <div class="clear"></div>
+</div>
+
+
+<script type="text/x-kendo-template" id="template">
+    <div style="margin-left:25px;max-width:500px;">
+        @(Html.Kendo().Grid<Sal_RevenueForShopModel>()
+                        .Events(m => m.DataBound("ChangeColor"))
+             .Name("grid" + "_#=ShopID#" + "_#=KPIBonusID#" + "_#=Type#").HtmlAttributes(new { @class = "ChildGrid" })
+            .Columns(columns =>
+            {
+                columns.Bound(o => o.Title).Width(70).Title("Tên");
+                columns.Bound(o => o.Target).Format("{0:n0}").Width(70).Title("Chỉ Tiêu");
+                columns.Bound(o => o.Actual).Format("{0:n0}").Width(70).Title("Thực Đạt");
+                columns.Bound(o => o.Percent).Format("{0:p0}").Width(70).Title("Tỉ Lệ Hoàn Thành");
+            })
+            .DataSource(dataSource => dataSource
+                .Ajax()
+                .PageSize(10)
+
+                .Read(read => read.Url(@_hrm_Hr_Service + "Sal_GetData/GetDataForChildGrid").Data("dataGrid('#=Month#','#=ShopID#','#=KPIBonusID#','#=Type#')"))
+            )
+            .Pageable()
+            .Sortable()
+            .ToClientTemplate()
+        )
+    </div>
+
+
+    
+</script>
+
+
+
+
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        
+        IList<SelectListItem> Type = Enum.GetValues(typeof(EnumDropDown.SalesTypeRevenue))
+        .Cast<EnumDropDown.SalesTypeRevenue>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+         var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Sal_RevenueRecorde_Name + "__Sal_RevenueRecord_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Sal_RevenueRecorde_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSal_RevenueRecordList/",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ClientDetailTemplateId = "template",
+            FormatSum = "n2",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ForeignKey = new Dictionary<object, object[]>()
+            {
+              //  {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+                 {Sal_RevenueRecordModel.FieldNames.Type,new object[] { "Value", "Text", Type, ConstantDisplay.HRM_Sal_RevenueRecord_Type,""}},
+            };
+
+            grid.ValueFields = new[]
+            {
+                Sal_RevenueRecordModel.FieldNames.ShopName,
+                Sal_RevenueRecordModel.FieldNames.Amount,
+                Sal_RevenueRecordModel.FieldNames.Month,
+                Sal_RevenueRecordModel.FieldNames.KPIBonusName,
+               // Sal_RevenueRecordModel.FieldNames.Taget,
+               // Sal_RevenueRecordModel.FieldNames.Actual,
+                //Sal_RevenueRecordModel.FieldNames.Value,
+               // Sal_RevenueRecordModel.FieldNames.Note,
+                Sal_RevenueRecordModel.FieldNames.KPIBonusID,
+                Sal_RevenueRecordModel.FieldNames.ShopID,
+                Sal_RevenueRecordModel.FieldNames.Type,
+             //   SalCostCentreModel.FieldNames.UserCreate,
+             //   SalCostCentreModel.FieldNames.DateUpdate,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Sal_RevenueRecordModel.FieldNames.ShopName,200},
+                {Sal_RevenueRecordModel.FieldNames.Amount,100},
+                {Sal_RevenueRecordModel.FieldNames.Month,80},
+                {Sal_RevenueRecordModel.FieldNames.KPIBonusName,110},
+                {Sal_RevenueRecordModel.FieldNames.Taget,75},
+                {Sal_RevenueRecordModel.FieldNames.Actual,75},
+                {Sal_RevenueRecordModel.FieldNames.Value,90},
+                {Sal_RevenueRecordModel.FieldNames.Note,200},
+                {Sal_RevenueRecordModel.FieldNames.KPIBonusID,200},
+                {Sal_RevenueRecordModel.FieldNames.ShopID,200},
+                {Sal_RevenueRecordModel.FieldNames.Type,200},
+            
+             //   {SalCostCentreModel.FieldNames.UserCreate,110},
+              //  {SalCostCentreModel.FieldNames.DateUpdate,100},
+            };
+            grid.SumFields = new string[]
+            {
+                Sal_RevenueRecordModel.FieldNames.Amount
+            };
+            grid.HiddenFields = new string[]
+            {
+                Sal_RevenueRecordModel.FieldNames.KPIBonusID,
+                Sal_RevenueRecordModel.FieldNames.ShopID,
+                Sal_RevenueRecordModel.FieldNames.Type,
+            };
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_RevenueRecordModel.FieldNames.ShopName,ConstantDisplay.HRM_Sal_RevenueRecord_ShopID},
+                {Sal_RevenueRecordModel.FieldNames.Amount,ConstantDisplay.HRM_Sal_RevenueRecord_Amount},
+                {Sal_RevenueRecordModel.FieldNames.Month,ConstantDisplay.HRM_Sal_RevenueRecord_Month},
+                {Sal_RevenueRecordModel.FieldNames.KPIBonusName,ConstantDisplay.HRM_Sal_RevenueRecord_KPIBonusName},
+                {Sal_RevenueRecordModel.FieldNames.Taget,ConstantDisplay.HRM_Sal_RevenueRecord_Target},
+                {Sal_RevenueRecordModel.FieldNames.Actual,ConstantDisplay.HRM_Sal_RevenueRecord_Actual},
+                {Sal_RevenueRecordModel.FieldNames.Value,ConstantDisplay.HRM_Sal_RevenueRecord_Value},
+                {Sal_RevenueRecordModel.FieldNames.Note,ConstantDisplay.HRM_Sal_RevenueRecord_Note},
+                {Sal_RevenueRecordModel.FieldNames.KPIBonusID,ConstantDisplay.HRM_Sal_RevenueRecord_Note},
+                {Sal_RevenueRecordModel.FieldNames.ShopID,ConstantDisplay.HRM_Sal_RevenueRecord_Note},
+                {Sal_RevenueRecordModel.FieldNames.Type,ConstantDisplay.HRM_Sal_RevenueRecord_Note},
+               // {SalCostCentreModel.FieldNames.UserCreate,ConstantDisplay.HRM_Hr_CardHistory_UserCreate},
+               // {SalCostCentreModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Hr_CardHistory_DateUpdate},
+            };
+
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Sal_RevenueRecordModel.FieldNames.Taget, ConstantFormat.HRM_Format_Int},
+                {Sal_RevenueRecordModel.FieldNames.Actual, ConstantFormat.HRM_Format_Int},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridRevenue_Record",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    ForeignKey=foreignKey,
+        //    DisplayFields = displayFields,
+        // //   FormatFields = formatField1s,
+        // //   Filterable = filterable,
+        //    ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSal_RevenueRecordList/",
+        //    ReadData = "filterFieldInfo",
+        //    ShowEditIcon = false,
+        //    ClientDetailTemplateId ="template",
+        //    SumFields = sumFields,
+        //    FormatSum = "n2",
+        //    HiddenFields = hiddenFields,
+        //    FormatFields = formatField1s
+         
+        //};
+    }
+
+    @(Html.VnrGrid<Sal_RevenueRecordModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnRevenueRecord", "Sal_RevenueRecordModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

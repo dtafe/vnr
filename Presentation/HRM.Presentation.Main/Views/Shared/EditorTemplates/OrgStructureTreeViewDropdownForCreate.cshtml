@@ -1,0 +1,185 @@
+﻿@using HRM.Infrastructure.Utilities
+@{
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    string UserName = Session[SessionObjects.LoginUserName] != null ? Session[SessionObjects.LoginUserName].ToString() : "";
+
+}
+@using HRM.Presentation.UI.Controls.Kendo
+
+<style>
+    .textbox {
+        background: white;
+        border: 1px solid #c5c5c5;
+        border-radius: 3px;
+        color: #2e2e2e;
+        outline: none;
+        height: 25px;
+        width: 200px;
+        position: relative;
+        z-index: 0;
+        padding-left: 5px;
+    }
+</style>
+<script type="text/javascript">
+    function OnSelect(e) {
+        var data = $('#treeviewOrg').data('kendoTreeView').dataItem(e.node);
+        $("#TreeViewDropDownInput").val(data.Name);
+        $("#OrgStructureID").val(data.id);
+
+        //sửa tạm thời
+        $("#OrganizationStructureID").val(data.id);
+
+
+
+        $("#ParentID").val(data.id);
+    }
+
+</script>
+
+<input style="padding:initial;" type="text" class="textbox" readonly="readonly" id="TreeViewDropDownInput" placeholder="@ConstantDisplay.ChooseOrgStructure.TranslateString()" />
+<div style="border: solid 1px #c5c5c5; margin-top: -3px; border-radius: initial; display: none; width: 200px; position: absolute; z-index: 99; background-color: #F8F8F8; " class="hrm_treeview" id="treeviewDropdown">
+    <div id="search">
+        @(Html.TextBox("searchOrg", null, new
+        {
+            @class = "k-textbox",
+            placeholder = "Search....",
+            onkeyup = "GetSearchName(value);",
+            style = "border-color:transparent;border-radius:0px;border-bottom: 1px dotted #C1D16E;width:100%;"
+        }))
+    </div>
+    <div style="height:150px;overflow-y:scroll">
+        @{
+            var orgTreeView = new TreeViewBuilderInfo
+            {
+                Name = "treeviewOrg",
+                DataTextField = "Name",
+
+                Url = @_hrm_Cat_Service + "Cat_GetData/GetOrgStructureTree" + "?UserName=" + UserName,
+                Icon = "IconPath",
+                LoadOnDemand = false,
+                ShowCheckbox = false,
+                EventSelect = "OnSelect",
+                EventDataBound = "EventDataBoundTreeViewOrgNoCheckBox",
+
+                //EventSelect = "selectNode",
+                //CheckChildren = false,
+                // NameChecked = "treedropdown",
+            };
+        }
+        @(Html.VnrTreeView(orgTreeView))
+    </div>
+</div>
+
+<script>
+
+    //Xử lý ẩn hiện Treedropdown
+    $('html').click(function () {
+        $("div#treeviewDropdown").hide(50);
+    });
+    $('#treeviewDropdown').click(function (event) {
+        event.stopPropagation();
+    });
+
+
+    //[Hien.Nguyen] Xử lý sự kiện checkbox
+    //$("#treeviewOrg").data("kendoTreeView").dataSource.bind("change", function () {
+    //    var checkedNodes = [],
+    //        checkedNodesName = [],
+    //        treeView = $("#treeviewOrg").data("kendoTreeView");
+
+    //    checkedNodeIds1(treeView.dataSource.view(), checkedNodes, checkedNodesName);
+
+    //    $("input#TreeViewDropDownInput").val(checkedNodesName.join(","));
+    //});
+
+    //Show Treeview
+    $(document).on("click", "input#TreeViewDropDownInput", function () {
+        $("div#treeviewDropdown").show(50);
+    });
+
+    //Custom function Contains toUpper
+    jQuery.expr[':'].contains = function (a, i, m) {
+        return jQuery(a).text().toUpperCase()
+            .indexOf(m[3].toUpperCase()) >= 0;
+    };
+
+    //Hàm xử lý thanh tìm kiếm cho treeview
+    function GetSearchName(value) {
+
+        if (value !== "") {
+            $("#treeviewOrg").data("kendoTreeView").expand(".k-item");
+            $("#treeviewOrg .k-group .k-group .k-in").closest("li").hide();
+            $("#treeviewOrg .k-group .k-group .k-in:contains(" + value + ")").each(function () {
+
+                $(this).parents("ul, li").each(function () {
+                    $(this).show();
+                });
+            });
+        } else {
+            $("#treeviewOrg .k-group").find("ul").hide();
+            $("#treeviewOrg .k-group").find("li").show();
+            $("#treeviewOrg").data("kendoTreeView").collapse('.k-item');
+        }
+    }
+
+</script>
+
+@*<script>
+           var treeview = $("#treeviewOrg").data("kendoTreeView");
+
+        // expand all loaded items
+        treeview.expand(".k-item");
+        $('#searchOrg').on('keyup', function () {
+
+            $('span.k-in > span.highlight').each(function () {
+                $(this).parent().text($(this).parent().text());
+            });
+
+            // ignore if no search term
+            if ($.trim($(this).val()) == '') {
+             return;
+            }
+
+            var term = this.value.toUpperCase();
+            var tlen = term.length;
+
+            $('#treeviewOrg span.k-in').each(function (index) {
+
+                var text = $(this).text();
+                var html = '';
+                var q = 0;
+                while ((p = text.toUpperCase().indexOf(term, q)) >= 0) {
+                    html += text.substring(q, p) + '<span class="highlight">' + text.substr(p, tlen) + '</span>';
+                    $(this).parents("ul, li").each(function () {
+                                        $(this).show();
+                                    });
+                    q = p + tlen;
+                }
+
+                if (q > 0) {
+                    html += text.substring(q);
+                    $(this).html(html);
+
+                    $(this).parentsUntil('.k-treeview').filter('.k-item').each(
+                        function (index, element) {
+                            treeView.expand($(this));
+
+                            $(this).data('search-term', term);
+                        }
+                    );
+                }
+            });
+
+            $('#treeviewOrg .k-item').each(function () {
+
+                if ($(this).data('search-term') != term) {
+                    tv.collapse($(this));
+                }
+            });
+        });
+    </script>
+    <style>
+        span.k-in > span.highlight {
+            background: yellow;
+        }
+    </style>*@

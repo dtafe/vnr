@@ -1,0 +1,499 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Category.Models;
+@model Cat_HDTJobTypeModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_HDTJobType.TranslateString();
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+
+    IList<SelectListItem> listType = Enum.GetValues(typeof(EnumDropDown.HDTJobType))
+       .Cast<EnumDropDown.HDTJobType>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+       .ToList();
+
+    IList<SelectListItem> liststatus = Enum.GetValues(typeof(HDTJobStatus))
+   .Cast<HDTJobStatus>()
+   .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+   .ToList();
+
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Category_HDTJobType_PopUp_Name,
+        Visible = false,
+        Width = 1100,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_HDTJobType/CatHDTJobTypeInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Category_HDTJobType_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_HDTJobType_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_HDTJobType_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_HDTJobType_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+            ReadGrid(gridName);
+        });
+        EditGridNewPage(gridName, popUpName, '@_hrm_Main_Web' + "Cat_HDTJobType/CatHDTJobTypeInfo/", '@ConstantPermission.Cat_HDTJobType', titleEditPopUp);
+
+        function EditGridNewPage(gridName, url, hrmWebSite, alias, pageNamePermission) {
+
+            $("#" + gridName).on("click", ".gridEditImgButton", function (e) {
+                debugger;
+                var grid = $("#" + gridName).data("kendoGrid");
+                e.preventDefault();
+                var row = $(this).closest("tr");
+                var dataItem = grid.dataItem(row);
+                if (dataItem.StatusView != "Duyệt" && dataItem.StatusView != "E_APPROVED"
+                && dataItem.StatusView != "Từ Chối" && dataItem.StatusView != "E_REJECTED") {
+                    PopUpEdit(popUpName, '@_hrm_Main_Web' + "Cat_HDTJobType/CatHDTJobTypeInfo/", dataItem.ID, titleEditPopUp);
+                }
+                else {
+                    var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Hre_EditHDTDataApproved', false);
+                    if (isAccess) {
+                        PopUpEdit(popUpName, '@_hrm_Main_Web' + "Cat_HDTJobType/CatHDTJobTypeInfo/", dataItem.ID, titleEditPopUp);
+                    }
+                    else {
+                        if (dataItem.StatusView != "Từ Chối" && dataItem.StatusView != "E_REJECTED") {
+                            ShowNotificationProcessor("Trạng Thái Đã Duyệt Không Được Phép Chỉnh Sửa!");
+                            return;
+                        }
+                        else {
+                            ShowNotificationProcessor("Trạng Thái Từ Chối Không Được Phép Chỉnh Sửa!");
+                            return;
+                        }
+                    }
+                }
+            });
+        };
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            Code: $('#HDTJobTypeCode1').val(),
+            HDTJobTypeName: $('#HDTJobTypeName1').val(),
+            Status: $('#HDTJobType_Status1').val(),
+            Type: $('#HDTJobType_Type1').val(),
+            HDTJobGroupID: $('#HDTJobGroupID1').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Tạo mới
+    $("#btnCreateCatHDTJobType").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_HDTJobType');
+        if (!isAccess) {
+            return;
+        }*@
+        PopUpCreate(popUpName, titleCreatePopUp, '@ConstantPermission.Cat_HDTJobType');
+    });
+
+    //Xóa
+    $('#btnDelete').click(function (e) {
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Cat_HDTJobType/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Cat_HDTJobType');
+    });
+
+    //Xử Lý grid
+    GridCheckbox('@ConstantControlName.HRM_Category_HDTJobType_Grid_Name');
+    //Export
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportOrgStrucTypeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_HDTJobType');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridCatHDTJobType').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllHDTJobTypeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_HDTJobType');
+    });
+
+
+    $('#btnApprovedHDTJobType').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#gridCatHDTJobType').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        var x = selectedIds.join(",");
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(ConstantDisplay.HRM_Common_ChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                   ).done(function (response) {
+
+                       if (response.button == "OK") {
+                           DoActionData("gridCatHDTJobType", '@_hrm_Hr_Service' + "Cat_GetData/ApprovedHDTJobType/", x);
+                           selectedIds = [];
+                       }
+                       else if (response.button == "Cancel") {
+                           return false;
+                       }
+                   });
+        }
+        else {
+            ErrorMessages('@Html.Raw(ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    $('#btnApprovedAll').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#gridCatHDTJobType').data("kendoGrid");
+
+        $.when(kendo.ui.ExtOkCancelDialog.show({
+            title: '@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())',
+            message: '@Html.Raw(ConstantDisplay.HRM_Common_ChangeStatusAll.TranslateString())',
+            icon: "k-ext-warning",
+            width: "355px",
+            height: "105px"
+        })
+            ).done(function (response) {
+                if (response.button == "OK") {
+                    ShowHre_ProgressBar();
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hr_Service' + 'Cat_GetData/ApprovedHDTJobAll',
+                        data: filterFieldInfo(),
+                        dataType: 'json',
+                        async: false,
+                        success: function (data) {
+
+                            ShowNotificationProcessor("Success");
+                            ReadGrid(gridName);
+                        }
+                    });
+                    CloseHre_ProgressBar();
+                }
+                else if (response.button == "Cancel") {
+                    return false;
+                }
+            });
+
+        @*ErrorMessages('@Html.Raw(ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');*@
+        return false;
+    });
+
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+
+                if (data == "Success") {
+                    selectedIds = [];
+                    ReadGrid(gridName);
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Succeed.TranslateString())', "k-block k-info-colored");
+                    return;
+                } else {
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+            },
+            error: function (data) {
+                ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                return;
+            }
+        });
+    }
+
+    $("#btnImportData").click(function () {
+        debugger;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Import/Import_List#NewTab', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobType_HDTJobTypeName.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtHDTJobTypeName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "HDTJobTypeName1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtHDTJobTypeName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobType_Code.TranslateString())
+                        </div>
+                        <div class="FieldValue" id="aaa">
+                            @{
+                                var txtHDTJobTypeCode = new TextBoxBuilderInfo()
+                                {
+                                    Name = "HDTJobTypeCode1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtHDTJobTypeCode)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.Status)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var comboboxstatus = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "HDTJobType_Status1",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = liststatus,
+                                    StyleCss = "Width: 200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.Status, comboboxstatus)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobType_Type.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var comboboxType = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "HDTJobType_Type1",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listType,
+                                    StyleCss = "Width: 200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.Type, comboboxType)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobGroup_HDTJobGroupName.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dropdownHDTJobGroupID1 = new DropDownListBuilderInfo()
+                                {
+                                    Name = "HDTJobGroupID1",
+                                    DataTextField = Cat_HDTJobGroupModel.FieldNames.HDTJobGroupName,
+                                    DataValueField = Cat_HDTJobGroupModel.FieldNames.ID,
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiHDTJobGroup",
+                                    Value = @Html.DisplayFor(mode => mode.HDTJobGroupID).ToString(),
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.HDTJobGroupID, dropdownHDTJobGroupID1))
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCatHDTJobType", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImportData", Content = ConstantAction.HRM_Common_ImportData.TranslateString(), ImageUrl = ConstantPath.IconCopyPath })
+    <div style="float: right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantAction.HRM_Common_Approve.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprovedAll", Content = ConstantAction.HRM_Common_ApproveAll.TranslateString(), ImageUrl = ConstantPath.IconApprovePath, CssStyle = "border:0;width:170px" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprovedHDTJobType", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath, CssStyle = "border:0;width:170px" })</li>
+            </ul>
+        </div>
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeHDTJobType", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @*@{*@
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Category_HDTJobType_Grid_Name + "__Cat_HDTJobType_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_HDTJobType_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetHDTJobList/",
+            ReadData = "filterFieldInfo",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ForeignKey = new Dictionary<object, object[]>()
+            {
+                {Cat_HDTJobTypeModel.FieldNames.Status,new object[]
+                   { "Value", "Text", liststatus, ConstantDisplay.HRM_Att_Report_Status,""}},
+
+                   {Cat_HDTJobTypeModel.FieldNames.Type,new object[]
+                   { "Value", "Text", listType, ConstantDisplay.HRM_Category_HDTJobType_Type,""}},
+
+            };
+
+            grid.ValueFields = new[]
+            {
+
+                Cat_HDTJobTypeModel.FieldNames.Code,
+                Cat_HDTJobTypeModel.FieldNames.HDTJobTypeName,
+                Cat_HDTJobTypeModel.FieldNames.HDTJobGroupName,
+                Cat_HDTJobTypeModel.FieldNames.HDTJobTypeNameHVN,
+                Cat_HDTJobTypeModel.FieldNames.TypeView,
+                Cat_HDTJobTypeModel.FieldNames.Dept,
+                Cat_HDTJobTypeModel.FieldNames.Part,
+                Cat_HDTJobTypeModel.FieldNames.Line,
+                Cat_HDTJobTypeModel.FieldNames.Session,
+                Cat_HDTJobTypeModel.FieldNames.Unit,
+                Cat_HDTJobTypeModel.FieldNames.StatusView,
+                Cat_HDTJobTypeModel.FieldNames.StandardElement,
+                Cat_HDTJobTypeModel.FieldNames.EncryptJob,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Cat_HDTJobTypeModel.FieldNames.Code,80},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobTypeName,140},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobGroupName,130},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobTypeNameHVN,130},
+                {Cat_HDTJobTypeModel.FieldNames.TypeView,100},
+                {Cat_HDTJobTypeModel.FieldNames.Dept,80},
+                {Cat_HDTJobTypeModel.FieldNames.Part,80},
+                {Cat_HDTJobTypeModel.FieldNames.Line,100},
+                {Cat_HDTJobTypeModel.FieldNames.Session,100},
+                {Cat_HDTJobTypeModel.FieldNames.Unit,60},
+                {Cat_HDTJobTypeModel.FieldNames.StatusView,80},
+                {Cat_HDTJobTypeModel.FieldNames.StandardElement,140},
+                {Cat_HDTJobTypeModel.FieldNames.EncryptJob,130},
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Cat_HDTJobTypeModel.FieldNames.Code,true},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobTypeName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+
+                {Cat_HDTJobTypeModel.FieldNames.Code,ConstantDisplay.HRM_Category_HDTJobType_Code},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobTypeName,ConstantDisplay.HRM_Category_HDTJobType_HDTJobTypeName},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobGroupName,ConstantDisplay.HRM_Category_HDTJobGroup_HDTJobGroupName},
+                {Cat_HDTJobTypeModel.FieldNames.HDTJobTypeNameHVN,ConstantDisplay.HRM_Category_HDTJobType_HDTJobTypeNameHVN},
+                {Cat_HDTJobTypeModel.FieldNames.TypeView,ConstantDisplay.HRM_Category_HDTJobType_Type},
+                {Cat_HDTJobTypeModel.FieldNames.Dept,ConstantDisplay.HRM_Canteen_Report_Section},
+                {Cat_HDTJobTypeModel.FieldNames.Part,ConstantDisplay.HRM_HR_Profile_OrgStructureName},
+                {Cat_HDTJobTypeModel.FieldNames.Line,ConstantDisplay.HRM_Category_HDTJobType_Line},
+                {Cat_HDTJobTypeModel.FieldNames.Session,ConstantDisplay.HRM_Category_HDTJobType_Session},
+                {Cat_HDTJobTypeModel.FieldNames.Unit,ConstantDisplay.HRM_Category_HDTJobType_Unit},
+                {Cat_HDTJobTypeModel.FieldNames.StatusView,ConstantDisplay.HRM_Category_DayOff_Status},
+                {Cat_HDTJobTypeModel.FieldNames.StandardElement,ConstantDisplay.HRM_Category_HDTJobType_StandardElement},
+                {Cat_HDTJobTypeModel.FieldNames.EncryptJob,ConstantDisplay.HRM_Category_HDTJobType_EncryptJob},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    }
+
+    @(Html.VnrGrid<Cat_HDTJobTypeModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeHDTJobType", "Cat_HDTJobTypeModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

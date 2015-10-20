@@ -1,0 +1,410 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Payroll.Models;
+
+@model HRM.Presentation.Payroll.Models.Sal_InsuranceSalarySearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Att_Grade.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Services = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSalInsuranceSalary",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_InsuranceSalary/SalInsuranceSalaryInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+    var checkedNodes = [];
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Sal_InsuranceSalry_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Sal_InsuranceSalry_Create_Title.TranslateString())';
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var treeView = $("#OrgStructureTreeView").data("kendoTreeView");
+        checkedNodes = [];
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var ProfileName = $('#@Html.FieldIdFor(model => model.ProfileName)').val();
+        return {
+            ProfileName: $("#SProfileName").val(),
+            CodeEmp: $("#SCodeEmp").val(),
+            OrgStructureIDs: checkedNodes.join(','),
+            DateHireStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateHireStart").val()),
+            DateHireEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateHireEnd").val()),
+            DateEffectStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEffectStart").val()),
+            DateEffectEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEffectEnd").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            ReadGrid('gridSal_InsuranceSalary');
+        });
+
+        //Xử Lý Grid
+        GridCheckbox("gridSal_InsuranceSalary");
+
+        var url = '@_hrm_Main_Web' + "Sal_InsuranceSalary/SalInsuranceSalaryInfo/";
+        EditGridPopUp("gridSal_InsuranceSalary", "windowSalInsuranceSalary", url, '@ConstantPermission.Sal_InsuranceSalary', titleEditPopUp);
+
+
+        //Xử lý nút Delete
+        $('#btnDelete').click(function (e) {
+
+            if (selectedIds.length == 0) {
+                DeleteFail();
+                return;
+            }
+            e.preventDefault();
+            DeleteSelected("gridSal_InsuranceSalary", '@_hrm_Main_Web' + "Sal_InsuranceSalary/RemoveSelected/", selectedIds, '@ConstantPermission.Sal_InsuranceSalary');
+            //selectedIds = [];
+        });
+        //Xử lý tạo mới
+        $("#btnCreate").click(function () {
+            debugger;
+            PopUpCreate("windowSalInsuranceSalary", titleCreatePopUp, '@ConstantPermission.Sal_InsuranceSalary');
+        });
+
+
+        @*$("#btnCreate").click(function () {
+            KendoRouteMapping('#Hrm_Sal_Web/Sal_Grade/Create/', 'Hrm_Sal_Web', '@_hrm_Main_Web');
+        });
+        //Xử lý nút Edit
+        EditGridNewPage("gridSal_InsuranceSalary", '#Hrm_Sal_Web/Sal_Grade/Edit/', 'Hrm_Sal_Web', '@_hrm_Main_Web');*@
+    });
+
+
+
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            traditional: true,
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('@ConstantDisplay.HRM_Payroll_ErrorInProcessing');
+            }
+        });
+    }
+
+    $("#btnExportAll").click(function () {
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportAllInsuranceSalaryList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_InsuranceSalary');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportInsuranceSalarySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_InsuranceSalary');
+
+    });
+
+</script>
+<script>
+    function clickProfile(id) {
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + id, 'Hrm_Main_Web', '@_hrm_Hr_Web');
+    }
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form id="form-search">
+                    <div class="hrm_box">
+                        <div id="dvProfileCode">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("SProfileName", "width:200px;")
+                            </div>
+                        </div>
+                        <div id="dvProfileCode">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("SCodeEmp", "width:200px;")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var org = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Name = "OrgStructureTreeView",
+                                        Width="200px",
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.DateHireStart)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dhs = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Common_DateStart.TranslateString(),
+                                        StyleCss = "width:120px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateHireStart, dhs)
+                            
+                                @{
+                                    var dhe = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Common_DateEnd.TranslateString(),
+                                        StyleCss = "width:120px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateHireEnd, dhe)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.DateEffectStart)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var des = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Common_DateStart.TranslateString(),
+                                        StyleCss = "width:120px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateEffectStart, des)
+                            
+                                @{
+                                    var dee = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Common_DateEnd.TranslateString(),
+                                        StyleCss = "width:120px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateEffectEnd, dee)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })*@
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnInsuranceSalary", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Payroll.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridSal_InsuranceSalary_Name + "__Sal_InsuranceSalary_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridSal_InsuranceSalary_Name,
+            ReadActionUrl = @_hrm_Hr_Services + "Sal_GetData/GetInsuranceSalaryList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Sal_InsuranceSalaryModel.FieldNames.CodeEmp,
+                Sal_InsuranceSalaryModel.FieldNames.ProfileName,
+              Sal_InsuranceSalaryModel.FieldNames.E_UNIT,
+                       Sal_InsuranceSalaryModel.FieldNames.E_DIVISION,
+                Sal_InsuranceSalaryModel.FieldNames.E_DEPARTMENT,
+                 Sal_InsuranceSalaryModel.FieldNames.E_TEAM,
+                Sal_InsuranceSalaryModel.FieldNames.E_SECTION,
+
+
+                      //Sal_InsuranceSalaryModel.FieldNames.DepartmentName,
+                Sal_InsuranceSalaryModel.FieldNames.DateEffect,
+                Sal_InsuranceSalaryModel.FieldNames.InsuranceAmount,
+                Sal_InsuranceSalaryModel.FieldNames.CurrencyName,
+                Sal_InsuranceSalaryModel.FieldNames.IsSocialIns,
+                Sal_InsuranceSalaryModel.FieldNames.IsMedicalIns,
+                Sal_InsuranceSalaryModel.FieldNames.IsUnimploymentIns,
+                Sal_InsuranceSalaryModel.FieldNames.DecisionNo,
+                Sal_InsuranceSalaryModel.FieldNames.Note,
+
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Sal_InsuranceSalaryModel.FieldNames.CodeEmp, 100},
+                {Sal_InsuranceSalaryModel.FieldNames.ProfileName, 120},
+                {Sal_InsuranceSalaryModel.FieldNames.E_DEPARTMENT,135},
+                {Sal_InsuranceSalaryModel.FieldNames.E_DIVISION,135},
+                {Sal_InsuranceSalaryModel.FieldNames.E_SECTION,135},
+                {Sal_InsuranceSalaryModel.FieldNames.E_TEAM,135},
+                {Sal_InsuranceSalaryModel.FieldNames.E_UNIT,135},
+
+                   {Sal_InsuranceSalaryModel.FieldNames.DepartmentName, 100},
+                {Sal_InsuranceSalaryModel.FieldNames.DateEffect, 110},
+                {Sal_InsuranceSalaryModel.FieldNames.InsuranceAmount, 110},
+                {Sal_InsuranceSalaryModel.FieldNames.CurrencyName, 80},
+                {Sal_InsuranceSalaryModel.FieldNames.IsSocialIns, 90},
+                {Sal_InsuranceSalaryModel.FieldNames.IsMedicalIns, 90},
+                {Sal_InsuranceSalaryModel.FieldNames.IsUnimploymentIns, 90},
+                {Sal_InsuranceSalaryModel.FieldNames.DecisionNo, 110},
+                {Sal_InsuranceSalaryModel.FieldNames.Note, 110},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+
+                {Sal_InsuranceSalaryModel.FieldNames.CodeEmp, ConstantDisplay.HRM_Sal_InsuranceSalry_CodeEmp},
+                {Sal_InsuranceSalaryModel.FieldNames.ProfileName, ConstantDisplay.HRM_Sal_InsuranceSalry_ProfileID},
+                            {Sal_InsuranceSalaryModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Sal_InsuranceSalaryModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Sal_InsuranceSalaryModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Sal_InsuranceSalaryModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Sal_InsuranceSalaryModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                 {Sal_InsuranceSalaryModel.FieldNames.DepartmentName, ConstantDisplay.HRM_Att_Report_DepartmentName},
+                {Sal_InsuranceSalaryModel.FieldNames.DateEffect, ConstantDisplay.HRM_Sal_InsuranceSalry_DateEffect},
+                {Sal_InsuranceSalaryModel.FieldNames.InsuranceAmount, ConstantDisplay.HRM_Sal_InsuranceSalry_InsuranceAmount},
+                {Sal_InsuranceSalaryModel.FieldNames.CurrencyName, ConstantDisplay.HRM_Sal_InsuranceSalry_CurrencyID},
+                {Sal_InsuranceSalaryModel.FieldNames.IsSocialIns, ConstantDisplay.HRM_Sal_InsuranceSalry_IsSocialIns},
+                {Sal_InsuranceSalaryModel.FieldNames.IsMedicalIns, ConstantDisplay.HRM_Sal_InsuranceSalry_IsMedicalIns},
+                {Sal_InsuranceSalaryModel.FieldNames.IsUnimploymentIns, ConstantDisplay.HRM_Sal_InsuranceSalry_IsUnimploymentIns},
+                {Sal_InsuranceSalaryModel.FieldNames.DecisionNo, ConstantDisplay.HRM_Sal_InsuranceSalry_DecisionNo},
+                {Sal_InsuranceSalaryModel.FieldNames.Note, ConstantDisplay.HRM_Sal_InsuranceSalry_Note},
+
+            };
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Sal_InsuranceSalaryModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridSal_InsuranceSalary",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = @_hrm_Hr_Services + "Sal_GetData/GetInsuranceSalaryList/",
+        //    ReadData = "filterFieldInfo",
+        //    HyperlinkFields = hyperlinkFields
+        //    // EventDataBound = "changePageGird"
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sal_InsuranceSalaryModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnInsuranceSalary", "Sal_InsuranceSalaryModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+

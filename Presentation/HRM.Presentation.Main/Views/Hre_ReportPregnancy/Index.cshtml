@@ -1,0 +1,256 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Hre_ReportPregnancyModel
+@{
+    ViewBag.Title = "Pregnancy Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+    string[] valueFields = null;
+}
+@Html.Hidden("Screen", screen)
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        var dataParameter = {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridHre_Pregnancy').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+    });
+    GridCheckbox("gridHre_Pregnancy");
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportPregnancy');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/GetReportPrenancy/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        //hideAjaxLoading()
+   });
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@hrm_Hr_Service' + '/Hre_GetData/GetReportPrenancy', filterFieldInfo(true));
+    });
+
+</script>
+<div id="grid_Demo"></div>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue" id="test">
+                                @Html.VnrTextBoxFor(model => model.ProfileName)
+                            </div>
+                        </div>
+                        </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, dateFrom)
+                                @{
+                                    var dateTo = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, dateTo)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+            {
+                Hre_ReportPregnancyModel.FieldNames.CodeEmp,
+                Hre_ReportPregnancyModel.FieldNames.ProfileName,             
+                Hre_ReportPregnancyModel.FieldNames.Channel,
+                Hre_ReportPregnancyModel.FieldNames.Region,
+                Hre_ReportPregnancyModel.FieldNames.OrgStructureName,
+                Hre_ReportPregnancyModel.FieldNames.PositionName,
+                Hre_ReportPregnancyModel.FieldNames.JobTitleName,
+                Hre_ReportPregnancyModel.FieldNames.DateStart,
+                Hre_ReportPregnancyModel.FieldNames.DateEnd,
+                Hre_ReportPregnancyModel.FieldNames.Type,
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Hre_ReportPregnancyModel.FieldNames.CodeEmp,80},
+                {Hre_ReportPregnancyModel.FieldNames.ProfileName,140},
+                {Hre_ReportPregnancyModel.FieldNames.Channel,140},
+                {Hre_ReportPregnancyModel.FieldNames.Region,140},
+                {Hre_ReportPregnancyModel.FieldNames.OrgStructureName,120},
+                {Hre_ReportPregnancyModel.FieldNames.PositionName,120},
+                {Hre_ReportPregnancyModel.FieldNames.JobTitleName,120},
+                {Hre_ReportPregnancyModel.FieldNames.DateStart,120},
+                {Hre_ReportPregnancyModel.FieldNames.DateEnd,125},
+                {Hre_ReportPregnancyModel.FieldNames.Type,150},
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+                {Hre_ReportPregnancyModel.FieldNames.CodeEmp,true},
+                {Hre_ReportPregnancyModel.FieldNames.ProfileName,true},           
+                {Hre_ReportPregnancyModel.FieldNames.OrgStructureName,true},
+                {Hre_ReportPregnancyModel.FieldNames.PositionName,true},
+                {Hre_ReportPregnancyModel.FieldNames.JobTitleName,true},
+                {Hre_ReportPregnancyModel.FieldNames.DateStart,false},
+                {Hre_ReportPregnancyModel.FieldNames.DateEnd,false},
+                {Hre_ReportPregnancyModel.FieldNames.Type,false},
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Hre_ReportPregnancyModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_ReportPregnancyModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Hre_ReportPregnancyModel.FieldNames.Channel,"Channel"},
+                {Hre_ReportPregnancyModel.FieldNames.Region,"Region"},               
+                {Hre_ReportPregnancyModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_HR_Profile_OrgStructureName},
+                {Hre_ReportPregnancyModel.FieldNames.PositionName,ConstantDisplay.HRM_HR_Profile_PositionName},
+                {Hre_ReportPregnancyModel.FieldNames.JobTitleName,ConstantDisplay.HRM_Att_Report_JobTitleName},
+                {Hre_ReportPregnancyModel.FieldNames.DateStart,ConstantDisplay.HRM_Attendance_Pregnancy_DateStart},
+                {Hre_ReportPregnancyModel.FieldNames.DateEnd,ConstantDisplay.HRM_Attendance_Pregnancy_DateEnd},
+                {Hre_ReportPregnancyModel.FieldNames.Type,ConstantDisplay.HRM_Attendance_Pregnancy_Type},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_Pregnancy",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Hre_GetData/GetReportPrenancy/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+    @(Html.VnrGrid<Hre_ReportPregnancyModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

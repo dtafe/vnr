@@ -1,0 +1,305 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model Eva_PerformancePlanSearchModel
+@{
+    //ViewBag.Title = "Eval Level Index";
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    string[] valueFields = null;
+}
+@{
+    var windowLevel = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Evaluation_PerformancePlan_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Eva_PerformancePlan/EvalPerformancePlanInfo/",
+    };
+}
+@(Html.VnrWindow(windowLevel))
+<script>
+    var gridName = '@ConstantControlName.HRM_Evaluation_PerformancePlan_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Evaluation_PerformancePlan_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_PerformancePlan_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_PerformancePlan_PopUp_Create_Title.TranslateString())';
+     
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            PerformancePlanName: $("#PerformancePlanName1").val(),
+            StartDateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#StartDateFrom1").val()),
+            StartDateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#StartDateTo1").val()),
+            EndDateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#EndDateFrom1").val()),
+            EndDateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#EndDateTo1").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Eva_PerformancePlan/EvalPerformancePlanInfo/";
+        EditGridPopUp(gridName, popUpName, url, '@ConstantPermission.Eva_PerformancePlan', titleEditPopUp);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+       PopUpCreate('@ConstantControlName.HRM_Evaluation_PerformancePlan_PopUp_Name', titleCreatePopUp, '@ConstantPermission.Eva_PerformancePlan');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_PerformancePlan/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_PerformancePlan');
+        return false;
+    });
+    //Expoprt
+   $("#btnExportAll").click(function () {
+       @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_Contract');
+        if (!isAccess) {
+            return;
+        }*@
+       
+       var grid = $('#@ConstantControlName.HRM_Evaluation_PerformancePlan_Grid_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportPerformancePlanList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_PerformancePlan');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportPerformancePlanSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_PerformancePlan');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div14">
+                    <div class="FieldTitle">
+                      @Html.VnrLabelFor(mode=>mode.PerformancePlanName)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var txtPerformancePlanName = new TextBoxBuilderInfo()
+                            {
+                                Name = "PerformancePlanName1",
+                            };
+                            
+                        }
+                        @Html.VnrTextBox(txtPerformancePlanName)
+                    </div>
+                </div>
+                <div id="div14">
+                    <div class="FieldTitle">
+                        @ConstantDisplay.HRM_Evaluation_PerformancePlan_StartDate.TranslateString()
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var txtStartDateFrom = new DatePickerBuilderInfo()
+                            {
+                                Name = "StartDateFrom1",
+                                StyleCss="Width:100px",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_PlanHeadCount_DateFrom.TranslateString()
+                               
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.StartDateFrom, txtStartDateFrom)
+                        
+                        @{
+                            var txtStartDateTo = new DatePickerBuilderInfo()
+                            {
+                                Name = "StartDateTo1",
+                                StyleCss = "Width:100px",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_PlanHeadCount_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.StartDateTo, txtStartDateTo)
+                    </div>
+                </div>
+                <div id="div14">
+                    <div class="FieldTitle">
+                        @ConstantDisplay.HRM_Evaluation_PerformancePlan_EndDate.TranslateString()
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var txtEndDateFrom = new DatePickerBuilderInfo()
+                            {
+                                Name = "EndDateFrom1",
+                                StyleCss = "Width:100px",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_PlanHeadCount_DateFrom.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.EndDateFrom, txtEndDateFrom)
+                        @{
+                            var txtEndDateTo = new DatePickerBuilderInfo()
+                            {
+                                Name = "EndDateTo1",
+                                StyleCss = "Width:100px",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_PlanHeadCount_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.EndDateTo, txtEndDateTo)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnPerformancePlan", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Evaluation_PerformancePlan_Grid_Name + "__Eva_PerformancePlan_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Evaluation_PerformancePlan_Grid_Name,
+            ReadActionUrl = _Hrm_Hre_Service + "Eva_GetData/GetPerformancePlanList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+                            {
+                                Eva_PerformancePlanModel.FieldNames.PerformancePlanName,
+                                Eva_PerformancePlanModel.FieldNames.StartDate,
+                                Eva_PerformancePlanModel.FieldNames.EndDate,
+                                Eva_PerformancePlanModel.FieldNames.Comment,
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Eva_PerformancePlanModel.FieldNames.PerformancePlanName, 200},
+                                {Eva_PerformancePlanModel.FieldNames.StartDate, 100},
+                                {Eva_PerformancePlanModel.FieldNames.EndDate, 100},
+                                {Eva_PerformancePlanModel.FieldNames.Comment,300},
+                            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Eva_PerformancePlanModel.FieldNames.PerformancePlanName, ConstantDisplay.HRM_Evaluation_PerformancePlan_PerformancePlanName},
+                                {Eva_PerformancePlanModel.FieldNames.StartDate, ConstantDisplay.HRM_Evaluation_PerformancePlan_StartDate},
+                                {Eva_PerformancePlanModel.FieldNames.EndDate, ConstantDisplay.HRM_Evaluation_PerformancePlan_EndDate},
+                                {Eva_PerformancePlanModel.FieldNames.Comment, ConstantDisplay.HRM_Evaluation_Comment},
+                            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+
+    //    Name = ConstantControlName.HRM_Evaluation_PerformancePlan_Grid_Name,
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = _Hrm_Hre_Service + "Eva_GetData/GetPerformancePlanList",
+    //    ReadData = "filterFieldInfo",
+    //    AutoBind = false,
+    //    ShowDeleteButton = true,
+    //};
+    }
+    @(Html.VnrGrid<Eva_PerformancePlanModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnPerformancePlan", "Eva_PerformancePlanModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

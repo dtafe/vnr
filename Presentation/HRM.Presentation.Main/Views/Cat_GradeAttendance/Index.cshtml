@@ -1,0 +1,433 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+
+@model HRM.Presentation.Category.Models.Cat_GradeAttendanceModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Category_GradeAttendance_Title.TranslateString();
+    Layout = null;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    
+         var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantDisplay.HRM_Category_GradeAttendance_AddNew,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_GradeAttendance/GradeAttendanceInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+
+<script type="text/javascript">
+
+    var titleCreate = '@Html.Raw(ConstantDisplay.HRM_Category_GradeAttendance_AddNew.TranslateString())';
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isexport) {
+        var GradeAttendanceName = $('#@Html.FieldIdFor(model => model.GradeAttendanceName)').val();
+        var StdWorkDay = $('#@Html.FieldIdFor(model => model.StdWorkDay)').val();
+        var StdOvertimeDay = $('#@Html.FieldIdFor(model => model.StdOvertimeDay)').val();
+        var HoursPerDay = $('#@Html.FieldIdFor(model => model.HoursPerDay)').val();
+        var LeaveDayFrom = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#LeaveDayFrom").val());
+        var LeaveDayTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#LeaveDayTo").val());
+        var OvertimeFrom = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#OvertimeFrom").val());
+        var OvertimeTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#OvertimeTo").val());
+        return {
+            GradeAttendanceName: GradeAttendanceName,
+            StdWorkDay: StdWorkDay,
+            StdOvertimeDay: StdOvertimeDay,
+            HoursPerDay: HoursPerDay,
+            LeaveDayFrom: LeaveDayFrom,
+            LeaveDayTo: LeaveDayTo,
+            OvertimeFrom: OvertimeFrom,
+            OvertimeTo: OvertimeTo,
+            IsExport: isexport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //function filterFieldInfo() {
+    //    var _form = $('#form-search');
+    //    var queryEntity = _form.serialize();
+    //    var entity = queryStringToJSON(queryEntity);
+    //    return entity;
+    //}
+
+    //Hàm xử lý sự kiện edit trên lưới
+    function eEditGradeAttendance(e) {
+        e.preventDefault();
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+        var id = dataItem.Id;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_GradeAttendance/Edit/' + id, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        //Jump anchor
+        jumpAnchor("anchor");
+        //
+        $("#btnSearch").click(function () {
+            var grid = $('#gridCat_GradeAttendance').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+        //Xử Lý Grid
+        GridCheckbox("gridCat_GradeAttendance");
+        //Xử lý nút Edit
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_GradeAttendance');
+        if (!isAccess) {
+            return;
+        }*@
+        EditGridNewPage("gridCat_GradeAttendance", '#Hrm_Main_Web/Cat_GradeAttendance/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        //Xử lý nút Delete
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Sys_Group');
+        if (!isAccess) {
+            return;
+        }*@
+        DeleteGrid("gridCat_GradeAttendance", '@_hrm_Main_Web' + "Cat_GradeAttendance/Remove/");
+        //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*KendoRouteMapping('#Hrm_Main_Web/Hre_StopWorking/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');*@
+        PopUpCreate('@ConstantDisplay.HRM_Category_GradeAttendance_AddNew', titleCreate, '@ConstantPermission.Cat_Unit');
+    });
+
+        $('#btnDelete').click(function (e) {
+            @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_GradeAttendance');
+            if (!isAccess) {
+                return;
+            }*@
+            //DeleteSelected("gridCat_GradeAttendance", '@_hrm_Main_Web' + "Cat_GradeAttendance/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Cat_GradeAttendance');
+            DeleteSelectedConfirm("gridCat_GradeAttendance", '@_hrm_Main_Web' + "Cat_GradeAttendance/RemoveSelected/", selectedIds, '@ConstantPermission.Cat_GradeAttendance');
+            return false;
+        });
+
+        $("#btnExportSelected").click(function () {
+
+            if (selectedIds == "") {
+                ExportSelectedFail();
+                return;
+            }
+            var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportGradeAttendanceSelected/";
+            var urlDownload = '@_hrm_Main_Web';
+            var listIds = selectedIds.join(",");
+            var listFields = $('#valueFieldsGrid').val();
+            ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_GradeAttendance');
+        });
+
+        $("#btnExportAll").click(function () {
+            @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+            if (!isAccess) {
+                return;
+            }*@
+            var grid = $('#gridCat_GradeAttendance').data("kendoGrid");
+            if (grid.dataSource.total() == 0) {
+                ExportAllFail();
+                return;
+            }
+            var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllGradeAttendancelList/";
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true);
+            ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_GradeAttendance');
+        });
+
+    });
+    function showpage(e) {
+        e.preventDefault();
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+        var id = dataItem.Id;
+        window.location.href = '@_hrm_Main_Web' + 'Cat_GradeAttendance/Edit/' + id;
+    }
+    function NewPageInsert() {
+        window.location.href = '@_hrm_Main_Web' + 'Cat_GradeAttendance/Create';
+    }
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            
+                <div class="contendSearchWidge">
+                    <form id="form-search">
+                        <div>
+                            <div style="float:left; width:700px">
+                                <div id="div2">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.GradeAttendanceName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(model => model.GradeAttendanceName,"width:200px")
+
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                @*<div id="div2">
+                                    <div class="FieldTitle" style="width:220px">
+                                        @Html.VnrLabelFor(mode => mode.StdWorkDay)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(model => model.StdWorkDay,"width:250px")
+
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="div3">
+                                    <div class="FieldTitle" style="width:220px">
+                                        @Html.VnrLabelFor(mode => mode.StdOvertimeDay)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(model => model.StdOvertimeDay,"width:250px")
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>
+                                <div id="div4">
+                                    <div class="FieldTitle" style="width:220px">
+                                        @Html.VnrLabelFor(mode => mode.HoursPerDay)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var numericTextBoxHoursPerDay = new NumericTextBoxBuilderInfo<decimal>()
+                                            {
+                                                //StyleCss = "width:170px;"
+                                                Name = "HoursPerDay"
+                                            };
+                                        }
+                                        @Html.VnrNumericTextBoxFor(model => model.HoursPerDay, numericTextBoxHoursPerDay)
+                                    </div>
+                                    <div style="clear: both;"></div>
+                                </div>*@
+                            </div>
+                            @*<div style="display: block; float: left; width: 600px">
+                                <div id="div6">
+                                    <div class="FieldTitle" style="width:220px">
+                                        @Html.Label(ConstantDisplay.HRM_Category_GradeAttendance_LeaveDayTime.TranslateString())
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var datepickerDateStart = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.LeaveDayFrom).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.LeaveDayFrom, datepickerDateStart)
+                                        @Html.ValidationMessageFor(model => model.LeaveDayFrom)
+                                        @{
+                                            var datepickerDateEnd = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.LeaveDayTo).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.LeaveDayTo, datepickerDateEnd)
+                                        @Html.ValidationMessageFor(model => model.LeaveDayTo)
+                                    </div>
+                                    <br />
+                                </div>
+                                <div id="div6">
+                                    <div class="FieldTitle" style="width:220px">
+                                        @Html.Label(ConstantDisplay.HRM_Category_GradeAttendance_Overtime.TranslateString())
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var datepickerOvertimeFrom = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.OvertimeFrom).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.OvertimeFrom, datepickerOvertimeFrom)
+                                        @Html.ValidationMessageFor(model => model.OvertimeFrom)
+                                        @{
+                                            var datepickerOvertimeTo = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.OvertimeTo).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                                Format = ConstantFormat.HRM_Format_DayMonthYear.TranslateString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.OvertimeTo, datepickerOvertimeTo)
+                                        @Html.ValidationMessageFor(model => model.OvertimeTo)
+                                    </div>
+                                    <br />
+                                </div>
+                            </div>*@
+                        </div>
+</form>
+</div>
+            
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl=ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeGradeAttendance", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridCat_GradeAttendance_Grid_Name + "__Cat_GradeAttendanceIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridCat_GradeAttendance_Grid_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetGradeAttendanceList/",
+            ReadData = "filterFieldInfo",
+            EventDataBound = "changePageGird"
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                //Cat_GradeAttendanceModel.FieldNames.ID,
+                Cat_GradeAttendanceModel.FieldNames.GradeAttendanceName,
+                Cat_GradeAttendanceModel.FieldNames.Description,
+                Cat_GradeAttendanceModel.FieldNames.UserUpdate,
+                Cat_GradeAttendanceModel.FieldNames.DateUpdate,
+                //Cat_GradeAttendanceModel.FieldNames.StdWorkDay,
+                //Cat_GradeAttendanceModel.FieldNames.StdOvertimeDay,
+                //Cat_GradeAttendanceModel.FieldNames.HoursPerDay,
+                //Cat_GradeAttendanceModel.FieldNames.LeaveDayFrom,
+                //Cat_GradeAttendanceModel.FieldNames.LeaveDayTo,
+                //Cat_GradeAttendanceModel.FieldNames.OvertimeFrom,
+                //Cat_GradeAttendanceModel.FieldNames.OvertimeTo
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                //{Cat_GradeAttendanceModel.FieldNames.ID,50},
+                {Cat_GradeAttendanceModel.FieldNames.GradeAttendanceName,140},
+                {Cat_GradeAttendanceModel.FieldNames.Description,250},
+                {Cat_GradeAttendanceModel.FieldNames.UserUpdate,120},
+                {Cat_GradeAttendanceModel.FieldNames.DateUpdate,100},
+                //{Cat_GradeAttendanceModel.FieldNames.StdWorkDay,156},
+                //{Cat_GradeAttendanceModel.FieldNames.StdOvertimeDay, 195},
+                //{Cat_GradeAttendanceModel.FieldNames.HoursPerDay, 171},
+                //{Cat_GradeAttendanceModel.FieldNames.LeaveDayFrom, 249},
+                //{Cat_GradeAttendanceModel.FieldNames.LeaveDayTo, 256},
+                //{Cat_GradeAttendanceModel.FieldNames.OvertimeFrom, 236},
+                //{Cat_GradeAttendanceModel.FieldNames.OvertimeTo, 244},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                //{Cat_GradeAttendanceModel.FieldNames.ID,"<div></div>"},
+                {Cat_GradeAttendanceModel.FieldNames.GradeAttendanceName, ConstantDisplay.HRM_Category_GradeAttendance_GradeAttendanceName},
+                {Cat_GradeAttendanceModel.FieldNames.Description, ConstantDisplay.HRM_Category_Position_Description},
+                {Cat_GradeAttendanceModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Attendance_Overtime_UserUpdate},
+                {Cat_GradeAttendanceModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_Overtime_DateUpdate},
+                //{Cat_GradeAttendanceModel.FieldNames.StdWorkDay, ConstantDisplay.HRM_Category_GradeAttendance_StdWorkDay},
+                //{Cat_GradeAttendanceModel.FieldNames.StdOvertimeDay, ConstantDisplay.HRM_Category_GradeAttendance_StdOvertimeDay},
+                //{Cat_GradeAttendanceModel.FieldNames.HoursPerDay, ConstantDisplay.HRM_Category_GradeAttendance_HoursPerDay},
+                //{Cat_GradeAttendanceModel.FieldNames.LeaveDayFrom, ConstantDisplay.HRM_Category_GradeAttendance_LeaveDayFrom},
+                //{Cat_GradeAttendanceModel.FieldNames.LeaveDayTo, ConstantDisplay.HRM_Category_GradeAttendance_LeaveDayTo},
+                //{Cat_GradeAttendanceModel.FieldNames.OvertimeFrom, ConstantDisplay.HRM_Category_GradeAttendance_OvertimeFrom},
+                //{Cat_GradeAttendanceModel.FieldNames.OvertimeTo, ConstantDisplay.HRM_Category_GradeAttendance_OvertimeTo}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridCat_GradeAttendance",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetGradeAttendanceList/",
+        //    ReadData = "filterFieldInfo",
+        //    EventDataBound = "changePageGird"
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Category.Models.Cat_GradeAttendanceModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeGradeAttendance", "Cat_GradeAttendanceModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+
+

@@ -1,0 +1,403 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Category.Models;
+@model Cat_HDTJobTypePriceSearchModel
+
+@{
+    IList<SelectListItem> lststatus = Enum.GetValues(typeof(HDTJobStatus))
+      .Cast<HDTJobStatus>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+      .ToList();
+      
+    ViewBag.Title = ConstantDisplay.HRM_Category_HDTJobType.TranslateString();
+    //var _hrm_Main_Web = ConstantPathWeb._hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Category_HDTJobTypePrice_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_HDTJobTypePrice/CatHDTJobTypePriceInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+
+    var gridName = '@ConstantControlName.HRM_Category_HDTJobTypePrice_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_HDTJobTypePrice_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_HDTJobTypePrice_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_HDTJobTypePrice_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        EditGridNewPage(gridName, popUpName, '@_hrm_Main_Web' + "Cat_HDTJobTypePrice/CatHDTJobTypePriceInfo/", '@ConstantPermission.Cat_HDTJobTypePrice', titleEditPopUp);
+
+        function EditGridNewPage(gridName, url, hrmWebSite, alias, pageNamePermission) {
+
+            $("#" + gridName).on("click", ".gridEditImgButton", function (e) {
+                var grid = $("#" + gridName).data("kendoGrid");
+                e.preventDefault();
+                var row = $(this).closest("tr");
+                var dataItem = grid.dataItem(row);
+                if (dataItem.StatusView != "Duyệt" && dataItem.StatusView != "E_APPROVED"
+                    && dataItem.StatusView != "Từ Chối" && dataItem.StatusView != "E_REJECTED") {
+                    PopUpEdit(popUpName, '@_hrm_Main_Web' + "Cat_HDTJobTypePrice/CatHDTJobTypePriceInfo/", dataItem.ID, titleEditPopUp);
+                }
+                else {
+                    var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Hre_EditHDTDataApproved', false);
+                    if (isAccess) {
+                        PopUpEdit(popUpName, '@_hrm_Main_Web' + "Cat_HDTJobTypePrice/CatHDTJobTypePriceInfo/", dataItem.ID, titleEditPopUp);
+                    }
+                    else {
+                        if (dataItem.StatusView != "Từ Chối" && dataItem.StatusView != "E_REJECTED") {
+                            ShowNotificationProcessor("Trạng Thái Đã Duyệt Không Được Phép Chỉnh Sửa!");
+                            return;
+                        }
+                        else {
+                            ShowNotificationProcessor("Trạng Thái Từ Chối Không Được Phép Chỉnh Sửa!");
+                            return;
+                        }
+                    }
+                }
+            });
+        };
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            HDTJobTypeID: $('#@Html.FieldIdFor(model => model.HDTJobTypeID)').val(),
+            DateOfEffect: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateOfEffect").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    //GridCheckbox(gridName);
+    //Tạo mới ngân hàng
+    $("#btnCreateCatHDTJobType").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_HDTJobTypePrice');
+        if (!isAccess) {
+            return;
+        }*@
+        PopUpCreate(popUpName, titleCreatePopUp, '@ConstantPermission.Cat_HDTJobTypePrice');
+    });
+
+    $('#btnDelete').click(function (e) {
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_HDTJobTypePrice');
+        if (!isAccess) {
+            return;
+        }*@
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Cat_HDTJobTypePrice/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Cat_HDTJobTypePrice');
+    });
+
+    //Xử Lý grid
+    GridCheckbox('@ConstantControlName.HRM_Category_HDTJobType_Grid_Name');
+    //Export
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportOrgStrucTypeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_HDTJobTypePrice');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridCatHDTJobTypePrice').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllHDTJobTypePriceList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_HDTJobTypePrice');
+    });
+
+
+    // Duyệt
+    $('#btnApprovedHDTJobPrice').click(function (e) {
+        debugger;
+        e.preventDefault();
+        var _currentDate = new Date();
+        var grid = $('#gridCatHDTJobTypePrice').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        var x = selectedIds.join(",");
+        if (selectedItem != null)
+        {
+            if (selectedItem.DateOfEffect.toLocaleDateString() < _currentDate.toLocaleDateString())
+            {
+                ErrorMessages('@Html.Raw(ConstantDisplay.HRM_HR_CanNotApprovePastData.TranslateString())');
+                return;
+            }
+            else
+            {
+                $.when(kendo.ui.ExtOkCancelDialog.show({
+                    title: '@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())',
+                    message: '@Html.Raw(ConstantDisplay.HRM_Common_ChangeStatus.TranslateString())',
+                    icon: "k-ext-warning",
+                    width: "355px",
+                    height: "105px"
+                })
+                   ).done(function (response) {
+
+                       if (response.button == "OK") {
+                           DoActionData("gridCatHDTJobTypePrice", '@_hrm_Hr_Service' + "Cat_GetData/ApproveHDTJobTypePrice/", selectedIds);
+                           selectedIds = [];
+                       }
+                       else if (response.button == "Cancel") {
+                           return false;
+                       }
+                   });
+            }
+        }
+        else {
+            ErrorMessages('@Html.Raw(ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    function DoActionData(gridName, actionURL, parameter) {
+        ShowHre_ProgressBar();
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+                
+                if (data == "Success") {
+                    CloseHre_ProgressBar();
+                    selectedIds = [];
+                    ReadGrid(gridName);
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Succeed.TranslateString())', "k-block k-info-colored");
+                    return;
+                } else {
+                    CloseHre_ProgressBar();
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+            },
+            error: function (data) {
+                CloseHre_ProgressBar();
+                ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                return;
+            }
+        });
+    }
+
+    $("#btnImportData").click(function () {
+        debugger;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Import/Import_List#NewTab', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle150">
+                        @*@Html.VnrLabelFor(model => model.HDTJobTypeID)*@
+                        @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobType_HDTJobTypeName.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _HDTJobTypeID = new ComboBoxBuilderInfo()
+                             {
+                                 DataTextField = "HDTJobTypeName",
+                                 DataValueField = "ID",
+                                 Url = _hrm_Hr_Service + "Cat_GetData/GetMultiHDTJob",
+                                 StyleCss = "Width: 200px"
+                             };
+                        }
+                        @(Html.VnrComboBoxFor(mode => mode.HDTJobTypeID, _HDTJobTypeID))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabel(ConstantDisplay.HRM_Category_HDTJobTypePrice_DateOfEffect.TranslateString())
+                    </div>
+                    <div class="FieldValue" id="aaa">
+                        @{
+                            var dateFrom = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateOfEffect, dateFrom)
+                        @{
+                            var dateTo = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCatHDTJobType", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImportData", Content = ConstantAction.HRM_Common_ImportData.TranslateString(), ImageUrl = ConstantPath.IconCopyPath })
+    <div style="float: right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprovedHDTJobPrice", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeHDTJobTypePrice", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+         @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Category_HDTJobTypePrice_Grid_Name + "__Cat_HDTJobTypePriceIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_HDTJobTypePrice_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetHDTJobTypePriceList/",
+            ReadData = "filterFieldInfo",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ForeignKey = new Dictionary<object, object[]>()
+            {
+                {Cat_HDTJobTypePriceModel.FieldNames.Status,new object[]
+                   { "Value", "Text", lststatus, ConstantDisplay.HRM_Att_Report_Status,""}},
+            };
+
+            grid.ValueFields = new[]
+            {
+
+                Cat_HDTJobTypePriceModel.FieldNames.HDTJobGroupName,
+                Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeCode,
+                Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeName,
+                Cat_HDTJobTypePriceModel.FieldNames.TypeView,
+                Cat_HDTJobTypePriceModel.FieldNames.Price,
+                Cat_HDTJobTypePriceModel.FieldNames.DateOfEffect,
+                Cat_HDTJobTypePriceModel.FieldNames.StatusView,
+                Cat_HDTJobTypePriceModel.FieldNames.StandardElement,
+                Cat_HDTJobTypePriceModel.FieldNames.EncryptJob,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobGroupName,140},
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeCode,130},
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeName,130},
+                {Cat_HDTJobTypePriceModel.FieldNames.TypeView,110},
+                {Cat_HDTJobTypePriceModel.FieldNames.Price,110},
+                {Cat_HDTJobTypePriceModel.FieldNames.DateOfEffect,110},
+                {Cat_HDTJobTypePriceModel.FieldNames.StatusView,110},
+                {Cat_HDTJobTypePriceModel.FieldNames.StandardElement,140},
+                {Cat_HDTJobTypePriceModel.FieldNames.EncryptJob,130},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobGroupName,ConstantDisplay.HRM_Category_HDTJobGroup_HDTJobGroupName},
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeCode,ConstantDisplay.HRM_Category_HDTJobType_Code},
+                {Cat_HDTJobTypePriceModel.FieldNames.HDTJobTypeName,ConstantDisplay.HRM_Category_HDTJobType_HDTJobTypeName},
+                {Cat_HDTJobTypePriceModel.FieldNames.TypeView,ConstantDisplay.HRM_Category_HDTJobGroup_Type},
+                {Cat_HDTJobTypePriceModel.FieldNames.Price,ConstantDisplay.HRM_Category_HDTJobTypePrice_Price},
+                {Cat_HDTJobTypePriceModel.FieldNames.DateOfEffect,ConstantDisplay.HRM_Category_HDTJobTypePrice_DateOfEffect},
+                {Cat_HDTJobTypePriceModel.FieldNames.StatusView,ConstantDisplay.HRM_Category_HDTJobTypePrice_Status},
+                {Cat_HDTJobTypePriceModel.FieldNames.StandardElement,ConstantDisplay.HRM_Category_HDTJobType_StandardElement},
+                {Cat_HDTJobTypePriceModel.FieldNames.EncryptJob,ConstantDisplay.HRM_Category_HDTJobType_EncryptJob},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = ConstantControlName.HRM_Category_HDTJobTypePrice_Grid_Name,
+        //    ValueFields = valueFields,
+        //    ForeignKey = foreignKey,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ShowCommand = false,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetHDTJobTypePriceList/",
+        //    ReadData = "filterFieldInfo",
+        //};
+    }
+
+    @(Html.VnrGrid<Cat_HDTJobTypePriceModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeHDTJobTypePrice", "Cat_HDTJobTypePriceModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

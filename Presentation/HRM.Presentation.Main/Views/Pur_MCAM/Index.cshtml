@@ -1,0 +1,375 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Category.Models;
+@using HRM.Infrastructure.Security;
+
+@model Pur_MCAMSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Category_RelativeType.TranslateString();
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+   
+    // va_hrm_Main_WebWeb = ConstantPathWeb.Hrm_Cat_Web;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> listClassType = Enum.GetValues(typeof(EnumDropDown.PurColor))
+     .Cast<EnumDropDown.PurColor>()
+     .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p => p.Text)
+     .ToList();
+}
+
+<script type="text/javascript">
+    //Biến để lưu id của các dòng đã check chọn
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Province_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Pur_MCAM_Create_Title.TranslateString())';
+
+    var checkedNodes = [];
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            OrgStructureID: checkedNodes.join(','),
+            WorkPlaceID: $('#Profile_WorkPlaceID').val(),
+            CodeEmp: $('#PurMCAM_CodeEmp').val(),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            ModelType: $('#sModelType').val(),
+            ModelName: $('#@Html.FieldIdFor(model => model.ModelName)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            debugger;
+            var treeView = $("#OrgStructureTreeView").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid('@ConstantControlName.HRM_Category_Pur_MCAM_Grid_Name');
+            selectedIds = [];
+            checkedNodes = [];
+        });
+
+        //Xử lý nút Edit
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_DisciplinedTypes');
+        if (!isAccess) {
+            return;
+        }*@
+        @*var url = '@_hrm_Main_Web' + "Cat_Vehicle/Cat_VehicleInfo/";
+        EditGridPopUp("@ConstantControlName.HRM_Category_Vehicle_Grid", "windowCatVehicle", url, '@ConstantPermission.Cat_Vehicle_Edit', titleEditPopUp);*@
+    });
+
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Pur_MCAM/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    $("#btnCheck").click(function () {
+        if (selectedIds == null) {
+
+        }
+        else {
+            $.ajax({
+                url: '@_hrm_Hr_Service' + "Cat_GetData/CheckByCar",
+                type: "POST",
+                data: { Ids: selectedIds.join(',') },
+                dataType: "json",
+                success: function (data) {
+                    
+                },
+                error: function (data) {
+                
+                    return;
+                }
+            });
+        }
+    });
+
+    EditGridNewPage("GridPur_MCAM", '#Hrm_Main_Web/Pur_MCAM/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+
+    GridCheckbox("gridCatDisciplinedTypes");
+    //Xử lý nút Delete
+
+
+
+
+
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var org = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Name = "OrgStructureTreeView",
+                                        WidthTreeView = "350px",
+                                        Width = "200px"
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                                @Html.HiddenFor(m => m.OrgStructureID)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "Profile_WorkPlaceID",
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                                        StyleCss = "width:200px"
+
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                            </div>
+                        </div>
+                        <div>
+                            <!--Loại xe-->
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ModelType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ModelType = new ComboBoxBuilderInfo()
+                                    {
+                                        Name="sModelType",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listClassType,
+                                        StyleCss = "Width:200px",
+                                    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.ModelType, _ModelType))
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _CodeEmp = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "PurMCAM_CodeEmp",
+                                        Width = 200
+                                    };
+                                }
+
+                                @Html.VnrTextBoxFor(model => model.CodeEmp, _CodeEmp)
+                              
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                 @{
+                                        var _ProfileName = new TextBoxBuilderInfo()
+                                        {
+                                            Name = "PurMCAM_ProfileName",
+                                            Width = 200
+                                        };
+                                    }
+
+                                    @Html.VnrTextBoxFor(model => model.ProfileName, _ProfileName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ModelName)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ModelName = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "PurMCAM_ModelName",
+                                        Width = 200
+                                    };
+                                }
+                                @Html.VnrTextBoxFor(model => model.ModelName, _ModelName)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCheck", Content = ConstantAction.HRM_Common_check.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnPur_MCAMModel", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Category_Pur_MCAM_Grid_Name + "__Pur_MCAM_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_Pur_MCAM_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetListPurMCAM/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Pur_MCAMModel.FieldNames.CodeEmp,
+                Pur_MCAMModel.FieldNames.ProfileName,
+                Pur_MCAMModel.FieldNames.IDNo,
+                Pur_MCAMModel.FieldNames.StartDate,
+                Pur_MCAMModel.FieldNames.EndDate,
+                Pur_MCAMModel.FieldNames.ModelType,
+                Pur_MCAMModel.FieldNames.ModelName,
+                 Pur_MCAMModel.FieldNames.Color,
+                Pur_MCAMModel.FieldNames.ColorCode,
+                Pur_MCAMModel.FieldNames.PaymentmethodCode,
+                Pur_MCAMModel.FieldNames.DeadlinePayment,
+                Pur_MCAMModel.FieldNames.AmountDeposit,
+                Pur_MCAMModel.FieldNames.Status,
+                Pur_MCAMModel.FieldNames.AmountRemain,
+                Pur_MCAMModel.FieldNames.ReceivePlace,
+                Pur_MCAMModel.FieldNames.OrgStructureName,
+                Pur_MCAMModel.FieldNames.GrossAmount,
+                Pur_MCAMModel.FieldNames.Cat_contractType,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Pur_MCAMModel.FieldNames.CodeEmp,200},
+                {Pur_MCAMModel.FieldNames.ProfileName,200},
+                {Pur_MCAMModel.FieldNames.IDNo,200},
+                {Pur_MCAMModel.FieldNames.StartDate,200},
+                {Pur_MCAMModel.FieldNames.EndDate,200},
+                {Pur_MCAMModel.FieldNames.ModelType,200},
+                {Pur_MCAMModel.FieldNames.ModelName,200},
+                 {Pur_MCAMModel.FieldNames.Color,200},
+                {Pur_MCAMModel.FieldNames.ColorCode,200},
+                {Pur_MCAMModel.FieldNames.PaymentmethodCode,200},
+                {Pur_MCAMModel.FieldNames.DeadlinePayment,200},
+                {Pur_MCAMModel.FieldNames.AmountDeposit,200},
+                {Pur_MCAMModel.FieldNames.Status,200},
+                {Pur_MCAMModel.FieldNames.AmountRemain,200},
+                {Pur_MCAMModel.FieldNames.ReceivePlace,200},
+                {Pur_MCAMModel.FieldNames.OrgStructureName,200},
+                {Pur_MCAMModel.FieldNames.GrossAmount,200},
+                {Pur_MCAMModel.FieldNames.Cat_contractType,200},
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                 {Pur_MCAMModel.FieldNames.CodeEmp,true},
+                 {Pur_MCAMModel.FieldNames.ModelName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+               {Pur_MCAMModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Pur_MCAMModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Pur_MCAMModel.FieldNames.IDNo,ConstantDisplay.HRM_HR_Profile_IDNo},
+                {Pur_MCAMModel.FieldNames.StartDate,ConstantDisplay.HRM_Category_Pur_MCAM_StartDate},
+                {Pur_MCAMModel.FieldNames.EndDate,ConstantDisplay.HRM_Category_Pur_MCAM_EndDate},
+                {Pur_MCAMModel.FieldNames.ModelType, ConstantDisplay.HRM_Cat_Model_ModelType},
+                {Pur_MCAMModel.FieldNames.ModelName,ConstantDisplay.HRM_Cat_Model_ModelName},
+                 {Pur_MCAMModel.FieldNames.Color,ConstantDisplay.HRM_Cat_Model_ColorID},
+                {Pur_MCAMModel.FieldNames.ColorCode,ConstantDisplay.HRM_Cat_Model_ColorID},
+                {Pur_MCAMModel.FieldNames.PaymentmethodCode,ConstantDisplay.HRM_Category_Pur_MCAM_PayMentMethod},
+                {Pur_MCAMModel.FieldNames.DeadlinePayment,ConstantDisplay.HRM_Category_Pur_MCAM_DeadlinePayment},
+                {Pur_MCAMModel.FieldNames.AmountDeposit,ConstantDisplay.HRM_Category_Pur_MCAM_AmountDeposit},
+                {Pur_MCAMModel.FieldNames.Status,ConstantDisplay.HRM_Rec_RecruitmentCampaign_Status},
+                {Pur_MCAMModel.FieldNames.AmountRemain,ConstantDisplay.HRM_Category_Pur_MCAM_AmountRemain},
+                {Pur_MCAMModel.FieldNames.ReceivePlace,ConstantDisplay.HRM_Category_Pur_MCAM_ReceivePlace},
+                {Pur_MCAMModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Category_Pur_MCAM_OrgStructureName},
+                {Pur_MCAMModel.FieldNames.GrossAmount,ConstantDisplay.HRM_Category_Pur_MCAM_GrossAmount},
+                {Pur_MCAMModel.FieldNames.Cat_contractType,ConstantDisplay.HRM_Category_Pur_MCAM_Cat_contractType},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+   
+    }
+
+    @(Html.VnrGrid<Pur_MCAMModel>(grid))
+    @*<script>
+        ClickButtonChangeColum("btnChangeColumnPur_MCAMModel", "Pur_MCAMModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>*@
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

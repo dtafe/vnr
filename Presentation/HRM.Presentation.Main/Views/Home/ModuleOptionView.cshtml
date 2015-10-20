@@ -1,0 +1,92 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Menu
+@model HRM.Presentation.HrmSystem.Models.Sys_AllSettingModel
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var siteMap = (XmlSiteMap)HttpContext.Current.Cache["SiteMap"];
+    IEnumerable<TreeViewItemModel> listParents = null;
+    if (siteMap != null && siteMap.RootNode != null && siteMap.RootNode.ChildNodes != null)
+    {
+        List<string> menuParent = new List<string>();
+        if (Model != null && !string.IsNullOrEmpty(Model.Value1))
+        {
+            menuParent = Model.Value1.Split(',').ToList();
+        }
+        listParents = from e in siteMap.RootNode.ChildNodes
+                      where !string.IsNullOrWhiteSpace(e.NopResource)
+                      select new TreeViewItemModel
+                      {
+                          Text = e.NopResource.TranslateString(),
+                          Id = e.NopResource,
+                          Checked = menuParent.Contains(e.NopResource)
+                      };
+    }
+}
+<script>
+    var parentNodes = [];
+    $("#save-module-option").click(function () {
+        $.ajax({
+            url: '@_hrm_Main_Web' + "Home/ModuleOptionView",
+            type: 'POST',
+            data: { option: parentNodes.join(",")},
+            success: function (data) {
+                var window = $("#"+'@ConstantControlName.HRM_CONFIG_MODULE_OPTION_POPUP_NAME').data("kendoWindow");
+                window.close();
+                location.reload();
+                ShowNotificationProcessor(@NotificationType.Success.ToString());
+            },
+            error: function (data) {
+                alert('error ModuleOptionView');
+            }
+        });
+    })
+</script>
+<div>
+    <div style="width: 200px;float:left;">
+        <label style="margin:5px;"><strong>Chọn Module Hiển Thị</strong></label>
+        <div style="box-shadow:inset 0px 0px 10px #b0acac; padding-bottom:5px;">
+            <div style="height:352px;overflow-y:scroll">
+                @{
+                    var module = new TreeViewBuilderInfo()
+                    {
+                        Name = "moduleOptionTree",
+                        BindTo = listParents,
+                        Id = "Id",
+                        DataTextField = "Text",
+                        ShowCheckbox = true,
+                        Icon = "IconPath",
+                    };
+                }
+                @Html.VnrTreeView(module)
+            </div>
+        </div>
+    </div>
+    
+    <div class="clear"></div>
+    <div style="text-align:center; margin-top:10px;">
+        <input type="button" id="save-module-option" class="k-button" value="Lưu Cấu Hình" />
+    </div>
+</div>
+
+<script>
+    //[Chuc.Nguyen] - Xử lý check chọn nút trên treeview
+    function checkedNodeIds(nodes, checkedNodes) {
+        
+        if (nodes != null && nodes != "" && nodes != undefined && nodes.length > 0) {
+            var nodeLength = nodes.length;
+            for (var i = 0; i < nodeLength; i++) {
+                var id = nodes[i].id;
+                if (nodes[i].checked && checkedNodes.indexOf(id) == -1) {
+                    checkedNodes.push(id);
+                }
+            }
+        }
+    }
+    $("#moduleOptionTree").data("kendoTreeView").dataSource.bind("change", function () {
+        var treeView = $("#moduleOptionTree").data("kendoTreeView");
+        parentNodes = [];
+        checkedNodeIds(treeView.dataSource.view(), parentNodes);
+    });
+</script>

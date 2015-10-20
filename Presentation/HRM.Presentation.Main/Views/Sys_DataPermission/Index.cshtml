@@ -1,0 +1,274 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+
+@model Sys_DataPermissionModel
+
+@{
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    ViewBag.Title = ConstantDisplay.HRM_System_DataPermission.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var userId = string.Empty;
+    string userName = Model.UserName;
+    if (Model.UserID != Guid.Empty)
+    {
+        userId = Model.UserID.ToString();
+    }
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSysDataPermission",
+        Visible = false,
+        Title = "Phân quyền dữ liệu",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+
+    var orderNumbers = [];
+    var data = SetCharacteFieldRequired();
+
+    function doSaveAndContinue() {
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Sys_DataPermission');
+        if (!isAccess) {
+            return;
+        }
+
+        if (!CheckValidate(data)) {
+            return;
+        }
+
+        var treeView = $("#SysDataPermissionInfo_OrgTreeViewDropDown").data("kendoTreeView");
+        orderNumbers = [];
+        checkedNodeOrderNumbers(treeView.dataSource.view(), orderNumbers);
+        var dataG = $('#@Html.FieldIdFor(model => model.DataGroups)').val();
+
+        var workplace = $("#WorkPlaceID").data("kendoMultiSelect");
+
+        var dataPara = {
+            UserID: $("#hId").val(),
+            GroupID: $('#@Html.FieldIdFor(model => model.GroupID)').val(),
+            Branches: orderNumbers,
+            WorkPlace :workplace.value().join(','),
+            OrgStructure: orderNumbers != null ? orderNumbers.join(',') : null,
+            DataGroups: dataG,
+            DataGroup: dataG != null ? dataG.join(',') : null,
+        };
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'api/SysDataPermission/POST',
+            data: dataPara,
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                var window = $("#windowSysDataPermission").data("kendoWindow");
+                window.refresh();
+                var grid = $("#gridDataPermission").data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+
+                var multi = $("#GroupID").data("kendoMultiSelect");
+                multi.value("");
+                var multiDataGroups = $("#DataGroups").data("kendoMultiSelect");
+                multiDataGroups.value("");
+            }
+        });
+    }
+
+    //Xử Lý grid
+    GridCheckbox("gridDataPermission");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        e.preventDefault();
+        DeleteSelected("gridDataPermission", '@hrm_Sys_Web' + "Sys_DataPermission/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_DataPermission');
+    });
+
+
+    function EvenSelectAllOrgstructure() {
+        var checkedNodes = [],
+           checkedNodesName = [],
+           treeView = $("#SysDataPermissionInfo_OrgTreeViewDropDown").data("kendoTreeView");
+        checkedAllNodeOrgtrusture(treeView.dataSource.view(), checkedNodes, checkedNodesName);
+        $("input#SysDataPermissionInfo_OrgTreeViewDropDowninput").val(checkedNodesName.join(","));
+    };
+
+
+</script>
+@Html.HiddenFor(model => model.UserName, new { id = "hUserName" })
+@Html.HiddenFor(model => model.ID, new { id = "hId" })
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @*<img src="@ConstantPath.HreContractIconPath" alt="" width="20" height="20" />*@
+                @ConstantDisplay.HRM_HR_System_DataPermission_Title.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HHRM_System_User_Back_To_User_List.TranslateString() + ")", "Index", "Sys_User")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <div class="commandToolBarWidge">
+                <div style="float:left">
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveAndContinue", Name = "btnCreate11", Content = ConstantDisplay.HRM_System_DataPermissionAdd.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                </div>
+                <div style="float:right">
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                </div>
+                <div class="clear"></div>
+            </div>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                @using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_sys_DataPermission" }))
+                {
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.UserID)
+                        </div>
+                        <div class="FieldValue">
+                            <input class="k-textbox" name="UserName" type="text" value="@userName" disabled="disabled" style="width:400px" />
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.GroupID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                    var mtsGroup = new MultiSelectBuilderInfo()
+                    {
+                        DataTextField = Sys_GroupUserModel.FieldNames.GroupName,
+                        DataValueField = Sys_GroupUserModel.FieldNames.ID,
+                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiGroup",
+                        Placeholder = ConstantDisplay.HRM_System_SelectGroup.TranslateString(),
+                        MaxSelectedItems = 1,
+                    };
+                            }
+                            @(Html.VnrMultiSelectFor(model => model.GroupID, mtsGroup))
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.DataGroups)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                    var _DataGroups = new MultiSelectBuilderInfo()
+                    {
+                        DataTextField = "DataGroupName",
+                        DataValueField = "OrderNumber",
+                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiDataGroup",
+                    };
+                            }
+                            @(Html.VnrMultiSelectFor(model => model.DataGroups, _DataGroups))
+                        </div>
+                    </div>
+                       <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                    var mtsWorkPlaceID = new MultiSelectBuilderInfo()
+                    {
+                        DataTextField = "WorkPlaceName",
+                        DataValueField = "OrderNumber",
+                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+                        Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                       // MaxSelectedItems = 1,
+                    };
+                            }
+                            @(Html.VnrMultiSelectFor(model => model.WorkPlaceID, mtsWorkPlaceID))
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_HR_Profile_OrgStructureName.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                    var org = new TreeViewDropdDownBuilderInfo()
+                    {
+                        Name = "SysDataPermissionInfo_OrgTreeViewDropDown",
+                        Width = "300px",
+                        IsCheckChildren = false,
+                    };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenSelectAllOrgstructure", Name = "btnSelectAllOrgstructure", Content = ConstantDisplay.HRM_CheckAll.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.HrmSystem.Models
+    @{
+        string[] valueFields = new string[]
+        {
+            Sys_DataPermissionModel.FieldNames.UserName,
+            Sys_DataPermissionModel.FieldNames.GroupName,
+            Sys_DataPermissionModel.FieldNames.BranchesName,
+            Sys_DataPermissionModel.FieldNames.OrgStructure,
+            Sys_DataPermissionModel.FieldNames.DataGroup
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_DataPermissionModel.FieldNames.UserName,150},
+            {Sys_DataPermissionModel.FieldNames.GroupName,150},
+            {Sys_DataPermissionModel.FieldNames.BranchesName,320},
+            {Sys_DataPermissionModel.FieldNames.OrgStructure,200},
+            {Sys_DataPermissionModel.FieldNames.DataGroup,200}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+
+            {Sys_DataPermissionModel.FieldNames.UserName,ConstantDisplay.HRM_System_DataPermission_UserID},
+            {Sys_DataPermissionModel.FieldNames.GroupName,ConstantDisplay.HRM_System_DataPermission_GroupID},
+            {Sys_DataPermissionModel.FieldNames.BranchesName,ConstantDisplay.HRM_System_DataPermission_Branches},
+            {Sys_DataPermissionModel.FieldNames.OrgStructure,ConstantDisplay.HRM_Attendance_OrgStructure},
+            {Sys_DataPermissionModel.FieldNames.DataGroup,ConstantDisplay.HRM_System_DataPermission_DataGroups}
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridDataPermission",
+            ValueFields = valueFields,
+            ShowEditIcon = false,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetDataPermissionByUserId?userId=" + userId,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            AutoBind = true
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_DataPermissionModel>(grid))
+</div>
+
+<div>
+    @{
+        if(Model != null)
+        {
+            if(!string.IsNullOrEmpty(Model.WorkPlace))
+            {
+                <script>
+                    $(document).ready(function () {
+                        debugger;
+                    var mutil = $("#WorkPlaceID").data("kendoMultiSelect");
+                    mutil.value('@Model.WorkPlace.Split(',')');
+                });
+              </script>
+            }
+             
+        }
+    }
+
+</div>

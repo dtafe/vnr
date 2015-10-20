@@ -1,0 +1,558 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models;
+@using HRM.Infrastructure.Security;
+
+@model AllowanceEvaluationYearSearchModel
+
+@{
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    Layout = null;
+
+    IList<SelectListItem> listStatusUnusual = Enum.GetValues(typeof(WorkHistoryStatus))
+.Cast<WorkHistoryStatus>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+.ToList();
+}
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Payroll_UnusualEDChild_PopUp_Name,
+        //Name = ConstantControlName.HRM_Payroll_UnusualEDChild_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_UnusualED/UnusualEDInfo/",
+    };
+}
+@(Html.VnrWindow(window))*@
+
+@{
+    var AnnualLeaveAllowance = new WindowBuilderInfo
+    {
+        //Name = "windowCat_AccountType",
+        Name = "WindowAnnualLeaveAllowance",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_AllowanceEvaluationYear/Sal_AnnualLeaveAllowanceInfo/",
+     
+    };
+}
+@(Html.VnrWindow(AnnualLeaveAllowance))
+
+<script>
+    var checkedNodes = [];
+    var userLG = $('#UserLoginId').val();
+    var gridName = '@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Payroll_UnusualEDChild_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_UnusualED_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_UnusualED_Create_Title.TranslateString())';
+
+
+    //Data khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            TypeCode: "PaidLeave",
+            CodeEmp: $('#CodeEmp').val(),
+            ProfileName: $('#ProfileName').val(),
+            Status: $('#@Html.FieldIdFor(model => model.Status)').val(),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            WorkPlaceID: $('#WorkPlaceID').val(),
+            OrgStructureID: checkedNodes.join(','),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            debugger;
+            //var grid = $('#grid_UnusualED').data("kendoGrid");
+            //grid.dataSource.read();
+            var treeView = $("#OrgStructureTreeView").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid(gridName);
+        });
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Sal_UnusualEDChildCare/UnusualEDChildCareInfo/";
+        EditGridPopUp(gridName, '@ConstantControlName.HRM_Payroll_UnusualEDChild_PopUp_Name', url, '@ConstantPermission.Sal_UnusualEDChildCare', titleEditPopUp);
+    });
+
+    //Xử lý Create
+    @*$("#btnCreate").click(function () {
+        debugger;
+        PopUpCreate(popUpName, titleCreatePopUp, '@ConstantPermission.Sal_UnusualEDChildCare');
+    });*@
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        debugger;
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Sal_UnusualEDChildCare/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sal_UnusualEDChildCare');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportUnusualEDSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_UnusualEDChildCare');
+    });
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllAllowanceEvaluationList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_UnusualEDChildCare');
+    });
+    $('#btnDeleteSeleted').click(function (e) {
+        debugger;
+        var CurrenceIds = selectedIds;
+        if (CurrenceIds.length == 0) {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+            return;
+        }
+        else {
+            var grid = $("#@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name").data("kendoGrid");
+            var currentSource = grid.dataSource.data();
+            for (var i = 0; i < currentSource.length; i++) {
+                if (CurrenceIds.indexOf(currentSource[i].id) != -1)
+                {
+                    if (currentSource[i].Status != "Duyệt" && currentSource[i].Status != "E_APPROVED") {
+                        CurrenceIds.splice(CurrenceIds.indexOf(currentSource[i].id), 1);
+                    }
+                }
+            }
+            DoActionData('@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name', '@_hrm_Hr_Service' + "Sal_GetData/SetStatusApproved/", CurrenceIds, '@WorkHistoryStatus.E_CANCEL.ToString()');
+        }
+    });
+    $('#btnApprove').click(function (e) {
+        debugger;
+        var CurrenceIds = selectedIds;
+        if (CurrenceIds.length == 0) {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+            return;
+        }
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_AllowanceEvaluationYear_Approve', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())');
+            return;
+        }
+        //var recordids = [];
+        //for (var i = 0; i < CurrenceIds.length; i++) {
+        //    recordids.push(CurrenceIds[i]);
+        //}
+        e.preventDefault();
+        var grid = $("#@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name").data("kendoGrid");
+        if (CurrenceIds.length == 1) {
+            var selectedItem = grid.dataItem(grid.select());
+ 
+            if (selectedItem.Status == "Duyệt" || selectedItem.Status == "E_APPROVED") {
+                //ErrorMessages("Dữ Liệu Đã Ở Trạng Thái Duyệt!");
+                Notification('@Html.Raw(@ConstantDisplay.HRM_Message_ItemExits.TranslateString())', '@NotificationType.Warning.ToString()');
+                return;
+            }
+        }
+        else {
+            var currentSource = grid.dataSource.data();
+            for (var i = 0; i < currentSource.length; i++) {
+                if (currentSource[i].Status == "Duyệt" || currentSource[i].Status == "E_APPROVED") {
+                   if(CurrenceIds.indexOf(currentSource[i])!= -1)
+                    CurrenceIds.splice(CurrenceIds.indexOf(currentSource[i].id), 1);
+                }
+            }
+        }
+        if (CurrenceIds.length == 0) {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_NoDataStreamsSelected.TranslateString())');
+            return;
+        }
+        if (CurrenceIds.length > 0) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                @*message: '@Html.Raw(@ConstantDisplay.HRM_SAL_UnusualEDChild_AreYouSure.TranslateString()) ' + ' @Html.Raw(@ConstantDisplay.HRM_Common_Approved.TranslateString())' + " " + selectedIds.length + "/" + recordids.length + " " + '@Html.Raw(@ConstantDisplay.HRM_SAL_UnusualEDChild_RecordSelected.TranslateString())' + " ?",*@
+                message: '@Html.Raw(@ConstantDisplay.HRM_SAL_UnusualEDChild_AreYouSure.TranslateString()) ' + " " + CurrenceIds.length + " " + '@Html.Raw(@ConstantDisplay.HRM_SAL_UnusualEDChild_RecordSelected.TranslateString())' + " ?",
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                    ).done(function (response) {
+                        debugger;
+                        if (response.button == "OK") {
+                            DoActionData('@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name', '@_hrm_Hr_Service' + "Sal_GetData/SetStatusApproved/", CurrenceIds, '@WorkHistoryStatus.E_APPROVED.ToString()');
+                        }
+                        else if (response.button == "Cancel") {
+                            return false;
+                        }
+                    });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    function DoActionData(gridName, actionURL, parameter, statusUnusualED) {
+        debugger;
+        $.ajax({
+            traditional: true,
+            url: actionURL,
+            data: { selectedIds: parameter, statusApproved: statusUnusualED },
+            type: 'POST',
+            success: function (data) {
+                debugger;
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    };
+
+
+    function ComputeAnnualLeave() {
+        PopUpCreate('WindowAnnualLeaveAllowance', '@Html.Raw(ConstantAction.HRM_Common_ComputeAnnualLeave.TranslateString())', '@ConstantPermission.Sal_UnusualED');
+    };
+
+</script>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id, 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(m => m.CodeEmp, "width:200px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(m => m.ProfileName, "width:200px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Status)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _status = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listStatusUnusual
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.Status, _status)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.DateStart)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _ds = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_DateStart.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateStart, _ds)
+
+                            @{
+                                var _de = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_DateEnd.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateEnd, _de)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "WorkPlaceName",
+                                    DataValueField="ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                    StyleCss="width:200px;",
+                                    Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString()
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model=>model.WorkPlaceID,_WorkPlaceID)
+                        </div>
+                    </div>
+                    <div id="div14">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Name = "OrgStructureTreeView",
+                                    Width="200px;"
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "ComputeAnnualLeave", Name = "btnComputeAnnualLeave", Content = ConstantAction.HRM_Common_ComputeAnnualLeave.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteSeleted", Content = ConstantAction.HRM_Common_Cancel.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnUnusualEDChildCare", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })*@
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name + "__Sal_UnusualEDChildCare_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetAllowanceEvaluationList/",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon=false
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+
+            //Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+            //{
+            //    {Sal_UnusualAllowanceModel.FieldNames.Status,new object[]
+            //       { "Value", "Text", listStatusUnusual, ConstantDisplay.HRM_Category_DayOff_Status,""}},
+            //};
+            grid.ValueFields = new[]
+            {
+
+                Sal_UnusualAllowanceModel.FieldNames.CodeEmp,
+                Sal_UnusualAllowanceModel.FieldNames.ProfileName,
+                Sal_UnusualAllowanceModel.FieldNames.RelativeName,
+                            Sal_UnusualAllowanceModel.FieldNames.E_UNIT,
+                       Sal_UnusualAllowanceModel.FieldNames.E_DIVISION,
+                Sal_UnusualAllowanceModel.FieldNames.E_DEPARTMENT,
+                 Sal_UnusualAllowanceModel.FieldNames.E_TEAM,
+                Sal_UnusualAllowanceModel.FieldNames.E_SECTION,
+
+                Sal_UnusualAllowanceModel.FieldNames.YearOfBirth,
+                Sal_UnusualAllowanceModel.FieldNames.NoCompensation,
+                Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,
+                Sal_UnusualAllowanceModel.FieldNames.Amount,
+                Sal_UnusualAllowanceModel.FieldNames.BudgetName,
+                Sal_UnusualAllowanceModel.FieldNames.MonthStart,
+                Sal_UnusualAllowanceModel.FieldNames.MonthEnd,
+                Sal_UnusualAllowanceModel.FieldNames.StatusTranslate,
+                Sal_UnusualAllowanceModel.FieldNames.UserUpdate,
+                Sal_UnusualAllowanceModel.FieldNames.DateUpdate,
+            };
+
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,80},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,140},
+                {Sal_UnusualAllowanceModel.FieldNames.RelativeName,140},
+                               {Sal_UnusualAllowanceModel.FieldNames.E_UNIT,135},
+                {Sal_UnusualAllowanceModel.FieldNames.E_DIVISION,135},
+
+                {Sal_UnusualAllowanceModel.FieldNames.E_TEAM,135},
+                {Sal_UnusualAllowanceModel.FieldNames.E_DEPARTMENT,135},
+                {Sal_UnusualAllowanceModel.FieldNames.E_SECTION,135},
+
+                {Sal_UnusualAllowanceModel.FieldNames.YearOfBirth,82},
+                {Sal_UnusualAllowanceModel.FieldNames.NoCompensation,90},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,120},
+                {Sal_UnusualAllowanceModel.FieldNames.Amount,110},
+                {Sal_UnusualAllowanceModel.FieldNames.BudgetName,83},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthStart,105},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthEnd,110},
+                {Sal_UnusualAllowanceModel.FieldNames.StatusTranslate,90},
+                {Sal_UnusualAllowanceModel.FieldNames.UserUpdate,110},
+                {Sal_UnusualAllowanceModel.FieldNames.DateUpdate,100}
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,true},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Payroll_UnusualED_ProfileID},
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,ConstantDisplay.HRM_Payroll_UnusualED_ProfileName},
+                {Sal_UnusualAllowanceModel.FieldNames.RelativeName,ConstantDisplay.HRM_Recruitment_UnusualAllowance_RelativeName},
+                                {Sal_UnusualAllowanceModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Sal_UnusualAllowanceModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Sal_UnusualAllowanceModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Sal_UnusualAllowanceModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Sal_UnusualAllowanceModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Sal_UnusualAllowanceModel.FieldNames.YearOfBirth,ConstantDisplay.HRM_HR_ReportBirthday_DayOfBirth},
+                {Sal_UnusualAllowanceModel.FieldNames.NoCompensation,ConstantDisplay.HRM_Payroll_UnusualEDChild_NoCompensation},
+                {Sal_UnusualAllowanceModel.FieldNames.UnusualAllowanceCfgName,ConstantDisplay.HRM_Payroll_UnusualED_UnusualAllowanceCfgName},
+                {Sal_UnusualAllowanceModel.FieldNames.Amount,ConstantDisplay.HRM_Payroll_UnusualED_Amount},
+                {Sal_UnusualAllowanceModel.FieldNames.BudgetName,ConstantDisplay.HRM_Payroll_UnusualED_BudgetName},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthStart,ConstantDisplay.HRM_Payroll_UnusualED_MonthStart},
+                {Sal_UnusualAllowanceModel.FieldNames.MonthEnd,ConstantDisplay.HRM_Payroll_UnusualED_MonthEnd},
+                {Sal_UnusualAllowanceModel.FieldNames.StatusTranslate,ConstantDisplay.HRM_Category_DayOff_Status},
+                {Sal_UnusualAllowanceModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Payroll_UnusualED_UserUpdate},
+                {Sal_UnusualAllowanceModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Payroll_UnusualED_DateUpdate}
+            };
+
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Sal_UnusualAllowanceModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name,
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    Filterable = filterable,
+    //    ShowCommand = false,
+    //    ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetUnusualEDChildCareList/",
+    //    ReadData = "filterFieldInfo",
+    //    HyperlinkFields = hyperlinkFields,
+    //};
+    }
+
+    @(Html.VnrGrid<Sal_UnusualAllowanceModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnUnusualEDChildCare", "Sal_UnusualAllowanceModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

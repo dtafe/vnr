@@ -1,0 +1,291 @@
+﻿@using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Evaluation.Models.Eva_PerformanceModel
+@{
+    ViewBag.Title = "Index  Performance";
+    Layout = null;
+    var _hrm_System_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string gridName = "gridKPIBuilding";
+    var id = Guid.Empty;
+    var performanceTypeID = Guid.Empty;
+    Guid ProfileID = Guid.Empty;
+    if (Model != null)
+    {
+        id = Model.ID;
+        performanceTypeID = Model.PerformanceTypeID ?? Guid.Empty;
+        ProfileID = Model.ProfileID.Value;
+
+    }
+
+}
+<script>
+    var gridName = '@gridName';
+    SetFieldRequired();
+    $("#btnApprove").hide();
+    if ($("#Status").val() == "Approve") {
+        $("#btnSubmit").hide();
+    }
+    else {
+        $("#btnSubmit").show();
+    }
+    function CheckLeader() {
+        debugger;
+        var ProfileID = null;
+        var LeaderID = $("#ProfileIDByUser").val();
+        if('@ProfileID'!='@Guid.Empty')
+            ProfileID = '@ProfileID';
+        if (LeaderID != null || LeaderID != "") {
+            $.ajax({
+                traditional: true,
+                url: '@_hrm_Hre_Service' + 'Hre_GetData/CheckLeader/',
+                data: { LeaderID: LeaderID, ProfileID: ProfileID },
+                type: 'POST',
+                async:false,
+                success: function (data) {
+                    debugger;
+                    if (data === true) {
+                        $("#btnApprove").show();
+                    }
+                },
+            });
+        }
+
+    }
+    CheckLeader();
+
+    function Getprofile() {
+
+        var profile = $("#ProfileID").data("kendoMultiSelect");
+        var profileID = profile.value();
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Hre_GetData/GetProfileInfo/",
+            data: { profileId: profileID.join(',') },
+            type: 'POST',
+            success: function (data) {
+
+                $("#SupervisorName").val(data.SupervisorName);
+                $("#NationalityName").val(data.NationalityName);
+                $("#HighSupervisorName").val(data.HighSupervisorName);
+
+            }
+        });
+    }
+
+    function getData() {
+        debugger;
+        // var performancePlanMultiSelect = $("#PerformancePlanID").data("kendoDropdownlist");
+        //var performancePlanId = performancePlanMultiSelect.value();
+        var _performanceExtendID = $("#PerformanceExtendID").val();
+        var performancePlanId = $("#PerformancePlanID").val();
+        var performanceTypeId = "@performanceTypeID";
+        var performanceTemplateId = $("#PerformanceTemplateID1").val();
+      //  var proportion = $("#Proportion").val();
+      //  var strengths = $("#Strengths").val();
+     //   var weaknesses = $("#Weaknesses").val();
+     //   var resultNote = $("#ResultNote").val();
+      //  var levelId = $("#LevelID").val();
+        var evaluatorMultiSelect = $("#EvaluatorID").data("kendoMultiSelect");
+        var evaluatorIds = null;
+        var evaluatorId = null;
+        if (evaluatorMultiSelect != undefined) {
+            if (evaluatorMultiSelect.value().length >0) {
+                evaluatorId = evaluatorMultiSelect.value()[0];
+            }
+            evaluatorIds = evaluatorMultiSelect.value().join(',');
+        }
+
+       // var attachFiles = $("#AttachFile").val().split(",");
+        var profileMultiSelect = $("#ProfileID").data("kendoMultiSelect");
+        var profileId = profileMultiSelect.value();
+        var dueDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#DueDate").val());
+        var periodFromDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodFromDate").val());
+        var periodToDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodToDate").val());
+       // var attachFile = $("#AttachFile").val();
+
+        return {
+            ID:'@id',
+            ProfileID: profileId.join(','),
+            EvaluatorID: evaluatorId,
+            EvaluatorIDList: evaluatorIds,
+            //   AttachFile : attachFile,
+          //  AttachFiles: attachFiles,
+            PerformancePlanID: performancePlanId,
+            PerformanceTypeID: performanceTypeId,
+            PerformanceTemplateID: performanceTemplateId,
+            PerformanceExtendID: _performanceExtendID,
+          //  Proportion: proportion,
+          //  Strengths : strengths,
+         //   Weaknesses :weaknesses,
+         //   ResultNote: resultNote,
+            DueDate: dueDate,
+            PeriodFromDate: periodFromDate,
+            PeriodToDate :periodToDate,
+           // LevelID: levelId
+        };
+    }
+
+    function notifyEvaluationLength() {
+        var list = $("#" + gridName).data("kendoGrid").dataSource.data();
+        debugger;
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].DescriptionKPIFix != null && list[i].DescriptionKPIFix.length > 500) {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_Evaluation_KPIBuilding_DescriptionKPIFix.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + "  không được > 500 ký tự .");
+                return false;
+            }
+            if (list[i].DescriptionKP != null && list[i].DescriptionKP.length > 500) {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_Evaluation_KPIBuilding_DescriptionKP.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " không được > 500 ký tự .");
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function Submit() {
+        if (!notifyEvaluationLength()) {
+            return false;
+        }
+
+        if ($("#PerformanceID").val() == null || $("#PerformanceID").val() == "") {
+            ShowNotificationProcessor("Chưa Có Đánh Giá");
+            return;
+        }
+        else {
+            var grid = $("#" + gridName).data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;           
+            var currentData = grid.dataSource._data;
+            var detailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                for (var j = 0; j < currentData[i].items.length; j++) {
+                    detailData.push(currentData[i].items[j].toJSON());
+                }
+            }
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: detailData, PerformanceID: $("#PerformanceID").val() }));
+
+            $.ajax({
+                traditional: true,
+                url: '@_hrm_Hre_Service' + 'Eva_GetData/SubmitKPIforPerformance/',
+                data: lstModel,
+                type: 'POST',
+                success: function (data) {
+                    ReadGrid(gridName);
+                    ShowNotificationProcessor("Cập Nhật Thành Công");
+                    //alert(data);
+                    $("#Status").val(data);
+                },
+                error: function (data) { }
+            });
+        }
+    }
+    function Approve() {
+        if (!notifyEvaluationLength()) {
+            return false;
+        }
+        if ($("#PerformanceID").val() == null || $("#PerformanceID").val() == "") {
+            ShowNotificationProcessor("Chưa Có Đánh Giá");
+            return;
+
+        }
+        else {
+            var grid = $("#" + gridName).data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentData = grid.dataSource.view();
+            var detailData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                detailData.push(currentData[i].toJSON());
+            }
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: detailData, PerformanceID: $("#PerformanceID").val() }));
+            $.ajax({
+                traditional: true,
+                url: '@_hrm_Hre_Service' + 'Eva_GetData/ApproveKPIforPerformance/',
+                data: lstModel,
+                type: 'POST',
+                success: function (data) {
+                    ReadGrid(gridName);
+                    ShowNotificationProcessor("Cập Nhật Thành Công");
+                    $("#Status").val(data);
+                    $("#btnSubmit").hide();
+                },
+                error: function (data) { }
+            });
+        }
+    }
+
+    var doSave = function () {
+
+         var result = false;
+        //save
+        @*onCreate($('#form-create'), '@_hrm_Eva_Service', 'api/Eva_Performance/');*@
+
+        var performamceData = getData();
+
+        //lay data cua luoi post len
+        var grid = $("#" + gridName).data("kendoGrid");
+        parameterMap = grid.dataSource.transport.parameterMap;
+        var currentData = grid.dataSource.view();
+        var kpiData = [];
+        for (var i = 0; i < currentData.length; i++) {
+            kpiData.push(currentData[i].toJSON());
+        }
+        var lstModel = {};
+        $.extend(lstModel, parameterMap({ models: kpiData, performanceModel: performamceData }));
+
+        //save
+        $.ajax({
+            traditional: true,
+            url: '@_hrm_Main_Web' + 'Eva_KPIBuilding/Create',
+            data: lstModel,
+            type: 'POST',
+            success: function (data) {
+                ReadGrid(gridName);
+                if (data.ActionStatus != undefined) {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    return;
+                }
+                result = true;
+                ShowNotificationProcessor("Cập Nhật Thành Công");
+                $('#ID').val(data.ID);
+                $("#PerformanceID").val($('#ID').val());
+                Approve();
+            },
+            error: function (data) { }
+        });
+        return result;
+    }
+
+</script>
+
+<div>
+    @ViewBag.MsgUpdate
+</div>
+
+<form action="#" method="POST" id="form-create">
+    @*@Html.Hidden("PerformanceTemplateID")
+        @Html.Hidden("EvaluatorIDList")*@
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Evaluation_KPIBuilding_Edit_Title.TranslateString()
+                        @Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_Back_To_KPIBuilding_List.TranslateString() + ")", "/Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "Submit", Name = "btnSubmit", Content = ConstantAction.HRM_Common_Confirm.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+                    </div>
+                </div>
+                @Html.Partial("TabEva_KPIBuilding360", Model)
+            </div>
+        </div>
+    </div>
+</form>

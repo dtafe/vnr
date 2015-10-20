@@ -1,0 +1,291 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using MvcSiteMapProvider.Web.Html
+@using HRM.Infrastructure.Security;
+
+@model Sys_ConditionApprovedModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var gridName = "gridConditionApproved";
+    var windowName = "windowSysConditionApproved";
+    IList<SelectListItem> lstApproveType = Enum.GetValues(typeof(ApproveType))
+          .Cast<ApproveType>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+          .ToList();
+
+    IList<SelectListItem> lstExpensesType = Enum.GetValues(typeof(ExpensesType))
+    .Cast<ExpensesType>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+    .ToList();
+
+
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 900,
+        Title = "Điều Kiện Phê Duyệt",
+        LoadContentFrom = @hrm_Sys_Web + "Sys_ConditionApproved/SysConditionApprovedInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Create_Title.TranslateString())';
+
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            ConditionName: $('#ConditionName').val(),
+            ApprovedType: $('#ApprovedType').val(),
+            ExpensesType: $('#ExpensesType').val(),
+
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Xử lý Edit popup
+        var url = '@hrm_Sys_Web' + "Sys_ConditionApproved/SysConditionApprovedInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Sys_ConditionApproved', titleEditPopUp);
+    });
+
+
+    $("#btnCreate").click(function () {
+        PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Sys_ConditionApproved');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        DeleteSelected(gridName, '@hrm_Sys_Web' + "Sys_ConditionApproved/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_ConditionApproved');
+    })
+
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportAllConditionApprovedList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sys_ConditionApproved');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportConditionApprovedSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sys_ConditionApproved');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="dvConditionApprovedName">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ConditionName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.ConditionName)
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ApprovedType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dropdownStatus = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstApproveType,
+                                    OptionLabel = @ConstantDisplay.HRM_System_UserApprove_SelectType.TranslateString(),
+                                    StyleCss = "width:200px;"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.ApprovedType, dropdownStatus))
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ExpensesType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dropExpensesType = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstExpensesType,
+                                    OptionLabel = ConstantDisplay.HRM_System_UserApprove_SelectType.TranslateString(),
+                                    StyleCss = "width:200px;"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.ExpensesType, dropExpensesType))
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        string[] valueFields = new string[]
+        {
+           Sys_ConditionApprovedModel.FieldNames.ConditionName,
+           Sys_ConditionApprovedModel.FieldNames.Description,
+           Sys_ConditionApprovedModel.FieldNames.ApprovedType,
+           Sys_ConditionApprovedModel.FieldNames.ExpensesType,
+           
+           Sys_ConditionApprovedModel.FieldNames.JobTitleName,
+           Sys_ConditionApprovedModel.FieldNames.PositionName,
+           Sys_ConditionApprovedModel.FieldNames.WorkPlaceName,
+           Sys_ConditionApprovedModel.FieldNames.ProcessName,
+           
+           Sys_ConditionApprovedModel.FieldNames.OrgCode1,
+           Sys_ConditionApprovedModel.FieldNames.OrgCode2,
+           Sys_ConditionApprovedModel.FieldNames.OrgCode3,
+           Sys_ConditionApprovedModel.FieldNames.OrgCode4,
+           Sys_ConditionApprovedModel.FieldNames.OrgCode5,
+           Sys_ConditionApprovedModel.FieldNames.OrgCode6,
+        };
+        
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_ConditionApprovedModel.FieldNames.ConditionName, 120},
+            {Sys_ConditionApprovedModel.FieldNames.Description, 120},
+            {Sys_ConditionApprovedModel.FieldNames.ApprovedType, 100},
+            {Sys_ConditionApprovedModel.FieldNames.ExpensesType, 100},
+            
+            {Sys_ConditionApprovedModel.FieldNames.JobTitleName, 120},
+            {Sys_ConditionApprovedModel.FieldNames.PositionName, 120},
+            {Sys_ConditionApprovedModel.FieldNames.WorkPlaceName, 120},
+            {Sys_ConditionApprovedModel.FieldNames.ProcessName, 120},
+            
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode1, 100},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode2, 100},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode3, 100},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode4, 100},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode5, 100},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode6, 100},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_ConditionApprovedModel.FieldNames.ConditionName, ConstantDisplay.HRM_System_ConditionApproved_ConditionName},
+            {Sys_ConditionApprovedModel.FieldNames.Description, ConstantDisplay.HRM_System_ConditionApproved_Description},
+            {Sys_ConditionApprovedModel.FieldNames.ApprovedType, ConstantDisplay.HRM_System_ConditionApproved_ApprovedType},
+            {Sys_ConditionApprovedModel.FieldNames.ExpensesType, ConstantDisplay.HRM_System_ConditionApproved_ExpensesType},
+            
+            {Sys_ConditionApprovedModel.FieldNames.JobTitleName, ConstantDisplay.HRM_System_ConditionApproved_JobTitle},
+            {Sys_ConditionApprovedModel.FieldNames.PositionName, ConstantDisplay.HRM_System_ConditionApproved_Position},
+            {Sys_ConditionApprovedModel.FieldNames.WorkPlaceName, ConstantDisplay.HRM_System_ConditionApproved_WorkPlace},
+            {Sys_ConditionApprovedModel.FieldNames.ProcessName, ConstantDisplay.HRM_System_ConditionApproved_ProcessApproved},
+            
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode1, ConstantDisplay.HRM_System_ConditionApproved_Org1},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode2, ConstantDisplay.HRM_System_ConditionApproved_Org2},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode3, ConstantDisplay.HRM_System_ConditionApproved_Org3},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode4, ConstantDisplay.HRM_System_ConditionApproved_Org4},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode5, ConstantDisplay.HRM_System_ConditionApproved_Org5},
+            {Sys_ConditionApprovedModel.FieldNames.OrgCode6, ConstantDisplay.HRM_System_ConditionApproved_Org6},
+            
+        };
+                
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {Sys_ConditionApprovedModel.FieldNames.ApprovedType,new object[] { "Value", "Text", lstApproveType, ConstantDisplay.HRM_System_ConditionApproved_ApprovedType,""}},
+            {Sys_ConditionApprovedModel.FieldNames.ExpensesType,new object[] { "Value", "Text", lstExpensesType, ConstantDisplay.HRM_System_ConditionApproved_ExpensesType,""}},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetConditionApprovedList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_ConditionApprovedModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

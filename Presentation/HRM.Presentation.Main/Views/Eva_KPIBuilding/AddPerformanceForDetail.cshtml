@@ -1,0 +1,182 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+
+@using HRM.Infrastructure.Utilities
+@using System.Collections;
+@using HRM.Presentation.Evaluation.Models
+@model Eva_PerformanceForDetailModel
+
+@{
+    Layout = null;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var gridName = "gridKPIBuilding";
+    var is360 = false;
+    if (Request["is360"] != null)
+    {
+        bool.TryParse(Request["is360"].ToString(), out is360);
+        if (is360)
+        {
+            gridName = "gridKPIBuilding360";    
+        }        
+    }
+}
+@*@Html.ValidationSummary(false)*@
+@*@Html.AntiForgeryToken()*@
+<script>
+    var gridName = '@gridName';
+    function onSave() {
+        if (doSave())
+        {
+            debugger;
+            var window = $("#Eva_windowPerformanceForDetailInfo").data("kendoWindow");
+            window.refresh();
+            var grid = $("#gridKPIBuilding").data("kendoGrid");
+            grid.dataSource.read();
+        }
+    }
+    function onSaveClose() {
+        if (doSave())
+        {
+            debugger;
+            var window = $("#Eva_windowPerformanceForDetailInfo").data("kendoWindow");
+            window.refresh().close();
+            var grid = $("#gridKPIBuilding").data("kendoGrid");
+            grid.dataSource.read();
+        }
+    }
+    function onSaveDataPopUp() {
+        doSave();
+        var grid = $("#gridKPIBuilding").data("kendoGrid");
+        grid.dataSource.read();
+    }
+
+    function doSave() {
+        debugger;
+        var _PerformanceID = $("#PerformanceID").val();
+        var _KPIID = $("#Performance1_KPIName").data("kendoMultiSelect").value().join(',');
+        var result = false;
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'api/Eva_PerformanceForDetail/',
+            data: { PerformanceID: _PerformanceID, DescriptionKP: _KPIID },
+            type: 'POST',
+            async: false,
+            success: function (data) {
+                debugger;
+                ShowNotificationProcessor(data.ActionStatus);
+                result = true;
+            }
+        });
+        return result;
+    }
+    function ReadDataKPIName() {
+        debugger;
+        var _Performance_KPIName = $('#Performance1_KPIName');
+        var _Performance_NameEntityID = $('#Performance1_NameEntityID');
+
+        debugger;
+        var pagram = {
+            text: _Performance_KPIName.data("kendoMultiSelect").input.val(),
+            strNameEntityID: _Performance_NameEntityID.data("kendoMultiSelect").value().join(',')
+        }
+        return pagram;
+
+    }
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_PerformanceForDetail" }))
+{
+    <div style="width:100%">
+        @Html.HiddenFor(model => model.ID)
+        <table>
+            <tr>
+                <td>
+                    <div style="display:block; padding-top:10px;">
+                            @*<legend>
+                                @ConstantDisplay.HRM_Evaluation_Eva_KPI.TranslateString()
+                            </legend>*@
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Evaluation_NameEntityObject.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    var _NameEntityID = new MultiSelectBuilderInfo()
+    {
+        Name = "Performance1_NameEntityID",
+        DataTextField = "NameEntityName",
+        DataValueField = "ID",
+        Url = @_Hrm_Hre_Service + "Eva_GetData/GetMultiObjectForKPI",
+        Placeholder = ConstantDisplay.HRM_Evaluation_KPI_SelectObject.TranslateString(),
+        MaxSelectedItems = 1,
+        Autobind = false
+    };
+                                    }
+                                    @Html.VnrMultiSelect(_NameEntityID)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div5">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.KPIName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+    IEnumerable valueKPI = new string[] { };
+    if (Model != null)
+    {
+        valueKPI = new[] { new { KPIName = Model.KPIName, ID = Model.KPIID } };
+    }
+                                    }
+                                    @{
+    var _KPI = new MultiSelectBuilderInfo()
+    {
+        Name = "Performance1_KPIName",
+        DataTextField = "KPIName",
+        DataValueField = "ID",
+        Url = @_Hrm_Hre_Service + "Eva_GetData/GetMultiKPIListByNameEntityID",
+        Placeholder = ConstantDisplay.HRM_Evaluation_KPI_SelectObject.TranslateString(),
+        MaxSelectedItems = 1,
+        Autobind = false,
+        ReadData = "ReadDataKPIName",
+        Value = valueKPI
+        
+    };
+                                    }
+                                    @(Html.VnrMultiSelectFor(model => model.KPIID, _KPI))
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                           
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding-top:2px; padding-bottom:10px;">
+                    <div class="LineFooterCommandEdit">
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <div>
+                        <div class="FieldTitle150">
+
+                        </div>
+                        <div class="FieldValue" style="float:right">
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-EvalKPI", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-EvalKPI", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-EvalKPI", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        </div>
+
+                    </div>
+                </td>
+            </tr>
+        </table>
+    </div>
+}
+

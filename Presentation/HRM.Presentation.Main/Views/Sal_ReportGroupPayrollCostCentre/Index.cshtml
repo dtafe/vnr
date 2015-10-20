@@ -1,0 +1,392 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.HrmSystem.Models
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@model HRM.Presentation.Payroll.Models.Sal_ReportGroupPayrollCostCentreModel
+@{
+    Layout = null;
+  //  string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+   
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Main_Web;
+   
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))*@
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserID: '@Session[SessionObjects.ProfileID]',
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show hide panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Sal_GetData/GetReportGroupPayrollCostCentreValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridSal_ReportGroupPayrollCostCentre').data("kendoGrid");
+                        grid.dataSource.read();
+                        return false;
+                    }
+                }
+            });
+             return false;
+
+        });
+
+
+    });
+    $("#btnExport").click(function () {
+        ShowHre_ProgressBar();
+        isCreateTemplateForDynamicGrid = true;
+        
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Sal_ReportGroupPayrollCostCentre');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            CloseHre_ProgressBar();
+            return;
+        }
+        
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/GetReportGroupPayrollCostCentre',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                CloseHre_ProgressBar();
+                if (returnValue == "-1") {
+                    alert("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + returnValue;
+                    window.location = url;
+                }
+            },
+            error: function () {
+                CloseHre_ProgressBar();
+                alert("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");
+            }
+
+        });
+    });
+
+    @*$("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        var window1 = window;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/GetReportGroupPayrollCostCentre',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var index = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (index > 0) {
+                    status = returnValue.substring(0, index);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(index + 1, returnValue.length);
+                        window1.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                        $.when(kendo.ui.ExtOkCancelDialog.show({
+                            title: "Thông Báo",
+                            message: "Bạn có muốn tải template vừa tạo lên không?",
+                            icon: "k-ext-warning"
+                        })
+                        ).done(function (response) {
+                            if (response.button == "OK") {
+                                var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                window2.center().open().title("Tạo mới mẫu template");
+                            }
+                        });
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+            }
+        });
+    });*@
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + "Sal_GetData/GetReportGroupPayrollCostCentre", filterFieldInfo(true));
+    });
+
+
+</script>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id,'Hrm_Hre_Web', '@_hrm_Hr_Web');
+    }
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:410px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    // Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                            @{
+                                var DateTo = new DatePickerBuilderInfo()
+                                {
+                                    //Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                        </div>
+                    </div>
+
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                    </div>
+                </div>
+                <div style="display: block; float: left; width: 600px">
+                    <div style="float:left; width:500px">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.ProfileName)
+                            </div>
+                        </div>
+
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.CodeEmp,
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.ProfileName,
+              Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_UNIT,
+                       Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DIVISION,
+                Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DEPARTMENT,
+                 Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_TEAM,
+                Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_SECTION,
+
+            
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.CostCentreName,
+            
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.JobtitleName,
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.ElementName,
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate,
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate_Money,
+            Sal_ReportGroupPayrollCostCentreModel.FieldNames.Amount,
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+           {Sal_ReportGroupPayrollCostCentreModel.FieldNames.CodeEmp,75},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.ProfileName,135},
+       {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DEPARTMENT,135},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DIVISION,135},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_SECTION,135},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_TEAM,135},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_UNIT,135},
+
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.CostCentreName,100},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.JobtitleName,97},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.ElementName,107},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate,55},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate_Money,81},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Amount,81},
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>(){
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+            
+                          {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+            
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.CostCentreName,ConstantDisplay.HRM_Category_CostCentre_CostCentreName},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.JobtitleName,ConstantDisplay.HRM_Category_JobTitle_JobTitleName},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.ElementName,ConstantDisplay.HRM_Payroll_CodeAlocal_ElementType},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate,ConstantDisplay.HRM_Payroll_Costcentre_Rate},
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate_Money,ConstantDisplay.HRM_Canteen_ReportCardNotStand_SumAmount},
+             {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Amount,ConstantDisplay.HRM_Canteen_Line_Amount},
+            };
+
+        Dictionary<string, string>
+            formatFields = new Dictionary<string, string>()
+            {
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate_Money,ConstantFormat.HRM_Format_Money},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Rate,ConstantFormat.HRM_Format_Number_Double2},
+                {Sal_ReportGroupPayrollCostCentreModel.FieldNames.Amount,ConstantFormat.HRM_Format_Money},
+            };
+        string[] hiddenFields = new string[]
+            {
+                      Sal_ReportGroupPayrollCostCentreModel.FieldNames.ProfileID
+            };
+        var hyperlinkFields = new Dictionary<string, string>()
+        {
+            {Sal_ReportGroupPayrollCostCentreModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridSal_ReportGroupPayrollCostCentre",
+            FormatFields = formatFields,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetReportGroupPayrollCostCentre",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            HyperlinkFields = hyperlinkFields,
+            HiddenFields=hiddenFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sal_ReportGroupPayrollCostCentreModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

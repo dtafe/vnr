@@ -1,0 +1,296 @@
+﻿@model CatElementModel
+@using HRM.Infrastructure.Utilities
+
+@using HRM.Infrastructure.Security
+
+@{
+
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> List_CatElementDataType = Enum.GetValues(typeof(HRM.Infrastructure.Utilities.EnumDropDown.ElementDataType))
+.Cast<HRM.Infrastructure.Utilities.EnumDropDown.ElementDataType>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+}
+
+<script type="text/javascript">
+    var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Category_Element_UpdateElement.TranslateString())';
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        window.ShowHidePanel();
+        ////Jump Anchor
+        //jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid("Element");
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Element');
+        if (!isAccess) {
+            return;
+        }*@
+        EditGridNewPage("Element", '#Hrm_Main_Web/Cat_ElementCommission/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    function filterFieldInfo() {
+        return {
+            ElementName: $('#SElementName').val(),
+            ElementCode: $('#SElementCode').val(),
+            GradePayrollID: $('#SGradePayrollID').val(),
+            MethodPayroll: '@MethodPayroll.E_COMMISSION_PAYMENT.ToString()',
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    };
+    $("#btnCreate").kendoButton({
+        click: function (e) {
+            @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Element');
+            if (!isAccess) {
+                return;
+            }*@
+            window.KendoRouteMapping('#Hrm_Main_Web/Cat_ElementCommission/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    });
+
+    //Xử Lý grid
+    GridCheckbox("Element");
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_Element');
+        if (!isAccess) {
+            return;
+        }*@
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+
+        DeleteSelected("Element", '@_hrm_Main_Web' + "Cat_ElementCommission/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Cat_ElementCommission');
+
+        return false;
+    });
+    $("#btnUpdateData").click(function () {
+        // "Cập Nhật Lại Các Phần Tử"
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_ElementCommission', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg);
+            return;
+        }
+
+        ShowHre_ProgressBar();
+
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Cat_GetData/CreateFirstElement',
+            success: function (data) {
+                if (data) {
+                    window.ShowNotificationProcessor('@ConstantDisplay.HRM_Att_AllowLimitOvertime_UpdateSuccess.TranslateString()');//Chưa Dịch!
+                    ReadGrid("Element");
+                    CloseHre_ProgressBar();
+                }
+            },
+            error: function (data) {
+                window.ShowNotificationProcessor('@ConstantDisplay.HRM_Payroll_ErrorInProcessing.TranslateString()');//Chưa Dịch!
+                CloseHre_ProgressBar();
+            }
+        });
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportSElementSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_ElementCommission');
+    });
+
+    $("#btnExportAll").click(function () {
+        debugger;
+        var grid = $('#Element').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllElementList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_ElementCommission');
+    });
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle170" style="width:140px;">
+                        @Html.VnrLabelFor(model => model.ElementName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SElementName", "width:200px")
+                    </div>
+                </div>
+                <div id="div2">
+                    <div class="FieldTitle170" style="width:140px;">
+                        @Html.VnrLabelFor(model => model.ElementCode)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SElementCode", "width:200px")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle170" style="width:140px;">
+                        @Html.VnrLabelFor(model => model.GradePayrollID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _GradePayrollID = new DropDownListBuilderInfo()
+                            {
+                                Name = "SGradePayrollID",
+                                DataTextField = "GradeCfgName",
+                                DataValueField = "ID",
+                                Url = _hrm_Hr_Service + "Cat_GetData/GetMultiGradePayroll"
+                            };
+                        }
+                        @(Html.VnrDropDownListFor(mode => mode.GradePayrollID, _GradePayrollID))
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnUpdateData", Content = ConstantDisplay.HRM_Category_Element_UpdateElement.TranslateString(), ImageUrl = ConstantPath.IconUpdateInOut })@*Chưa Dịch!*@
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @using HRM.Presentation.Category.Models
+        @using HRM.Presentation.UI.Controls.Kendo
+        @{
+            IList<SelectListItem> listType = Enum.GetValues(typeof(CatElementType))
+           .Cast<CatElementType>()
+           .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+           .ToList();
+
+
+            Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+          //  {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+             {CatElementModel.FieldNames.ElementType,new object[] { "Value", "Text", listType, ConstantDisplay.HRM_Category_Element_ElementType,""}},
+             {CatElementModel.FieldNames.Type,new object[]{"Value","Text",List_CatElementDataType,ConstantDisplay.HRM_Category_Element_Type,""}}
+        };
+
+
+            //Thông tin hiển column hiển thị
+            var valueFields = new string[]
+        {
+            CatElementModel.FieldNames.ElementCode,
+            CatElementModel.FieldNames.ElementName,
+            CatElementModel.FieldNames.ElementType,
+            CatElementModel.FieldNames.GradeCfgName,
+            CatElementModel.FieldNames.Formula,
+         //   CatElementModel.FieldNames.ColumnName,
+            CatElementModel.FieldNames.OrderNumber,
+            CatElementModel.FieldNames.Invisible,
+            CatElementModel.FieldNames.IsBold,
+            CatElementModel.FieldNames.DisplayIndex,
+            CatElementModel.FieldNames.Type,
+            CatElementModel.FieldNames.Description
+        };
+
+            //Set độ rộng cho từng column
+            var sizeFields = new Dictionary<string, int>()
+        {
+            {CatElementModel.FieldNames.ElementCode,140},
+            {CatElementModel.FieldNames.ElementName, 170},
+            {CatElementModel.FieldNames.ElementType, 95},
+            {CatElementModel.FieldNames.GradeCfgName, 105},
+            {CatElementModel.FieldNames.Formula, 200},
+            //{CatElementModel.FieldNames.ColumnName, 110},
+            {CatElementModel.FieldNames.OrderNumber, 80},
+            {CatElementModel.FieldNames.Invisible, 110},
+            {CatElementModel.FieldNames.IsBold, 60},
+            {CatElementModel.FieldNames.DisplayIndex, 105},
+            {CatElementModel.FieldNames.Type, 120},
+            {CatElementModel.FieldNames.Description, 200}
+        };
+
+            //Thông tin hiển thị được dịch
+            var displayFields = new Dictionary<string, string>()
+        {
+            {CatElementModel.FieldNames.ElementCode, ConstantDisplay.HRM_Category_Element_Code},
+            {CatElementModel.FieldNames.ElementName , ConstantDisplay.HRM_Category_Element_ElementName },
+            {CatElementModel.FieldNames.ElementType, ConstantDisplay.HRM_Category_Element_ElementType},
+            {CatElementModel.FieldNames.GradeCfgName ,ConstantDisplay.HRM_Category_LateEarlyRule_GradeName},
+            {CatElementModel.FieldNames.Formula, ConstantDisplay.HRM_Category_Element_Formula },
+            //{CatElementModel.FieldNames.ColumnName, ConstantDisplay.HRM_System_DynamicColumn_ColumnName },
+            {CatElementModel.FieldNames.OrderNumber, ConstantDisplay.HRM_Category_Element_OrderNumber },
+            {CatElementModel.FieldNames.Invisible, ConstantDisplay.HRM_Category_Element_Invisible},
+            {CatElementModel.FieldNames.IsBold, ConstantDisplay.HRM_Category_Element_IsBold},
+            {CatElementModel.FieldNames.DisplayIndex, ConstantDisplay.HRM_Category_Element_DisplayIndex},
+            {CatElementModel.FieldNames.Type, ConstantDisplay.HRM_Category_Element_Type},
+            {CatElementModel.FieldNames.Description, ConstantDisplay.HRM_Category_Element_Description}
+        };
+            var groupFields = new[]
+        {
+            CatElementModel.FieldNames.GradeCfgName,
+        };
+            var grid = new GridBuilderInfo
+           {
+               Name = "Element",
+               ValueFields = valueFields,
+               ForeignKey = foreignKey,
+               SizeFields = sizeFields,
+               DisplayFields = displayFields,
+               ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetElementList",
+               ReadData = "filterFieldInfo",
+               GroupFields = groupFields,
+           };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<CatElementModel>(grid))
+    </div>
+    @{
+        var listValueField = grid.ValueFields;
+        var valueFields1 = string.Empty;
+        if (listValueField != null)
+        {
+            for (int i = 0; i < listValueField.Count(); i++)
+            {
+                valueFields1 += "," + listValueField[i];
+            }
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

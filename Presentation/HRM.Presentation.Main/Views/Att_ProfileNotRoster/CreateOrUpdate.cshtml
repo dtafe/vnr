@@ -1,0 +1,419 @@
+﻿@using System.Collections
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+
+@using HRM.Infrastructure.Utilities
+
+@model HRM.Presentation.Attendance.Models.Att_RosterModel
+
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(AttendanceDataStatus))
+      .Cast<AttendanceDataStatus>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+      .ToList();
+    IList<SelectListItem> listRosterType = Enum.GetValues(typeof(RosterType))
+    .Cast<RosterType>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+    .ToList();
+    var profileId = 0;
+    var profileName = string.Empty;
+    if (Request["profileName"] != null)
+    {
+        profileName = Request["profileName"].ToString();
+    }
+    if (Request["profileIds"] != null)
+    {
+        var strProfileId = Request["profileIds"].ToString();
+        int.TryParse(strProfileId, out profileId);
+    }
+}
+
+<script>
+    $(document).ready(function () {
+        $("#ID").val('');
+        $("#Status").val('E_SUBMIT');
+
+    });
+    $('#btnCopy').click(function (e) {
+        var _value = $('#@Html.FieldIdFor(model => model.MonShiftID)').val();
+        
+        if (_value == "") {
+            ShowNotificationProcessor("Vui lòng chọn ca cho thứ hai trước khi copy cho các ngày khác");
+        }
+        else
+        {
+            var tue = $('#@Html.FieldIdFor(model => model.TueShiftID)').data("kendoDropDownList");
+            tue.value(_value);
+            var web = $('#@Html.FieldIdFor(model => model.WedShiftID)').data("kendoDropDownList");
+            web.value(_value);
+            var thur = $('#@Html.FieldIdFor(model => model.ThuShiftID)').data("kendoDropDownList");
+            thur.value(_value);
+            var fri = $('#@Html.FieldIdFor(model => model.FriShiftID)').data("kendoDropDownList");
+            fri.value(_value);
+            var sat = $('#@Html.FieldIdFor(model =>model.SatShiftID)').data("kendoDropDownList");
+            sat.value(_value);
+            var sun = $('#@Html.FieldIdFor(model => model.SunShiftID)').data("kendoDropDownList");
+            sun.value(_value);
+
+        }
+
+    });
+</script>
+@Html.ValidationSummary(false)
+@Html.AntiForgeryToken()
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>          
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div>
+                        <div style="float:left; width:450px">
+                            <div id="div2">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.ProfileID)
+                                </div>
+                                <div class="FieldValue">              
+                                    @{
+                                        IEnumerable valuePro = new string[] { };
+                                        if (Model != null)
+                                        {
+                                            valuePro = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+                                        }
+                                    }                     
+                                    @{
+                                        var mtsProfile = new MultiSelectBuilderInfo()
+                                        {
+                                            Name = "ProfileID",
+                                            DataTextField = "ProfileName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                            Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                            Value = valuePro
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.ProfileIds, mtsProfile))
+                                    @(Html.HiddenFor(model => model.ProfileIds))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div13">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Type)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var dropdownType = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "Type",
+                                            DataTextField = "Text",
+                                            DataValueField = "Value",
+                                            BindTo = listRosterType,
+                                            StyleCss = "width:200px;",
+                                            OptionLabel = @ConstantDisplay.HRM_Attendance_Roster_SelectRosterType.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.Type, dropdownType))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(m => m.DateStart)  
+                                </div>
+                                <div class="FieldValue">                                  
+                                   @{
+                                        var datepickerDateStart = new DatePickerBuilderInfo()
+                                        {
+                                            Value= new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).ToString(),
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateStart, datepickerDateStart)
+                                </div>
+                                <br />
+                            </div>           
+                            <div id="div4">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(m => m.DateEnd)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var datepickerDateEnd = new DatePickerBuilderInfo()
+                                        {
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                        if (DateTime.Now.Month + 1 > 12)
+                                        {
+                                            datepickerDateEnd.Value = new DateTime(DateTime.Now.Year + 1, (DateTime.Now.Month - 11), 1).AddDays(-1).ToShortDateString();
+                                        }
+                                        else
+                                        {
+                                            datepickerDateEnd.Value = new DateTime(DateTime.Now.Year, DateTime.Now.Month + 1, 1).AddDays(-1).ToShortDateString();
+                                        }
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateEnd, datepickerDateEnd)
+                                </div>
+                                <br />
+                            </div>                              
+                            <div id="div13">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Status)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var dropdownStatus = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "Status",
+                                            DataTextField = "Text",
+                                            DataValueField = "Value",
+                                            BindTo = listStatus,
+                                            Enable = false,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectStatus.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.Status, dropdownStatus))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.MonShiftID)
+                                </div>
+                                <div class="FieldValue">                                   
+                                    @{
+                                        var dropdownMonShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "MonShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.MonShiftID).ToString(),
+                                            Enable = true,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.MonShiftID, dropdownMonShiftID))
+                                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCopy", Content = ConstantAction.HRM_Common_Copy.TranslateString() })
+                                </div>
+                                
+                                    <br />
+                                </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.TueShiftID)
+                                </div>
+                                <div class="FieldValue">                                  
+                                    @{
+                                        var dropdownTueShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "TueShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.TueShiftID).ToString(),
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString(),
+                                            Enable = true,
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.TueShiftID, dropdownTueShiftID))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.WedShiftID)
+                                </div>
+                                <div class="FieldValue">                                  
+                                    @{
+                                        var dropdownWedShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "WedShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.WedShiftID).ToString(),
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString(),
+                                            Enable = true,
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.WedShiftID, dropdownWedShiftID))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.ThuShiftID)
+                                </div>
+                                <div class="FieldValue">                                  
+                                    @{
+                                        var dropdownThuShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "ThuShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.ThuShiftID).ToString(),
+                                            Enable = true,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.ThuShiftID, dropdownThuShiftID))
+                                    
+                                </div>
+                                <br />
+                            </div>                         
+                            </div>
+                        <div style="width:600px; display:block; float:left">
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.FriShiftID)
+                                </div>
+                                <div class="FieldValue">                                   
+                                    @{
+                                        var dropdownFriShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "FriShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.FriShiftID).ToString(),
+                                            Enable = true,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.FriShiftID, dropdownFriShiftID))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.SatShiftID)
+                                </div>
+                                <div class="FieldValue">                                  
+                                    @{
+                                        var dropdownSatShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "SatShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.SatShiftID).ToString(),
+                                            Enable = true,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.SatShiftID, dropdownSatShiftID))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.SunShiftID)
+                                </div>
+                                <div class="FieldValue">                                  
+                                    @{
+                                        var dropdownSunShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "SunShiftID",
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.SunShiftID).ToString(),
+                                            Enable = true,
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.SunShiftID, dropdownSunShiftID))
+                                </div>
+                                <br />
+                            </div>  
+                            <div id="div8">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.UserApproveID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        IEnumerable valueUserApprove = new string[] { };
+                                        if (Model != null)
+                                        {
+                                            valueUserApprove = new[] { new { UserInfoName = Model.UserApproveIDName, ID = Model.UserApproveID } };
+                                        }
+                                    }
+                                    @{
+                                        var multiSelectUserApproveID = new MultiSelectBuilderInfo()
+                                        {
+                                            Name = "UserApproveID",
+                                            DataTextField = "UserInfoName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_ROSTER.ToString(),
+                                            Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                            MaxSelectedItems = 1,
+                                            Value = valueUserApprove
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.UserApproveID, multiSelectUserApproveID))
+                                </div>
+                                <br />
+                            </div>
+                            <div id="div9">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.UserApproveID2)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        IEnumerable valueUserApprove2 = new string[] { };
+                                        if (Model != null)
+                                        {
+                                            valueUserApprove2 = new[] { new { UserInfoName = Model.UserApprove2IDName, ID = Model.UserApproveID2 } };
+                                        }
+                                    }
+                                    @{
+                                        var multiSelectUserApproveID2 = new MultiSelectBuilderInfo()
+                                        {
+                                            Name = "UserApproveID2",
+                                            DataTextField = "UserInfoName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_ROSTER.ToString(),
+                                            Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                            MaxSelectedItems = 1,
+                                            Value = valueUserApprove2
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.UserApproveID2, multiSelectUserApproveID2))
+                                </div>
+                                <br />
+                            </div>                               
+                            <div id="div13">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Comment)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextAreaFor(model => model.Comment)
+                                    @Html.ValidationMessageFor(model => model.Comment)
+                                </div>
+                                <br />
+                            </div>
+                        </div>
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>              
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+    @Html.HiddenFor(mode => mode.ID)
+    @Html.HiddenFor(mode => mode.IPCreate)
+</div>
+

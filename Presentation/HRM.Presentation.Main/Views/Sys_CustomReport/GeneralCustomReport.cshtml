@@ -1,0 +1,185 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@model Rep_MasterModel
+@{
+    Layout = null;
+    var _hrm_Att_Web = ConstantPathWeb.Hrm_Att_Web;
+    var _hrm_Att_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    var _hrm_Sal_Service = ConstantPathWeb.Hrm_Sal_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+<script type="text/javascript">
+    var ListObjectValue = [];
+    @{
+        if (Model.NodeList != null)
+        {
+            for (int i = 0; i < Model.NodeList.Count; i++)
+            {
+                <text>
+                    ListObjectValue.push("");
+                </text> 
+            }
+        }
+      
+    }
+    ListObjectValue.push("");
+
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        debugger;
+        var elementPara = {
+            ID: '@Model.ID',
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            ListObject: ListObjectValue,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    };
+
+    function btnSearch() {
+        ShowHre_ProgressBar();
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        $.ajax({
+            url: '@_hrm_Sys_Service' + "Sys_GetData/GeneralCustomReportData",
+            type: 'POST',
+            data: filterFieldInfo(false),
+            traditional: true,
+            datatype: 'json',
+            success: function (data) {
+                debugger;
+                var grid = VnrGridDynamic;
+                grid.GridName = "grid_CustomReport";
+                grid.DataSource = data.Data;
+                VnrGridDynamicControl(grid);
+                CloseHre_ProgressBar();
+            },
+            error: function () {
+                alert('@Html.Raw(ConstantDisplay.MessageError.TranslateString())');
+                CloseHre_ProgressBar();
+            }
+        });
+    };
+
+
+    $("#btnCreateTemplate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCGender');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Sys_Service' + '/Sys_GetData/GeneralCustomReportData', filterFieldInfo(true));
+    });
+
+
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        debugger;
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCGender');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + '/Sys_GetData/GeneralCustomReportData',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                debugger;
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+                }
+        });
+    });
+</script>
+
+
+
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                <strong>@Model.ReportName</strong>
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+        </div>
+    </div>
+</div>
+
+<div style="margin-top:20px;margin-bottom:20px">
+    @Html.Partial("EditorTemplates/RenderControl", Model.NodeList)
+</div>
+
+
+
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "btnSearch", Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+
+
+
+
+<div id="grid_CustomReport">
+
+</div>

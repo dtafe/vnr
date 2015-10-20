@@ -1,0 +1,542 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_LateEarlySearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_ComputeLeaveLateEarly.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    IList<SelectListItem> listComputeLeavedayType = Enum.GetValues(typeof(EnumDropDown.ComputeLeavedayType))
+    .Cast<EnumDropDown.ComputeLeavedayType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+}
+
+<script>
+    var permissionNotAllow_MsgCompute = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Compute.TranslateString())';
+    var permissionNotAllow_MsgSave = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Save.TranslateString())';
+    
+    SetFieldRequired();
+    var checkedNodes = [];
+     
+
+    //Xử Lý Grid
+    function filterFieldInfo(isExport) {
+        var _type = $('#msl_Type').val() != null ? $('#msl_Type').val().join(',') : $('#msl_Type').val();
+        var _profileID = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+        debugger;
+        return {
+            OrgStructureID: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ProfileIDs: _profileID,
+            Type: _type,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnCompute").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeLeaveLateEarly_Compute', false);
+            if (!isAccess) {
+                ShowNotificationProcessor(permissionNotAllow_MsgCompute);
+                return;
+            }
+            selectedIds = [];
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeLeaveLateEarlyValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var treeView = $("#treeviewOrg").data("kendoTreeView");
+                        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+                        var grid = $('#gridAtt_ComputeLeaveLateEarly').data("kendoGrid");
+                        grid.dataSource.read();
+                        checkedNodes = [];
+                    }
+                }
+            });
+        });
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_ComputeLeaveLateEarly').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/GetComputeLeaveLateEarly/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_ComputeLeaveLateEarly');
+
+        checkedNodes = [];
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportWorkDaySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_ComputeLeaveLateEarly');
+        selectedIds = [];
+    });
+
+
+    function doSaveLeave() {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeLeaveLateEarly_Save', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_MsgSave);
+            return;
+        }
+        
+        if ($("#LeaveDayTypeCode").val() == "") {
+            ShowNotificationProcessor("Loại Ngày Nghỉ Là Trường Bắt Buộc");//Chưa Dịch
+            return;
+        }
+        if ($("#UserApproved").val()== null) {
+            ShowNotificationProcessor("Người Duyệt Là Trường Bắt Buộc");//Chưa Dịch
+            return;
+        }
+
+        if (selectedIds.length ==0) {
+            ShowNotificationProcessor("Không Có Dữ Liệu Được Chọn !");//Chưa Dịch
+            return;
+        }
+
+        var leaveDayCode = $("#LeaveDayTypeCode").val() + "," + $("#UserApproved").val();
+        var comment = $("#Comment").val();
+
+        var grid = $("#gridAtt_ComputeLeaveLateEarly").data("kendoGrid");
+        parameterMap = grid.dataSource.transport.parameterMap;
+
+        var currentData = grid.dataSource.view();
+        var pageIndex = grid.dataSource.page() - 1;
+        var data = [];
+        
+        var radio = document.getElementsByName('selectOnePageOrAllPage');
+        
+        if (radio[0].checked) {//nếu chọn check one page thì chỉ kiểm tra các dòng trong page tương ứng đang selected
+            for (var i = 0; i < currentData.length; i++) {
+                if (selectedIds.indexOf(currentData[i].id) != -1)
+                    data.push(currentData[i].toJSON());
+            }
+        }
+        else {//Nếu chọn all page thì kiểm tra tất cả các dữ liệu
+            for (var i = 0; i < currentData.length; i++) {
+                data.push(currentData[i].toJSON());
+            }
+        }
+        
+        //Cập nhật lại select all page
+        radio[0].checked = true;
+        var lstModel = {};
+        $.extend(lstModel, parameterMap({ models: data, LeaveDay: leaveDayCode, Comment: comment }));
+        
+
+        ShowHre_ProgressBar();
+
+        $.ajax({
+            traditional: true,
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Att_GetData/SaveLeaveData',
+            data: lstModel,
+            dataType: 'json',
+            async: false,
+            success: function (Data) {
+                ShowNotificationProcessor(Data[0]);//Chưa Dịch
+            },
+            error: function (data) {
+                ShowNotificationProcessor("Lưu Thất Bại !");//Chưa Dịch
+            }
+        });
+
+        CloseHre_ProgressBar();
+
+    }
+
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        Search("btnSearch", "treeviewOrg", "gridAtt_ComputeLeaveLateEarly");
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+    });
+
+    $("#Att_ComputeWorkdayAdjust").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeWorkdayAdjust/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_ComputeOvertime").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeOvertime/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_OvertimeConfirm").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_OvertimeConfirm/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    function SaveChangeOnGrid(e) {
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Att_ComputeLeaveLateEarly', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Edit.TranslateString())');
+            e.preventDefault();
+            return;
+        }
+    };
+
+</script>
+<style>
+    .breadcrumb {
+        float: left;
+    }
+</style>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <div>
+                <h3 style="height:28px">
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    <div style=" width:100%">
+
+                        <div>
+                            @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                            <div style="float: right; margin-top: -2px">
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_ComputeWorkdayAdjust">
+                                    @Html.Label(ConstantDisplay.HRM_Attendance_ComputeWorkdayAdjust.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_ComputeOvertime">
+                                    @Html.Label(ConstantDisplay.HRM_Att_ComputeOvertime_Title.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+
+                                <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                <a id="Att_OvertimeConfirm">
+                                    @Html.Label(ConstantDisplay.HRM_Attendance_OvertimeConfirm.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+
+
+                </h3>
+            </div>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:450px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "ProfileName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+                <div style="width:500px; display:block; float:left">
+                    <div id="div5">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.Label(ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value=DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, _DateFrom)
+
+                            @{
+                                var _DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value=DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px;",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, _DateTo)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle" style="width:170px">
+                            @Html.VnrLabelFor(model => model.Type)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _type = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "msl_Type",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listComputeLeavedayType,
+                                    Placeholder = ConstantDisplay.HRM_Attendance_SelectType.TranslateString()
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(model => model.Type, _type)
+
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCompute", Content = ConstantAction.HRM_Common_Compute.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+    </div>
+    <div class="clear"></div>
+
+</div>
+<div style="overflow:hidden">
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        IList<SelectListItem> workdayStatus = Enum.GetValues(typeof(AttendanceDataStatus))
+.Cast<AttendanceDataStatus>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+
+        IList<SelectListItem> udLeavedayStatus1 = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+.Cast<EnumDropDown.OverTimeStatus>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+.ToList();
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            
+            {Att_WorkdayModel.FieldNames.udLeavedayCode1,new object[] { "CodeStatistic", "CodeStatistic", ViewData["Cat_LeaveDayType"], ConstantDisplay.HRM_Attendance_WorkDay_udLeavedayCode1,""}},
+            {Att_WorkdayModel.FieldNames.udLeavedayStatus1,new object[] { "Value", "Text", udLeavedayStatus1, ConstantDisplay.HRM_Attendance_WorkDay_udLeavedayStatus1,""}},
+
+        };
+
+        valueFields = new string[] {
+                Att_WorkdayModel.FieldNames.CodeEmp,
+                Att_WorkdayModel.FieldNames.ProfileName,
+                Att_WorkdayModel.FieldNames.WorkDate,
+                Att_WorkdayModel.FieldNames.ShiftCode,
+                Att_WorkdayModel.FieldNames.InTime1,
+                Att_WorkdayModel.FieldNames.TempTimeIn,
+                Att_WorkdayModel.FieldNames.OutTime1,
+                Att_WorkdayModel.FieldNames.TempTimeOut,
+                Att_WorkdayModel.FieldNames.udLeavedayCode1,
+                Att_WorkdayModel.FieldNames.udLeavedayStatus1,
+                Att_WorkdayModel.FieldNames.LateDuration1,
+                Att_WorkdayModel.FieldNames.EarlyDuration1,
+                Att_WorkdayModel.FieldNames.LateEarlyDuration,
+            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+            {
+                {Att_WorkdayModel.FieldNames.CodeEmp,70},
+                {Att_WorkdayModel.FieldNames.ProfileName,135},
+                {Att_WorkdayModel.FieldNames.WorkDate,85},
+                {Att_WorkdayModel.FieldNames.ShiftCode,90},
+                {Att_WorkdayModel.FieldNames.InTime1,81},
+                {Att_WorkdayModel.FieldNames.TempTimeIn,65},
+                {Att_WorkdayModel.FieldNames.OutTime1,81},
+                {Att_WorkdayModel.FieldNames.TempTimeOut,65},
+                {Att_WorkdayModel.FieldNames.udLeavedayCode1,100},
+                {Att_WorkdayModel.FieldNames.udLeavedayStatus1,110},
+                {Att_WorkdayModel.FieldNames.LateDuration1,62},
+                {Att_WorkdayModel.FieldNames.EarlyDuration1,62},
+                {Att_WorkdayModel.FieldNames.LateEarlyDuration,100}
+            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+                {Att_WorkdayModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Att_WorkdayModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_WorkDay_ProfileID},
+                {Att_WorkdayModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDay_WorkDate},
+                {Att_WorkdayModel.FieldNames.ShiftCode,ConstantDisplay.HRM_Category_Shift_ShiftName},
+                {Att_WorkdayModel.FieldNames.InTime1,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Date},
+                {Att_WorkdayModel.FieldNames.TempTimeIn,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Time},
+                {Att_WorkdayModel.FieldNames.OutTime1,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Date},
+                {Att_WorkdayModel.FieldNames.TempTimeOut,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Time},
+                {Att_WorkdayModel.FieldNames.udLeavedayCode1,ConstantDisplay.HRM_Attendance_WorkDay_udLeavedayCode1},
+                {Att_WorkdayModel.FieldNames.udLeavedayStatus1,ConstantDisplay.HRM_Attendance_WorkDay_udLeavedayStatus1},
+                {Att_WorkdayModel.FieldNames.LateDuration1,ConstantDisplay.HRM_Attendance_WorkDay_LateDuration},
+                {Att_WorkdayModel.FieldNames.EarlyDuration1,ConstantDisplay.HRM_Attendance_WorkDay_EarlyDuration},
+                {Att_WorkdayModel.FieldNames.LateEarlyDuration,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyDuration},
+            };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+            {
+                {Att_WorkdayModel.FieldNames.WorkDate, ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_WorkdayModel.FieldNames.InTime1, ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_WorkdayModel.FieldNames.OutTime1 , ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_WorkdayModel.FieldNames.TempTimeIn, ConstantFormat.HRM_Format_HourMinSecond},
+                {Att_WorkdayModel.FieldNames.TempTimeOut , ConstantFormat.HRM_Format_HourMinSecond},
+                {Att_WorkdayModel.FieldNames.LateDuration1 , ConstantFormat.HRM_Format_Number_Double},
+                {Att_WorkdayModel.FieldNames.EarlyDuration1 , ConstantFormat.HRM_Format_Number_Double},
+                {Att_WorkdayModel.FieldNames.LateEarlyDuration , ConstantFormat.HRM_Format_Number_Double},
+            };
+
+        string[] disableFields = new string[]
+            {
+                Att_WorkdayModel.FieldNames.CodeEmp,
+                Att_WorkdayModel.FieldNames.ProfileName,
+                Att_WorkdayModel.FieldNames.WorkDate,
+                Att_WorkdayModel.FieldNames.ShiftCode,
+                Att_WorkdayModel.FieldNames.InTime1,
+                Att_WorkdayModel.FieldNames.TempTimeIn,
+                Att_WorkdayModel.FieldNames.OutTime1,
+                Att_WorkdayModel.FieldNames.TempTimeOut,
+                Att_WorkdayModel.FieldNames.udLeavedayStatus1,
+                Att_WorkdayModel.FieldNames.LateDuration1,
+                Att_WorkdayModel.FieldNames.EarlyDuration1,
+                Att_WorkdayModel.FieldNames.LateEarlyDuration,
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ComputeLeaveLateEarly",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            FormatFields = formatFields,
+            DisplayFields = displayFields,
+            DisableFields = disableFields,
+            ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetComputeLeaveLateEarly",
+            ReadData = "filterFieldInfo",
+            EvenEdit = "onEdit",
+            ShowSaveButton = true,
+            ServerOperation = false,
+            ForeignKey = foreignKey,
+            Batch = true,
+            EditActionUrl = _hrm_Hre_Service + "Att_GetData/CreateInlineAdjust",
+            DeleteActionUrl = _hrm_Main_Web + "/Att_WorkDay/Remove/",
+            EditMode = GridEditMode.InCell,
+            ShowEditIcon = false,
+            Navigatable = true,
+            EventDataBound = "changePageGird",
+            EventSaveChanges = "SaveChangeOnGrid",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_WorkdayModel>(grid)
+    )
+</div>
+
+<div style="border: 1px solid #c5c5c5; border-top:0px; padding: 0px; width: 100%; background-color: #e9e9e9">
+    <table cellpadding="0" cellspacing="0" style="border: 0px solid #c5c5c5; margin-top:0px; padding:5px; width:1000px; height:40px">
+        <tr>
+            <td>
+                @Html.VnrLabel(ConstantDisplay.HRM_Attendance_Leaveday_LeaveDayTypeID.TranslateString())
+            </td>
+            <td>
+                @{
+                    var LeaveDayType = new DropDownListBuilderInfo()
+                    {
+                        Name = "LeaveDayTypeCode",
+                        DataTextField = "CodeStatistic",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiLeaveDayType",
+                        OptionLabel = @ConstantDisplay.HRM_Category_SelectLeaveDayType.TranslateString(),
+                        StyleCss = "width:200px",
+                    };
+                }
+                @Html.VnrDropDownList(LeaveDayType)
+            </td>
+            <td>
+                @Html.VnrLabel(ConstantDisplay.HRM_Attendance_AttendanceTable_UserApprove.TranslateString())
+            </td>
+            <td>
+                @{
+                    var multiSelectUserApprove = new MultiSelectBuilderInfo()
+                    {
+                        Name = "UserApproved",
+                        DataTextField = "UserInfoName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hre_Service + "Sys_GetData/GetMultiUser",
+                        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                        MaxSelectedItems = 1,
+                    };
+                }
+                @Html.VnrMultiSelect(multiSelectUserApprove).HtmlAttributes(new { style = "width:200px;" })
+            </td>
+            <td>
+                @Html.VnrLabel(ConstantDisplay.HRM_HR_Reward_Reason.TranslateString())
+            </td>
+            <td>
+                @{
+                    var _ta = new TextAreaBuilderInfo()
+                    {
+                        Name = "Comment",
+                        CssStyle = "width:300px; height:25px"
+                    };
+                }
+                @Html.VnrTextArea(_ta)
+            </td>
+            <td>
+                @Html.VnrButton(
+                new ButtonBuilderInfo() { EventClick = "doSaveLeave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath }
+            )
+            </td>
+        </tr>
+    </table>
+</div>
+<br />
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+

@@ -1,0 +1,326 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Insurance.Models
+@using HRM.Infrastructure.Security
+@model Ins_ReportInsCostCenterMonthlyModel 
+@{
+    //BC Dữ Liệu BH NV Theo Tháng (Group Theo CostCenter)
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    string[] valueFields = null;
+    var gridName = "gridIns_ReportInsCostCenterMonthly";
+}
+
+@Html.Hidden("Screen", screen)
+<script>
+    var checkedNodes = [];
+    SetFieldRequired();
+    var gridName = '@gridName';
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            MonthYear: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthYear").val()),
+            ValueFields: $('#valueFieldsGrid').val(),
+            CostCentreName: $("#CostCentreName").val(),
+            SocialInsPlaceIDs: $('#@Html.FieldIdFor(model => model.SocialInsPlaceID)').val() ? $('#@Html.FieldIdFor(model => model.SocialInsPlaceID)').val() : null,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            //validate
+            isCreateTemplate = false;
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/ReportInsCostCenterMonthlyValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+
+            //Chức năng tìm kiếm
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            ReadGrid(gridName);
+            selectedIds = [];
+            checkedNodes = [];
+            return false;
+        });
+
+    });
+
+    $("#btnExport").click(function () {
+        var isactive = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/ReportInsCostCenterMonthlyValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                    isactive = false;
+                    return isactive;
+                }
+            }
+        });
+        if (isactive == false) {
+            return;
+        }
+
+        ShowHre_ProgressBar();
+
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportJoinInsuranceMonthly');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + '/Ins_GetData/ReportInsCostCenterMonthly',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                CloseHre_ProgressBar();
+                if (returnValue == "-1") {
+                    alert("Lỗi Export: <br/>Vui lòng kiểm tra FileTemplate hoặc cấu hình ExportIntem");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + returnValue;
+                    window.location = url;
+                }
+            },
+            error: function () {
+                alert("Lỗi hàm Ajax khi Export");
+            }
+
+        });
+    });
+
+
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_Hrm_Hre_Service' + '/Ins_GetData/ReportInsCostCenterMonthly', filterFieldInfo(true));
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "220px",
+                                    Name = "treeviewOrg",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.CostCentreName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CostCentreName)
+                        </div>
+                    </div>  
+                </div>
+
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.MonthYear)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var RecordDateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_HR_MonthSearch.TranslateString(),
+                                    StyleCss = "width:100px",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.MonthYear, RecordDateFrom).Format(ConstantFormat.HRM_Format_MonthYear)
+                        </div>
+                    </div>
+
+                    <div id="dvWorkPlaceID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var multiSelectSocialInsPlaceID = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "ProvinceName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 10,
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                    Placeholder = ConstantDisplay.HRM_Ins_SelectWorkPlace.TranslateString(),
+                                    Width = 200
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.SocialInsPlaceID, multiSelectSocialInsPlaceID)
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_Hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = "Tạo temlate", ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+                        {
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.CostCentreName,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.ProfileAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsComAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsEmpAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneySocialInsurance,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsComAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsEmpAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyHealthInsurance,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployComAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployEmpAmount,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyUnEmpInsurance,
+                            Ins_ReportInsCostCenterMonthlyModel.FieldNames.IsPayback
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.CostCentreName, 80},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.ProfileAmount, 100},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsComAmount, 150},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsEmpAmount, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneySocialInsurance, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsComAmount, 150},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsEmpAmount, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyHealthInsurance, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployComAmount, 150},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployEmpAmount, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyUnEmpInsurance, 130},
+                            {Ins_ReportInsCostCenterMonthlyModel.FieldNames.IsPayback, 130}
+                        };
+
+        var displayFields = new Dictionary<string, string>()
+                        {
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.CostCentreName, ConstantDisplay.HRM_HR_Profile_CostCentreID},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.ProfileAmount, ConstantDisplay.HRM_INS_RptD02TS_CountProfile},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsComAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.SocialInsEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_SocialInsEmpAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneySocialInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneySocialInsurance},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsComAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.HealthInsEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_HealthInsEmpAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyHealthInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneyHealthInsurance},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployComAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployComAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.UnemployEmpAmount, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_UnemployEmpAmount},
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.MoneyUnEmpInsurance, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_MoneyUnEmpInsurance},                   
+                        {Ins_ReportInsCostCenterMonthlyModel.FieldNames.IsPayback, ConstantDisplay.HRM_Insurance_AnalyzeInsurance_IsPayback}                       
+                        
+                        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowEditIcon = false,
+            ReadActionUrl = _Hrm_Hre_Service + "Ins_GetData/ReportInsCostCenterMonthly",
+            ReadData = "filterFieldInfo",
+        };
+    }
+    @(Html.VnrGrid<Ins_ReportInsCostCenterMonthlyModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

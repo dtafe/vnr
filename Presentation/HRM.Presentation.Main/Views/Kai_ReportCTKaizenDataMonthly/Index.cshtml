@@ -1,0 +1,249 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@using HRM.Infrastructure.Security
+@model Kai_ReportKaizenDetailModel
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+<script>
+    SetFieldRequired();
+    var gridName = 'Grid_Kai_ReporKTaizenData';
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+   function filterFieldInfo(isExport) {
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            @*DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),*@
+            OrgStructureID: checkedNodes.join(','),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+
+        $("#btnSearch").click(function () {
+            var datefrom = $("#DateFrom").val();
+            var dateto = $("#DateTo").val();
+            if (datefrom == "") {
+                ShowNotificationProcessor("Error,Từ Ngày Không Được Rỗng !");
+                return;
+            }
+            if (dateto == "") {
+                ShowNotificationProcessor("Error,Đến Ngày Không Được Rỗng !");
+                return;
+            }
+
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid(gridName);
+            checkedNodes = [];
+        });
+    });
+
+    $("#btnExport").click(function () {
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportProfileNew');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Hre_GetData/GetReportKaizenMonthly/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hre_Service' + "Hre_GetData/GetReportKaizenMonthly", filterFieldInfo(true));
+    });
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.Label(ConstantDisplay.HRM_Salary_KaizenDataMonthApply.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var datepickerMonthStart = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Format = ConstantFormat.HRM_Format_MonthYear,
+                                   // Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, datepickerMonthStart)
+
+                            @*@{
+                                var datepickerMonthEnd = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Format = ConstantFormat.HRM_Format_MonthYear,
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, datepickerMonthEnd)*@
+
+                        </div>
+                        <br />
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        string[] valueFields = new string[]
+                            {
+                                Kai_ReportKaizenDetailModel.FieldNames.CodeEmp,
+                                Kai_ReportKaizenDetailModel.FieldNames.ProfileName,
+              Kai_ReportKaizenDetailModel.FieldNames.E_UNIT,
+                       Kai_ReportKaizenDetailModel.FieldNames.E_DIVISION,
+                Kai_ReportKaizenDetailModel.FieldNames.E_DEPARTMENT,
+                 Kai_ReportKaizenDetailModel.FieldNames.E_TEAM,
+                Kai_ReportKaizenDetailModel.FieldNames.E_SECTION,
+
+
+                                Kai_ReportKaizenDetailModel.FieldNames.SumAmount,
+                               // Kai_ReportKaizenDetailModel.FieldNames.Notes,
+                            };
+
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                 {Kai_ReportKaizenDetailModel.FieldNames.CodeEmp, 100},
+                                 {Kai_ReportKaizenDetailModel.FieldNames.ProfileName, 150},
+  {Kai_ReportKaizenDetailModel.FieldNames.E_DEPARTMENT,135},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_DIVISION,135},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_SECTION,135},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_TEAM,135},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_UNIT,135},
+
+                                 {Kai_ReportKaizenDetailModel.FieldNames.SumAmount,130},
+                                // {Kai_ReportKaizenDetailModel.FieldNames.Notes,130},
+
+                            };
+        Dictionary<string, bool> Filterable = new Dictionary<string, bool>()
+                            {
+                                 {Kai_ReportKaizenDetailModel.FieldNames.CodeEmp, true},
+                                 {Kai_ReportKaizenDetailModel.FieldNames.ProfileName, true},
+                                 {Kai_ReportKaizenDetailModel.FieldNames.SumAmount,true},
+                               //  {Kai_ReportKaizenDetailModel.FieldNames.Notes,true},
+
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Kai_ReportKaizenDetailModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Kai_ReportKaizenDetailModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                           {Kai_ReportKaizenDetailModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Kai_ReportKaizenDetailModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                                {Kai_ReportKaizenDetailModel.FieldNames.SumAmount, ConstantDisplay.HRM_Kai_KaiZenData_SumAmount},
+                               // {Kai_ReportKaizenDetailModel.FieldNames.Notes, ConstantDisplay.HRM_Kai_KaiZenData_Accumulate},
+
+                            };
+
+        var grid = new GridBuilderInfo
+        {
+
+            Name = "Grid_Kai_ReporKTaizenData",
+            ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportKaizenMonthly/",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = Filterable,
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Kai_ReportKaizenDetailModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+

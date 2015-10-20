@@ -1,0 +1,141 @@
+﻿@using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Hr.Models.Hre_ContractModel
+@{
+    ViewBag.Title = "Update HreContract";
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+<script>
+
+    function doEditProfile() {
+        debugger;
+        var contractType = $("#ContractTypeID").data("kendoMultiSelect");
+        if (contractType != undefined)
+        {
+            if (contractType._dataItems[0].Type != null && contractType._dataItems[0].Type != "E_NODURATION") {
+                if ($("#DateEnd").val() == "") {
+                    ShowNotification("Thông Báo", '@ConstantMessages.WaringDateEndGreaterThanDateStart.ToString().TranslateString()', "k-block k-info-colored");
+                    return;
+                }
+            }
+            
+        }
+    
+      
+        var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        ProfileID != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val(ProfileID.join(',')) : null;
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        checkedNodes != null ? $('#@Html.FieldIdFor(model => model.OrgStructureIDs)').val(checkedNodes.join(',')) : null;
+        $("#OrgStructureIDs").val(checkedNodes.join(','));
+
+
+        var _dateStart = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val());
+        var _dateEnd = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val());
+        var _dateSigned = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateSigned").val());
+        @*if (_dateEnd < _dateStart) {
+            CloseHre_ProgressBar();
+
+            ShowNotification("Thông Báo", '@ConstantMessages.WaringDateEndGreaterThanDateStart.ToString().TranslateString()', "k-block k-info-colored");
+            return;
+        }*@ 
+        $("#DateStart").val(_dateStart);
+        $("#DateEnd").val(_dateEnd);
+        $("#DateSigned").val(_dateSigned);
+        var _CreateBasicSalary = document.getElementById("CreateBasicSalary");
+        if (_CreateBasicSalary != null && _CreateBasicSalary.checked) {
+            $("#CreateBasicSalary").val("true");
+        } else {
+            $("#CreateBasicSalary").val("false");
+        }
+        var result = false;
+        //if (CheckValidate(data)) {
+            onCreate($('#form-create'), '@_hrm_Hr_Service', 'api/Hre_Contract/', "popupNotification");
+            result = true;
+        //}
+        return result;
+    };
+    function doSaveNew() {
+        if (doEditProfile()) {
+            KendoRouteMapping('#Hrm_Hre_Web/Hre_Contract/Create/', 'Hrm_Hre_Web', '@_hrm_Main_Web');
+        }
+    }
+
+
+    // Nút export selected
+    $("#btnExportByTemplate").click(function () {
+
+
+        
+        //if (selectedIds == "") {
+        //    
+        //    ErrorMessages('Vui Lòng Chọn Dữ Liệu Để Xuất.');
+        //    return;
+        //}
+        var currentLocation = window.location.href;
+        //Tách link thành 2 phần: trước và sau dấu #
+        var strArray = currentLocation.split('#');
+        var strArray2 = strArray[1].split('/');
+
+        //Ẩn hết tất cả các validate default của kendo
+        $(document.body).find("span.k-tooltip-validation").hide();
+
+        var controllerName = strArray2[1];
+        var screenName = strArray2[1] + "/" + strArray2[2];
+
+        //return;
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportContractByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = $("#ID").val();
+     
+        //alert(selectedIds);
+        ExportSelected(urlGetData, listIds, screenName, urlDownload, '@ConstantPermission.Hre_Contract');
+    });
+
+</script>
+<div>
+    @ViewBag.MsgUpdate
+</div>
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.HreContractIconPath" alt="" width="20" height="20" />
+                        @*@ConstantDisplay.HRM_HR_Contract_Update.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_HR_Back_To_Contract_List.TranslateString() + ")", "Index")*@
+                        @ConstantDisplay.HRM_HR_Contract_Update.TranslateString()<a class="link-back" onclick="clickBackContract()" style="padding-left: 3px">(@ConstantDisplay.HRM_HR_Back_To_Contract_List.TranslateString())</a>
+                    </div>
+                </div>
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doEditProfile", Name = "btnEditProfile", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-new", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        <div style="float:right">
+                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportByTemplate", Content = ConstantAction.HRM_Common_ExportByTemplate.TranslateString(), ImageUrl = ConstantPath.IconWord })
+                        </div>
+                    </div>
+                </div>
+                @Html.Partial("TabStripInformation", Model)
+            </div>
+        </div>
+    </div>
+</form>
+<script>
+    function clickBackContract() {
+        var link = $("#CurrentLinkForClickBack").val();
+        if (link == "") {
+            KendoRouteMapping("#Hrm_Main_Web/GeneralProfile/Index#NewTab", "Hrm_Main_Web", '@_hrm_Main_Web');
+        }
+        else
+        {
+            clickBack();
+        }
+    }
+</script>

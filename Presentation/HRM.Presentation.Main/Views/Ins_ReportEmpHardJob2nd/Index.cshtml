@@ -1,0 +1,287 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Insurance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model  Ins_ReportEmpHardJob2ndModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var gridName = "gridIns_ReportEmpHardJob2nd";
+    IList<SelectListItem> listD02 = Enum.GetValues(typeof(EnumDropDown.HDTJobType))
+   .Cast<EnumDropDown.HDTJobType>()
+   .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+   .ToList();
+}
+@Html.Hidden("Screen", screen)
+<script type="text/javascript">
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    var gridName = '@gridName';
+
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),          
+            MonthYear: $('#@Html.FieldIdFor(model => model.MonthYear)').val(),
+            All: $("#All").is(":checked"),           
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#All").prop("checked", true);
+        //
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Ins_GetData/Ins_ReportEmpHardJob2ndValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            ReadGrid(gridName);
+            selectedIds = [];
+            checkedNodes = [];
+            return false;
+        });
+
+        $("#btnExport").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportEmpHardJob2nd');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+
+            var urlGetData = '@_hrm_Hre_Service' + '/Ins_GetData/Ins_ReportEmpHardJob2nd';
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true);
+            ExportAll(urlGetData, dataParameter, urlDownload);
+            return false;
+        });
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+  
+    $("#btnExport").click(function () {
+        ShowHre_ProgressBar();
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportEmpHardJob2nd');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + '/Ins_GetData/Ins_InsuranceRptD03TS',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                CloseHre_ProgressBar();
+                if (returnValue == "-1") {
+                    alert("Lỗi Export: <br/>Vui lòng kiểm tra FileTemplate hoặc cấu hình ExportIntem");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + returnValue;
+                    window.location = url;
+                }
+            },
+            error: function () {
+                alert("Lỗi hàm Ajax khi Export");
+            }
+
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hre_Service' + '/Ins_GetData/Ins_InsuranceRptD03TS', filterFieldInfo(true));
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                        <div class="hrm_box">
+                            <div id="dvPerformanceTemplateID">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.MonthYear)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var monthYear = new DatePickerBuilderInfo() { Name = "MonthYear", StyleCss = "Width:100px;" };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.MonthYear, monthYear).Format(ConstantFormat.HRM_Format_MonthYear)
+                                </div>
+                            </div>
+                                                      
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_HR_Profile_OrgStructureName.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div> 
+                        </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+                            {
+                               Ins_ReportEmpHardJob2ndModel.FieldNames.Stt,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.CodeEmp,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.ProfileName,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.JobName,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.AmountHDTIns,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.HDTJobType,
+                                Ins_ReportEmpHardJob2ndModel.FieldNames.DaysNonHDTJob,
+                            };
+
+
+        //Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        //{
+
+        //    {Ins_ReportEmpHardJob2ndModel.FieldNames.HDTJobType,new object[]{ "Value", "Text", listD02, ConstantDisplay.HRM_INS_RptD02TS_Status,""}},
+        //};
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.Stt,60},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.CodeEmp,100},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.ProfileName,150},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.JobName,200},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.AmountHDTIns,120},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.HDTJobType,150},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.DaysNonHDTJob,250},
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.Stt,ConstantDisplay.HRM_INS_RptD02TS_STT},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},                             
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.JobName,ConstantDisplay.HRM_Insurance_AnalyzeInsurance_JobName},                             
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.AmountHDTIns,ConstantDisplay.HRM_Canteen_Report_AmountSubtractHDTJob},                                                             
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.HDTJobType,ConstantDisplay.HRM_Category_HDTJobType_Type},                             
+                                {Ins_ReportEmpHardJob2ndModel.FieldNames.DaysNonHDTJob,ConstantDisplay.HRM_INS_Ins_ReportEmpHardJob2nd_DaysNonHDTJob},                             
+                               
+                            };
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Ins_ReportEmpHardJob2ndModel.FieldNames.HDTJobType,new object[]{ "Value", "Text", listD02, ConstantDisplay.HRM_Category_HDTJobType_Type,""}},
+        };                  
+                            
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            ForeignKey=foreignKey,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Ins_GetData/Ins_ReportEmpHardJob2nd",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Ins_ReportEmpHardJob2ndModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

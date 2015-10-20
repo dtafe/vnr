@@ -1,0 +1,413 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_RptInOutAdjustmentSearchModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportRptInOutAdjustmentValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridAtt_RptInOutAdjustment').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            return false;
+        });
+    });
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportInOutAdjustment');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportRptInOutAdjustment/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+
+    });
+
+    function filterFieldInfo(isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _TAMScanReasonMissIDs = $('#@Html.FieldIdFor(model => model.TAMScanReasonMissIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.TAMScanReasonMissIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.TAMScanReasonMissIDs)').val();
+        var _PayrollGroupIDs = $('#@Html.FieldIdFor(model => model.PayrollGroupIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.PayrollGroupIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.PayrollGroupIDs)').val();
+
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureIDs: checkedNodes.join(','),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            TAMScanReasonMissIDs: _TAMScanReasonMissIDs,
+            PayrollGroupIDs: _PayrollGroupIDs,
+            ValueFields: $('#valueFieldsGrid').val(),
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportRptInOutAdjustment', filterFieldInfo(true));
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:430px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, _DateFrom)
+                            @{
+                                var _DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, _DateTo)
+                        </div>
+                    </div>
+
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div style="width:550px; display:block; float:left">
+                    <div id="div6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.TAMScanReasonMissIDs)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @{
+                                    var _TAMScanReasonMissIDs = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "TAMScanReasonMissName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiTamScanReasonMiss",
+                                        Value = @Html.DisplayFor(mode => mode.TAMScanReasonMissIDs).ToString(),
+                                        Enable = true,
+                                        Placeholder = @ConstantDisplay.HRM_Category_LeaveDayType_SelectTAMScanReasonMiss.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.TAMScanReasonMissIDs, _TAMScanReasonMissIDs))
+                            </div>
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.PayrollGroupIDs)
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+                            @{
+                                var _PayrollGroupIDs = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "PayrollGroupName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                    Enable = true,
+                                    Placeholder = @ConstantDisplay.HRM_Category_SelectPayrollGroup.TranslateString()
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.PayrollGroupIDs, _PayrollGroupIDs))
+                        </div>
+
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float: right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        IList<SelectListItem> listStatus = Enum.GetValues(typeof(EnumDropDown.WorkdayStatus))
+          .Cast<EnumDropDown.WorkdayStatus>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+          .ToList();
+        IList<SelectListItem> listSrcType = Enum.GetValues(typeof(EnumDropDown.WorkdaySrcType))
+          .Cast<EnumDropDown.WorkdaySrcType>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+          .ToList();
+        IList<SelectListItem> listType = Enum.GetValues(typeof(EnumDropDown.WorkdayType))
+          .Cast<EnumDropDown.WorkdayType>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+          .ToList();
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_ReportInOutAdjustmentModel.FieldNames.Status,new object[]
+               { "Value", "Text", listStatus, ConstantDisplay.HRM_Attendance_WorkDay_Status,""}},
+                  {Att_ReportInOutAdjustmentModel.FieldNames.SrcType,new object[]
+               { "Value", "Text", listSrcType, ConstantDisplay.HRM_Attendance_WorkDay_SrcType,""}},
+                         {Att_ReportInOutAdjustmentModel.FieldNames.Type,new object[]
+               { "Value", "Text", listType, ConstantDisplay.HRM_Attendance_WorkDay_Type,""}},
+            };
+        string[] valueFields = new string[]
+                            {
+                                Att_ReportInOutAdjustmentModel.FieldNames.CodeEmp,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ProfileName,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgCode,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgName,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ShiftName,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameActual,
+                                Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameApprove,
+                                Att_ReportInOutAdjustmentModel.FieldNames.InTime1,
+                                Att_ReportInOutAdjustmentModel.FieldNames.OutTime1,
+                                Att_ReportInOutAdjustmentModel.FieldNames.InTimeRoot,
+                                Att_ReportInOutAdjustmentModel.FieldNames.OutTimeRoot,
+                                Att_ReportInOutAdjustmentModel.FieldNames.WorkDate,
+                                Att_ReportInOutAdjustmentModel.FieldNames.Type,
+                                Att_ReportInOutAdjustmentModel.FieldNames.SrcType,
+                                Att_ReportInOutAdjustmentModel.FieldNames.Status,
+                                Att_ReportInOutAdjustmentModel.FieldNames.Note,
+                                Att_ReportInOutAdjustmentModel.FieldNames.LateDuration1,
+                                Att_ReportInOutAdjustmentModel.FieldNames.EarlyDuration1,
+                                Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyDuration,
+                                Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyRoot,
+                                Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyReason,
+                                Att_ReportInOutAdjustmentModel.FieldNames.SectionCode,
+                                Att_ReportInOutAdjustmentModel.FieldNames.BrandCode,
+                                Att_ReportInOutAdjustmentModel.FieldNames.TeamCode,
+
+                                Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateLess2h,
+                                Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateOver2h,
+                                Att_ReportInOutAdjustmentModel.FieldNames.MissInOutReason,
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateFrom,
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateTo,
+                                Att_ReportInOutAdjustmentModel.FieldNames.UserExport,
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateExport,
+                            };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileName,135},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.CodeEmp,70},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftName,90},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameActual,90},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameApprove,103},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.InTime1,70},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTime1,70},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.InTimeRoot,90},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTimeRoot,85},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.WorkDate,81},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Type,90},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.SrcType,96},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Status,80},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Note,150},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateDuration1,110},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyDuration1,100},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyDuration,100},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyRoot,70},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyReason,101},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.SectionCode,75},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.BrandCode,100},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.TeamCode,75},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgCode,100},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgName,100},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateLess2h,113},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateOver2h,116},
+                                 {Att_ReportInOutAdjustmentModel.FieldNames.MissInOutReason,150}
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_ShiftId},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameActual,ConstantDisplay.HRM_Attendance_WorkDay_ShiftActualName},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ShiftNameApprove,ConstantDisplay.HRM_Attendance_WorkDay_ShiftApproveName},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.InTime1,ConstantDisplay.HRM_Attendance_WorkDay_InTime1},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTime1,ConstantDisplay.HRM_Attendance_WorkDay_OutTime1},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.InTimeRoot,ConstantDisplay.HRM_Attendance_WorkDay_InTimeRoot},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTimeRoot,ConstantDisplay.HRM_Attendance_WorkDay_OutTimeRoot},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDay_WorkDate},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Type,ConstantDisplay.HRM_Attendance_WorkDay_Type},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.SrcType,ConstantDisplay.HRM_Attendance_WorkDay_SrcType},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Status,ConstantDisplay.HRM_Attendance_WorkDay_Status},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.Note,ConstantDisplay.HRM_Attendance_WorkDay_Note},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateDuration1,ConstantDisplay.HRM_Attendance_WorkDay_LateDuration1},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyDuration1,ConstantDisplay.HRM_Attendance_WorkDay_EarlyDuration1},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyDuration,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyDuration},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyRoot,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyRoot},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.LateEarlyReason,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyReason},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.SectionCode,ConstantDisplay.HRM_Attendance_SectionCode},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.BrandCode,ConstantDisplay.HRM_Attendance_BranchCode},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.TeamCode,ConstantDisplay.HRM_Attendance_TeamCode},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgCode,ConstantDisplay.HRM_Attendance_ReportInOutAdjustment_ProfileOrgCode},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.ProfileOrgName,ConstantDisplay.HRM_Attendance_ReportInOutAdjustment_ProfileOrgName},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateLess2h,ConstantDisplay.HRM_Attendance_ReportInOutAdjustment_EarlyLateLess2h},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.EarlyLateOver2h,ConstantDisplay.HRM_Attendance_ReportInOutAdjustment_EarlyLateOver2h},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.MissInOutReason,ConstantDisplay.HRM_Attendance_WorkDay_MissInOutReason},
+                                             {Att_ReportInOutAdjustmentModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport}
+                            };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+                                 {Att_ReportInOutAdjustmentModel.FieldNames.InTime1,ConstantFormat.HRM_Format_HourMinSecond},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTime1,"{0:HH:mm:ss}"},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.InTimeRoot,"{0:HH:mm:ss}"},
+                                {Att_ReportInOutAdjustmentModel.FieldNames.OutTimeRoot,"{0:HH:mm:ss}"},
+        };
+        string[] hiddenfield = new string[]
+                            {
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateFrom,
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateTo,
+                                Att_ReportInOutAdjustmentModel.FieldNames.UserExport,
+                                Att_ReportInOutAdjustmentModel.FieldNames.DateExport,
+
+                            };
+
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_RptInOutAdjustment",
+            ValueFields = valueFields,
+            HiddenFields = hiddenfield,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportRptInOutAdjustment",
+            ShowNextPrevious = true,
+            ShowPageNumber = true,
+            ReadData = "filterFieldInfo",
+            ServerOperation = false,
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            ForeignKey = foreignKey,
+            FormatFields = formatFields,
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportInOutAdjustmentModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

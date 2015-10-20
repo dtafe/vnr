@@ -1,0 +1,406 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ProfileNotRosterModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_ProfileNotRoster.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var date = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    var dateStartMonth = date;
+    var dateEndMonth = date.AddMonths(1).AddMilliseconds(-1);
+}
+
+<script type="text/javascript">
+    var checkedNodes = [];
+     
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+
+        var _isConstantRoster = document.getElementById("isConstantRoster");
+
+        if (_isConstantRoster.checked) {
+            $("#isConstantRoster").val("true");
+        } else {
+            $("#isConstantRoster").val("false");
+        }
+        return {
+            OrgStructureId: checkedNodes.join(','),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            isNotRoster: $('#@Html.FieldIdFor(model => model.isNotRoster)').val(),
+            isDuplicateRoster: $('#@Html.FieldIdFor(model => model.isDuplicateRoster)').val(),
+            isConstantRoster: $('#@Html.FieldIdFor(model => model.isConstantRoster)').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        
+        var checkedNotRoster = document.getElementById("isNotRoster");
+        checkedNotRoster.checked = true;
+
+        if (checkedNotRoster.checked == true) {
+            $("#isNotRoster").val("true");
+        } else {
+            $("#isNotRoster").val("false");
+        }
+
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+            ReadGrid("gridAtt_ProfileNotRoster");
+            //var grid = $('#gridAtt_ProfileNotRoster').data("kendoGrid");
+            //grid.dataSource.read();
+            //checkedNodes = [];
+         
+            selectedIds = [];
+        });
+
+        $('input[type=radio]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+
+        var _isNotRoster = $('#@Html.FieldIdFor(model => model.isNotRoster)');
+        var _isDuplicateRoster = $('#@Html.FieldIdFor(model => model.isDuplicateRoster)');
+
+
+
+        _isNotRoster.click(function (e) {
+            _isDuplicateRoster.prop("checked", false);
+            _isDuplicateRoster.val(false);
+            _isNotRoster.val(true);
+
+        });
+
+        _isDuplicateRoster.click(function (e) {
+            _isNotRoster.prop("checked", false);
+            _isDuplicateRoster.val(true);
+            _isNotRoster.val(false);
+
+        });
+        ShowHidePanel();
+    });
+
+    var profileID = "";
+    function SelectRow(e) {
+        var selectedRows = this.select();
+        var selectedDataItems = [];
+        var dataItem = this.dataItem(selectedRows[0]);
+        profileID = dataItem.ID;
+    }
+
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ProfileNotRoster/Edit/' + profileID, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_ProfileNotRoster");
+
+    $("#btnExportAll").click(function () {
+        
+        var grid = $('#gridAtt_ProfileNotRoster').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetProfileNotRosterList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Roster');
+    });
+
+    $("#btnExportSelected").click(function () {
+        
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportProfileNotRosterSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        var listFields = $('#valueFieldsGrid').val();
+        
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_Roster');
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form action="#" method="POST" id="form-search">
+                    <div style="float: left; width: 500px">
+                        <div id="div3">
+                            <div class="FieldTitle" style="width:170px">
+                                @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px",
+                                        Value = dateStartMonth.ToString()
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, DateStart)
+
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px",
+                                        Value = dateEndMonth.ToString()
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, DateEnd)
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle" style="width:170px">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                    </div>
+                    <div style="width: 500px; display: block; float: left; ">
+                        
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.isNotRoster)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrRadioButtonFor(mode => mode.isNotRoster, "groupRadioRoster")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div7">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.isDuplicateRoster)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrRadioButtonFor(mode => mode.isDuplicateRoster, "groupRadioRoster")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div8">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.isConstantRoster)
+                                
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _isConstantRoster = new CheckBoxBuilderInfo()
+                                   {
+
+                                   };
+                                }
+                                @Html.VnrCheckBoxFor(mode => mode.isConstantRoster, _isConstantRoster)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <br>
+        </div>
+    </div>
+
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_AddNewRoster.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <div class="btn-group">
+                <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                    <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                    @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                    <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu pull-right" role="menu">
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                    <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                </ul>
+            </div>
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeProfileNotRoster", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        </div>
+    </div>
+</div>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id,'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridAtt_ProfileNotRoster_Grid_Name + "__Att_ProfileNotRosterIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridAtt_ProfileNotRoster_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Att_GetData/GetProfileNotRosterList",
+            ReadData = "filterFieldInfo",
+            EventDataBound = "changePageGird",
+            SelectionHandler = "SelectRow",
+            ShowEditIcon = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Att_ProfileModel.FieldNames.CodeEmp,
+                Att_ProfileModel.FieldNames.ProfileName,
+            
+                Att_ProfileModel.FieldNames.CodeAttendance,
+                         Att_ProfileModel.FieldNames.E_UNIT,
+                       Att_ProfileModel.FieldNames.E_DIVISION,
+                Att_ProfileModel.FieldNames.E_DEPARTMENT,
+                 Att_ProfileModel.FieldNames.E_TEAM,
+                Att_ProfileModel.FieldNames.E_SECTION,
+
+                Att_ProfileModel.FieldNames.PositionName,
+                Att_ProfileModel.FieldNames.DateHire,
+                Att_ProfileModel.FieldNames.DateEndProbation,
+                Att_ProfileModel.FieldNames.DateQuit,
+                Att_ProfileModel.FieldNames.Gender,
+                Att_ProfileModel.FieldNames.Cellphone,
+                Att_ProfileModel.FieldNames.Email
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Att_ProfileModel.FieldNames.CodeEmp, 75},
+                {Att_ProfileModel.FieldNames.ProfileName, 135},
+         
+                {Att_ProfileModel.FieldNames.CodeAttendance, 119},
+              {Att_ProfileModel.FieldNames.E_UNIT,135},
+                {Att_ProfileModel.FieldNames.E_DIVISION,135},
+
+                {Att_ProfileModel.FieldNames.E_TEAM,135},
+                {Att_ProfileModel.FieldNames.E_DEPARTMENT,135},
+                {Att_ProfileModel.FieldNames.E_SECTION,135},
+
+                {Att_ProfileModel.FieldNames.PositionName, 70},
+                {Att_ProfileModel.FieldNames.DateHire, 100},
+                {Att_ProfileModel.FieldNames.DateEndProbation, 130},
+                {Att_ProfileModel.FieldNames.DateQuit, 103},
+                {Att_ProfileModel.FieldNames.Gender, 70},
+                {Att_ProfileModel.FieldNames.Cellphone, 125},
+                {Att_ProfileModel.FieldNames.Email, 145},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Att_ProfileModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Att_ProfileModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+           
+                {Att_ProfileModel.FieldNames.CodeAttendance, ConstantDisplay.HRM_HR_Profile_CodeAttendance},
+                         {Att_ProfileModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Att_ProfileModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Att_ProfileModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Att_ProfileModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Att_ProfileModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Att_ProfileModel.FieldNames.PositionName, ConstantDisplay.HRM_HR_Profile_PositionName},
+                {Att_ProfileModel.FieldNames.DateHire, ConstantDisplay.HRM_HR_Profile_DateHire},
+                {Att_ProfileModel.FieldNames.DateEndProbation, ConstantDisplay.HRM_HR_Profile_DateEndProbation},
+                {Att_ProfileModel.FieldNames.DateQuit, ConstantDisplay.HRM_HR_Profile_DateQuit},
+                {Att_ProfileModel.FieldNames.Gender, ConstantDisplay.HRM_HR_Profile_Gender},
+                {Att_ProfileModel.FieldNames.Cellphone, ConstantDisplay.HRM_HR_Profile_CellPhone},
+                {Att_ProfileModel.FieldNames.Email, ConstantDisplay.HRM_HR_Profile_Email}
+            };
+
+            //grid.HyperlinkFields = new Dictionary<string, string>()
+            //{
+            //    {Att_ProfileModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            //};
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridAtt_ProfileNotRoster",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ShowEditIcon = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetProfileNotRosterList",
+        //    ReadData = "filterFieldInfo",
+        //    SelectionHandler="SelectRow",
+        //    EventDataBound = "changePageGird",
+        //    HyperlinkFields = hyperlinkFields
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ProfileModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeProfileNotRoster", "Att_ProfileModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

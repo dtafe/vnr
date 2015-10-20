@@ -1,0 +1,304 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.HrmSystem.Models
+
+@model HRM.Presentation.Payroll.Models.Sal_UnusualAllowanceModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+}
+
+<script>
+    //SetFieldRequired();
+    SetFieldRequiredByScreenName("Sal_BonusEvalutionYearInfo");
+
+    function Pagrameter() {
+        debugger;
+        var UnusualEDTypeID = $("#Bonus_UnusualEDTypeID").data("kendoComboBox").value();
+        var CurrencyID = $("#Bonus_CurrencyID").data("kendoComboBox").value();
+        var Element = $("#Bonus_Element").data("kendoComboBox").value();
+        var WorkingPlace = $("#WorkingPlaceID").data("kendoMultiSelect");
+
+        return {
+            OrgStructureIDs: $("#OrgStructureIDs").val(),
+            ProfileIDs: $("#ProfileIDs").val(),
+            ExProfileIDs: $("#ProfileIDs").val(),            
+            MonthStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Bonus_MonthStart").val()),
+            //MonthEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Bonus_MonthEnd").val()),
+            UnusualEDTypeID: UnusualEDTypeID,
+            WorkingPlaceID: WorkingPlace.value().join(','),
+            CurrencyID: CurrencyID,
+            Element: Element,
+        };
+    };
+
+    function onSave() {
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComputeBonus',
+            data: Pagrameter(),
+            type: 'POST',
+            async: false,
+            success: function (data) {
+                if (data[0] == 'error' && data[1] != null) {
+                    ShowNotificationProcessor(data[1]);
+                } else {
+                    IsActiveProgress = true;
+                    CloseWindows('WindowBonusEvalutionYear');
+                    ShowProgressBar(data);
+                }
+            },
+            error: function (data) {
+                ShowNotificationProcessor('@ConstantDisplay.HRM_UpdateFail.TranslateString()');
+                IsActiveProgress = false;
+            }
+        });
+    };
+
+    function ShowProgressBar(id) {
+        if (IsActiveProgress) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPercentComplete',
+                data: { id: id },
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (!isNaN(data)) {
+                        //UpdateValueProgress(data);
+                        CreateProgress(data);
+                        setTimeout(function () {
+                            if (data < 100) {
+                                ShowProgressBar(id);
+                            }
+                            else {
+                                ReadGrid("@ConstantControlName.HRM_Payroll_UnusualEDChild_Grid_Name");
+                            }
+                        }, 1000);
+                    }
+                },
+                error: function (data) {
+                    window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");//Chưa Dịch!
+                    IsActiveProgress = false;
+                }
+            });
+        }
+    };
+    function FilterDataUnusualEDType() {
+        return {
+            text: 'BonusEvaluation',
+        };
+    };
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Sal_BonusEvalutionYear" }))
+{
+    <table>
+        <tr>
+            <td>
+                <div id="div1">
+                    <div class="FieldTitle150">
+                        @(Html.HiddenFor(model => model.ProfileIDs))
+                        @(Html.HiddenFor(model => model.OrgStructureIDs))
+                        @(Html.HiddenFor(model => model.ExProfileIDs))
+                        @*@Html.VnrLabel(ConstantDisplay.HRM_Rec_Interview_CandidateName.TranslateString())*@
+                        @Html.VnrLabelFor(model => model.ProfileName)
+                        
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    //IEnumerable valuepro = new string[] { };
+    //if (Model != null)
+    //{
+    //    valuepro = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+    //}
+
+    var _ProfileIDs1 = new MultiSelectBuilderInfo
+    {
+
+        DataTextField = "ProfileName",
+        DataValueField = "ID",
+        Url = @_hrm_Hr_Service + "Hre_GetData/GetAllMultiProfile",
+        //  MaxSelectedItems = 1,
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+        //Value = valuepro
+    };
+                        }
+                        @{
+    var ProfileOrOrgStructure = new HRM.Presentation.UI.Controls.VnrSelectProfileOrOrgStructure()
+    {
+        Name = "SelectProfileOrOrgStructure",
+        ProfileMultiSelect = _ProfileIDs1,
+        BindingProfileForField = "ProfileIDs",
+        BindingOrgStructureForField = "OrgStructureIDs",
+        BindingExclusionProfileForField = "ExProfileIDs"
+
+    };
+                        }
+                        @Html.Partial("EditorTemplates/SelectProfileOrOrgStructure", ProfileOrOrgStructure)
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+                @*<div id="div4">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var org = new TreeViewDropdDownBuilderInfo()
+                            {
+                                Name = "OrgStructureBonusEvalutionYear",
+                            };
+                        }
+                        @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                    </div>
+                </div>*@
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.WorkingPlaceID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _WorkingPlaceID = new MultiSelectBuilderInfo()
+                            {
+                                Width = 300,
+                                // Name = "SShopID",
+                                DataTextField = "WorkPlaceName",
+                                DataValueField = "ID",
+                                Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                            };
+                        }
+                        @(Html.VnrMultiSelectFor(mode => mode.WorkingPlaceID, _WorkingPlaceID))
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @*@Html.VnrLabelFor(model => model.MonthStart)*@
+                        @Html.VnrLabel(ConstantDisplay.HRM_Payroll_UnusualED_MonthComputeBonus.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _ds = new DatePickerBuilderInfo()
+                            {
+                                Name = "Bonus_MonthStart",
+                                StyleCss = "Width: 120px",
+                                Placeholder = ConstantDisplay.HRM_Common_Search_Month.TranslateString(),
+                                Format = ConstantFormat.HRM_Format_Grid_MonthYear
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.MonthStart, _ds)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.UnusualEDTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlUnusualEDType = new ComboBoxBuilderInfo()
+    {
+        StyleCss = "Width:300px;background-color:WhiteSmoke",
+        Name = "Bonus_UnusualEDTypeID",
+        DataTextField = "UnusualAllowanceCfgName",
+        DataValueField = "ID",
+        Data = "FilterDataUnusualEDType",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUnusualAllowanceCfgBonusEvaluation",
+        Autobind = true,
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.UnusualEDTypeID, ddlUnusualEDType).SelectedIndex(0))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.CurrencyID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlCurrency = new ComboBoxBuilderInfo()
+    {
+        Name = "Bonus_CurrencyID",
+        StyleCss = "width:300px;",
+        DataTextField = "CurrencyName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrencyVND",
+        ServerFilter = true,
+        Autobind = true,
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.CurrencyID, ddlCurrency))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Element)
+                    </div>
+                    <div class="FieldValue">
+
+                        @{
+    var _ElementName = new ComboBoxBuilderInfo()
+    {
+        Name = "Bonus_Element",
+        DataTextField = "ElementName",
+        DataValueField = "ID",
+        Url = @_hrm_Cat_Service + "Cat_GetData/GetElementTypeBonusEvaluation",
+        Placeholder = ConstantDisplay.HRM_Category_SelectElementType.TranslateString(),
+        StyleCss = "Width:300px;background-color:WhiteSmoke",
+        // ServerFilter = true,
+        Autobind = true,
+    };
+                        }
+                        @Html.VnrComboBoxFor(mode => mode.Element, _ElementName).SelectedIndex(0)
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <hr />
+                <div>
+                    <div class="FieldTitle150">
+                    </div>
+                    <div class="FieldValue">
+                        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-ConfigElement", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-ConfigElement", Content = ConstantAction.HRM_Common_ComputeBonus.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+                        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-ConfigElement", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+
+
+}
+<div>
+    <script>
+        debugger;
+        $(document).ready(function () {
+            var comboboxCurrencyID = $("#Bonus_CurrencyID").data("kendoComboBox");
+            comboboxCurrencyID.value("VND");
+            var comboboxElement = $("#Bonus_Element").data("kendoComboBox");
+            comboboxElement.readonly(true);
+            var comboboxElement = $("#Bonus_UnusualEDTypeID").data("kendoComboBox");
+            comboboxElement.readonly(true);
+        });
+        //var comboboxUnusualEDTypeID = $("#Bonus_UnusualEDTypeID").data("kendoComboBox");
+        //comboboxUnusualEDTypeID.value("BonusEvaluation");
+        //var comboboxCurrencyID = $("#Bonus_CurrencyID").data("kendoComboBox");
+        //comboboxCurrencyID.value("VND");
+        //var comboboxElement = $("#Bonus_Element").data("kendoComboBox");
+        //comboboxElement.readonly(true);
+        //multiselectElement.value("BonusEvaluation");
+        //multiselectElement.selectedIndex = 1;
+        //var combobox = $("#combobox").data("kendoComboBox");
+        //combobox.readonly(true);
+
+        //var combobox = $("#combobox").data("kendoComboBox");
+        //combobox.readonly(true);
+    </script>
+</div>

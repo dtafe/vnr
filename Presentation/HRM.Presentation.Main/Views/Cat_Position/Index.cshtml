@@ -1,0 +1,317 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.Category.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Category.Models.CatPositionSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Category_Position.TranslateString();
+    Layout = null;
+    //var _hrm_Cat_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    
+     var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+
+@Html.Hidden("Screen", screen)
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_gridCatPosition_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_Position/PositionInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+
+
+<script type="text/javascript">
+
+    var titleCreate = '@Html.Raw(ConstantDisplay.HRM_Category_Position_AddNew.TranslateString())';
+    var titleUpdate = '@Html.Raw(ConstantDisplay.HRM_Category_Position_Update.TranslateString())';
+    $(document).ready(function () {
+
+    });
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+
+        var PositionName = $('#SPositionName').val();
+        var Code = $('#SCode').val();
+        return {
+            PositionName: PositionName,
+            Code: Code,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //function filterFieldInfo() {
+    //    var _form = $('#form-search');
+    //    var queryEntity = _form.serialize();
+    //    var entity = queryStringToJSON(queryEntity);
+    //    return entity;
+    //}
+
+    //Hàm xử lý sự kiện edit trên lưới
+    function eEditPosition(e) {
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Position');
+        if (!isAccess) {
+            return;
+        }*@
+        e.preventDefault();
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+        var ID = dataItem.ID;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Position/Edit/' + ID, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        //Jump Anchor
+
+        jumpAnchor("anchor");
+
+
+        //
+        $("#btnSearch").click(function () {
+
+            var grid = $('#gridCatPosition').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        //Xử Lý Grid
+        GridCheckbox("gridCatPosition");
+        //Xử lý nút Edit
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Position');
+        if (!isAccess) {
+            return;
+        }*@
+
+        var url = '@_hrm_Main_Web' + "Cat_Position/PositionInfo/";
+        EditGridPopUp("gridCatPosition", '@ConstantControlName.HRM_gridCatPosition_PopUp_Name', url, '@ConstantPermission.Cat_Position', titleUpdate);
+        //Xử lý nút Delete
+        @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_Position');
+        if (!isAccess) {
+            return;
+        }
+        DeleteGrid("gridCatPosition", '@_hrm_Cat_Web' + "Cat_Position/Remove/");*@
+        //Xử lý nút Create
+        $("#btnCreate").click(function () {
+            @*KendoRouteMapping('#Hrm_Main_Web/Hre_StopWorking/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');*@
+            PopUpCreate('@ConstantControlName.HRM_gridCatPosition_PopUp_Name', titleCreate, '@ConstantPermission.Cat_Position');
+        });
+        $('#btnDelete').click(function (e) {
+            @*var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_Position');
+            if (!isAccess) {
+                return;
+            }*@
+            if (selectedIds == "") {
+                DeleteFail();
+                return;
+            }
+            e.preventDefault();
+
+            DeleteSelected("gridCatPosition", '@_hrm_Main_Web' + "Cat_Position/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Cat_Position');
+
+            return false;
+        });
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportOrgStrucTypeSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_Position');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridCatPosition').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllPositionList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_Position');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.PositionName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtPositionName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "SPositionName",
+                                };
+                            }
+                            @Html.VnrTextBoxFor(mode => mode.PositionName, txtPositionName)
+                        </div>
+                    </div>
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Code)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtCode = new TextBoxBuilderInfo()
+                                {
+                                    Name = "SCode",
+                                };
+                            }
+                            @Html.VnrTextBoxFor(mode => mode.Code, txtCode)
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    @*<div style="float:left">*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @*</div>*@
+    <div style="float: right">
+        @*<div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnPosition", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridCatPosition_Name + "__Cat_Position_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridCatPosition_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetPositionList/",
+            ReadData = "filterFieldInfo"
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                CatPositionModel.FieldNames.Code,
+                CatPositionModel.FieldNames.PositionName,
+                CatPositionModel.FieldNames.CostCentreName,
+                CatPositionModel.FieldNames.OrgStructureName,
+                CatPositionModel.FieldNames.Description,
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {CatPositionModel.FieldNames.Code, 80},
+                {CatPositionModel.FieldNames.PositionName,150},
+                {CatPositionModel.FieldNames.CostCentreName, 100},
+                {CatPositionModel.FieldNames.OrgStructureName, 155},
+                {CatPositionModel.FieldNames.Description, 200},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {CatPositionModel.FieldNames.Code, ConstantDisplay.HRM_Category_Position_Code},
+                {CatPositionModel.FieldNames.PositionName, ConstantDisplay.HRM_Category_Position_PositionName},
+                {CatPositionModel.FieldNames.CostCentreName, ConstantDisplay.HRM_Category_JobTitle_CostCentreID},
+                {CatPositionModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_JobTitle_OrgStructureID},
+                {CatPositionModel.FieldNames.Description, ConstantDisplay.HRM_Category_Position_Description},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = "gridCatPosition",
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetPositionList/",
+    //    ReadData = "filterFieldInfo"
+    //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Category.Models.CatPositionModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnPosition", "CatPositionModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

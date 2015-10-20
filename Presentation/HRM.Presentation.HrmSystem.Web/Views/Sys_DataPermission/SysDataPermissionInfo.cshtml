@@ -1,0 +1,152 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@model Sys_DataPermissionModel
+@using HRM.Presentation.HrmSystem.Models
+@{
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+<script>
+    var checkedNodes = [];
+    var data = SetCharacteFieldRequired();
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    function doSaveAndContinue() {
+        if (!CheckValidate(data)) {
+            return;
+        }
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var dataPara = {
+            UserID: $("#hId").val(),
+            GroupID: $('#@Html.FieldIdFor(model => model.GroupID)').val(),
+            Branches: checkedNodes,
+        };
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'api/SysDataPermission/Post',
+            data: dataPara,
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                var window = $("#windowSysDataPermission").data("kendoWindow");
+                window.refresh();
+                var grid = $("#gridDataPermission").data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+            }
+        });
+    }
+
+    function onSaveAndClose() {
+        if (!CheckValidate(data)) {
+            return;
+        }
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var dataPara = {
+            UserID: $("#hId").val(),
+            GroupID: $('#@Html.FieldIdFor(model => model.GroupID)').val(),
+            Branches: checkedNodes,
+        };
+
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'api/SysDataPermission/Post',
+            data: dataPara,
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                var window = $("#windowSysDataPermission").data("kendoWindow");
+                window.refresh();
+                window.close();
+                var grid = $("#gridDataPermission").data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+            }
+        });
+    }
+</script>
+<!--Form dùng cho edit và update-->
+@{
+    var userName = ViewBag.userName == null ? string.Empty : ViewBag.userName.ToString();
+    var userId = ViewBag.userId == null ? 0 : (int)ViewBag.userId;
+}
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_sys_DataPermission" }))
+{
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.UserID)
+        </div>
+        <div class="FieldValue">
+            
+            @*@{
+                    var mtsUser = new MultiSelectBuilderInfo()
+                    {
+                        Name ="UserID",
+                        DataTextField = Sys_GroupUserModel.FieldNames.UserName,
+                        DataValueField = Sys_GroupUserModel.FieldNames.Id,
+                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                        Enable = false,
+                        //Autobind=true,
+                        //Value = new[] { @Html.DisplayFor(model => model.UserName).ToString() },
+                        MaxSelectedItems = 1,
+                        //EventDataBound = "setValue"
+                    };
+                }
+                @(Html.VnrMultiSelectFor(model => model.UserID, mtsUser))*@
+            
+            <input class="k-textbox" name="UserName" type="text" value="@userName" disabled="disabled" style="width:400px" />
+
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabelFor(mode => mode.GroupID)
+        </div>
+        <div class="FieldValue">
+            @{
+    var mtsGroup = new MultiSelectBuilderInfo()
+    {
+        DataTextField = Sys_GroupUserModel.FieldNames.GroupName,
+        DataValueField = Sys_GroupUserModel.FieldNames.ID,
+        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiGroup",
+        Placeholder = ConstantDisplay.HRM_System_SelectGroup.TranslateString(),
+        MaxSelectedItems = 1,
+    };
+            }
+            @(Html.VnrMultiSelectFor(model => model.GroupID, mtsGroup))
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+            @Html.VnrLabel("Phòng ban")
+        </div>
+        <div class="FieldValue">
+            @Html.Partial("EditorTemplates/OrgStructureTreeView")
+        </div>
+    </div>
+    <div>
+        <div class="FieldTitle">
+
+        </div>
+        <div class="FieldValue">
+            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveAndContinue", Name = "SaveAndContinue", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveAndClose", Name = "SaveAndClose", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+        </div>
+    </div>
+}
+
+

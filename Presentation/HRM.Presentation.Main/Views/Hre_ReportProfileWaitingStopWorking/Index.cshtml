@@ -1,0 +1,455 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.Main.Controllers
+@using HRM.Presentation.UI.Controls.Kendo
+@model Hre_ReportProfileWaitingStopWorkingSearchModel
+
+@{
+    ViewBag.Title = "Profiles Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+    //string[] valueFields = null;
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+    .Cast<EnumDropDown.Gender>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+
+    IList<SelectListItem> listTypeOfStop = Enum.GetValues(typeof(EnumDropDown.TypeOfStop))
+.Cast<EnumDropDown.TypeOfStop>()
+.Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+.ToList();
+
+    IList<SelectListItem> listStopWorkStatus = Enum.GetValues(typeof(EnumDropDown.StopWorkStatus))
+   .Cast<EnumDropDown.StopWorkStatus>()
+   .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+   .ToList();
+
+}
+@Html.Hidden("Screen", screen)
+
+<style>
+    .k-state-selected {
+        color: #fff !important;
+        background-color: #5A83B1 !important;
+        border-color: #5A83B1 !important;
+    }
+</style>
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        debugger;
+        var codeEmp = $('#@Html.FieldIdFor(model => model.CodeEmp)').val();
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+        var _ResignReasonID = $('#@Html.FieldIdFor(model => model.ResignReasonID)').val();
+        var _DateFrom=ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val());
+        var _DateTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val());
+        var _Status=$('#@Html.FieldIdFor(model => model.Status)').val();
+        var dataParameter = {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: codeEmp,
+            OrgStructureID: checkedNodes.join(','),
+            JobTitleID: jobTitleID ? jobTitleID[0] : null,
+            PositionID: positionID ? positionID[0] : null,
+            ResignReasonID: _ResignReasonID,
+            DateFrom:_DateFrom ,
+            DateTo: _DateTo,
+            Status: _Status,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        debugger;
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+
+        return dataParameter;
+    }
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridHre_ReportProfileIsWaitingStopWorking').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        ShowHidePanel();
+        @*EditGridNewPage("gridHre_Profile", '#Hrm_Hre_Web/Hre_Profile/Edit/', 'Hrm_Hre_Web', '@_hrm_Main_Web');*@
+    });
+
+    $("#btnExport").click(function () {
+        debugger;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportProfileWaitingStopWorking');
+        if (!isAccess) {
+            return;
+        }
+        var _idexport = $('#ddlScreenName').val();
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Hre_GetData/GetReportProfileIsWaitingStopWorkingList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Hre_GetData/GetReportProfileIsWaitingStopWorkingList', filterFieldInfo(true));
+    });
+</script>
+<div id="grid_Demo"></div>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form action="#" method="POST" id="form-search">
+                    <div>
+                        <div class="hrm_box">
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.ProfileName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.ProfileName)
+                                </div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.CodeEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.CodeEmp)
+                                </div>
+                            </div>
+                            <div id="div14">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hrm_box">
+
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.ResignReasonID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var resignReasonID = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "ResignReasonName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiResignReason",
+                                            OptionLabel = ConstantDisplay.PlaceHolder.TranslateString(),
+                                            Autobind = false
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(mode => mode.ResignReasonID, resignReasonID)
+                                </div>
+
+                            </div>
+                            <div id="div14">
+                                <div class="FieldTitle150">
+                                    <b>
+                                        @ConstantDisplay.HRM_HR_Profile_DateQuit.TranslateString()
+                                    </b>
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var dateFrom = new DatePickerBuilderInfo()
+                                        {
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                                    @{
+                                        var dateTo = new DatePickerBuilderInfo()
+                                        {
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                                </div>
+                            </div>
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.Status)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _status = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "Text",
+                                            DataValueField = "Value",
+                                            BindTo = listStopWorkStatus
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(model => model.Status, _status)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                        <div class="hrm_box">
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.PositionID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var positionID = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = Hre_ContractModel.FieldNames.PositionName,
+                                            DataValueField = Hre_ContractModel.FieldNames.ID,
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                            ServerFiltering = true,
+                                            MaxSelectedItems = 1,
+                                            Autobind = true,
+                                            Value = new string[] { @Html.DisplayFor(mode => mode.PositionID).ToString() }
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.PositionID, positionID))
+                                </div>
+                            </div>
+                            <div id="5">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.JobTitleID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var jobTitle = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = Hre_ContractModel.FieldNames.JobTitleName,
+                                            DataValueField = Hre_ContractModel.FieldNames.ID,
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                            MaxSelectedItems = 1,
+                                            Autobind = true,
+                                            Value = new string[] { @Html.DisplayFor(mode => mode.JobTitleID).ToString() }
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.JobTitleID, jobTitle))
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        
+        var foreignkey = new Dictionary<object, object[]>()
+        {
+            {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TypeOfStop,new object[]
+                   { "Value", "Text", listTypeOfStop, ConstantDisplay.HRM_Attendance_Overtime_Status,""}},
+              
+        };
+           
+        
+        var valueFields = new[]
+            {
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.CodeEmp,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ProfileName,
+              Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_UNIT,
+                       Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DIVISION,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DEPARTMENT,
+                 Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_TEAM,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_SECTION,
+
+
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitName,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitCode,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentName,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentCode,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionName,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionCode,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamName,
+                //Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamCode,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PositionName,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateOfBirth,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Gender,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PlaceOfBirth,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDPlaceOfIssue,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PAddress,   
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.HomePhone,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Cellphone,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDNo,   
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDDateOfIssue,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateHire,    
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SalaryClassName,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.GraduatedLevelName,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.EducationLevelName,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateQuit,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TypeOfStop,
+                Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ResignReasonName,
+            
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.CodeEmp,80},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ProfileName,140},
+                  {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DEPARTMENT,135},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DIVISION,135},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_SECTION,135},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_TEAM,135},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_UNIT,135},
+
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitName,90},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitCode,80},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentName,90},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentCode,80},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionName,90},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionCode,80},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamName,90},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamCode,80},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PositionName,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateOfBirth,90},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Gender,80},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PlaceOfBirth,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDPlaceOfIssue,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PAddress,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.HomePhone,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Cellphone,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDNo,100},  
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDDateOfIssue,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateHire,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SalaryClassName,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.GraduatedLevelName,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.EducationLevelName,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateQuit,90},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TypeOfStop,100},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ResignReasonName,100},
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+            
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitName,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_UnitName},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.UnitCode,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_UnitCode},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentName,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_DepartmentName},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DepartmentCode,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_DepartmentCode},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionName,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_SectionName},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SectionCode,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_SectionCode},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamName,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_TeamName},
+                //{Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TeamCode,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_TeamCode},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PositionName,ConstantDisplay.HRM_HR_Profile_PositionName},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateOfBirth,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_DateOfBirth},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Gender,ConstantDisplay.HRM_HR_Profile_Gender},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PlaceOfBirth,ConstantDisplay.HRM_HR_Profile_PlaceOfBirth},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDPlaceOfIssue,ConstantDisplay.HRM_HR_Profile_IDPlaceOfIssue},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.PAddress,ConstantDisplay.HRM_HR_Profile_PAddressID},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.HomePhone,ConstantDisplay.HRM_HR_Profile_HomePhone},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.Cellphone,ConstantDisplay.HRM_HR_Profile_CellPhone},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDNo,ConstantDisplay.HRM_HR_Profile_IDNo},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.IDDateOfIssue,ConstantDisplay.HRM_HR_Profile_IDDateOfIssue},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_Profile_DateHire},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.SalaryClassName,ConstantDisplay.HRM_HR_Profile_SalaryClassName},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.GraduatedLevelName,ConstantDisplay.HRM_HR_Profile_GraduatedLevelID},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.EducationLevelName,ConstantDisplay.HRM_HR_Profile_EducationLevel},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.DateQuit,ConstantDisplay.HRM_HR_ReportProfileWaitingStopWorking_DateQuit},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.TypeOfStop,ConstantDisplay.HRM_HR_StopWorking_TypeOfStop},
+                {Hre_ReportProfileWaitingStopWorkingModel.FieldNames.ResignReasonName,ConstantDisplay.HRM_HR_Profile_ResignReason},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_ReportProfileIsWaitingStopWorking",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Hre_GetData/GetReportProfileIsWaitingStopWorkingList/",
+            ReadData = "filterFieldInfo",
+            ForeignKey=foreignkey,
+            ShowCheckAll = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false
+        };
+    }
+    @(Html.VnrGrid<Hre_ReportProfileWaitingStopWorkingModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,554 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+
+@{
+    //ViewBag.Title = "Salary CostCentre Index";
+   
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+  
+   
+}
+@{
+ var profileID = Guid.Empty;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+    }
+}
+
+
+<div style="padding-top:3px">
+            <!--Khen thưởng-->
+            <div>
+                @{
+                    var window = new WindowBuilderInfo
+                    {
+                        Name = "windowQualifitcation",
+                        Visible = false,
+                        Width = 700,
+                        LoadContentFrom = @_hrm_Main_Web + "Hre_ProfileQualification/QualificationInfo?profileID=" + profileID,
+                    };
+                }
+                @(Html.VnrWindow(window))
+                <script>
+                    var titleCreatePopUpQualification = '@Html.Raw(ConstantDisplay.HRM_HR_Qualification_AddNew.TranslateString())';
+                    var titleEditPopUpQualification = '@Html.Raw(ConstantDisplay.HRM_HR_Qualification_Update.TranslateString())';
+                     
+
+                    //Xử lý sự kiện click button tìm kiếm
+                    $(document).ready(function () {
+
+                        $("#btnSearchQualification").click(function () {
+                            ReadGrid("grid_Qualification");
+                        });
+
+                        //Show Hide Panel
+                        ShowHidePanel();
+
+                        //Xử lý Edit
+                        var url = '@_hrm_Main_Web' + "Hre_ProfileQualification/QualificationInfo/";
+                        EditGridPopUp("grid_Qualification", "windowQualifitcation", url, '@ConstantPermission.Hre_Qualification', titleEditPopUpQualification);
+                    });
+
+                    //Xử lý tạo mới
+                    $("#btnCreateQualification").click(function () {
+                        
+                        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Qualification');
+                        if (!isAccess) {
+                            return;
+                        }
+                        var x = '@profileID';
+                        if (x == '') {
+                            PopUpCreate("windowError");
+                        }
+                        else {
+                            var url = '@_hrm_Main_Web' + "Hre_ProfileQualification/QualificationInfo/";
+                            PopUpEdit("windowQualifitcation", url, SelectID, titleCreatePopUpQualification);
+                        }
+                    });
+
+                    //Xử Lý grid
+                    GridCheckbox("grid_Qualification");
+
+                    //Xử lý delete
+                    $('#btnDeleteQualification').click(function (e) {
+                        
+                        if (selectedIds == "") {
+                            DeleteFail();
+                            return;
+                        }
+                        e.preventDefault();
+                        DeleteSelected("grid_Qualification", '@_hrm_Main_Web' + "Hre_ProfileQualification/RemoveSelecteds/", selectedIds, '@ConstantPermission.Hre_Qualification');
+                        selectedIds = [];
+                        return false;
+                    });
+
+                    //Expoprt
+                    $("#btnExportAll").click(function () {
+
+                        var grid = $('#grid_Qualification').data("kendoGrid");
+                        if (grid.dataSource.total() == 0) {
+                            ExportAllFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var dataParameter = filterFieldInfo(true);
+                        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Qualification');
+                    });
+
+                    $("#btnExportSelected").click(function () {
+                        if (selectedIds == "") {
+                            ExportSelectedFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var listIds = selectedIds.join(",");
+                        var listFields = $('#valueFieldsGrid').val();
+                        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Qualification');
+                    });
+
+                </script>
+
+                <div class="commandToolBarWidge">
+                    <div class="GridTitle">
+                        @Html.VnrLabel(ConstantDisplay.HRM_HR_Qualification.TranslateString())
+                       
+                    </div>
+                    <div style="float:right">
+                        @*<div class="btn-group">
+                            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                                <span class="caret"></span>
+                            </button>
+                            <ul class="dropdown-menu pull-right" role="menu">
+                                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                            </ul>
+                        </div>*@
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateQualification", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteQualification", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                    </div>
+                    <div class="clear"></div>
+                </div>
+
+                <div>
+                    <!--Khai báo các thông tin cho Grid-->
+                    @using HRM.Presentation.Hr.Models
+                    @using HRM.Presentation.UI.Controls.Kendo
+                    @{
+                        valueFields = new[]
+                        {
+                            Hre_ProfileQualificationModel.FieldNames.QualificationName,
+                            Hre_ProfileQualificationModel.FieldNames.CertificateName,
+                            Hre_ProfileQualificationModel.FieldNames.NameEntityName,
+                            Hre_ProfileQualificationModel.FieldNames.DateFinish,
+                            Hre_ProfileQualificationModel.FieldNames.TrainingPlace,
+                            Hre_ProfileQualificationModel.FieldNames.FieldOfTraining
+                        };
+
+                        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Hre_ProfileQualificationModel.FieldNames.QualificationName,140},
+                            {Hre_ProfileQualificationModel.FieldNames.CertificateName,100},
+                            {Hre_ProfileQualificationModel.FieldNames.NameEntityName,70},
+                            {Hre_ProfileQualificationModel.FieldNames.DateFinish,100},
+                            {Hre_ProfileQualificationModel.FieldNames.TrainingPlace,90},
+                            {Hre_ProfileQualificationModel.FieldNames.FieldOfTraining,120},
+                        };
+
+                        var filterable = new Dictionary<string, bool>()
+                        {
+
+                        };
+
+                        var displayFields = new Dictionary<string, string>()
+                        {
+                            {Hre_ProfileQualificationModel.FieldNames.QualificationName,ConstantDisplay.HRM_HR_Qualification_QualificationName},
+                            {Hre_ProfileQualificationModel.FieldNames.CertificateName,ConstantDisplay.HRM_HR_Qualification_CertificateName},
+                            {Hre_ProfileQualificationModel.FieldNames.NameEntityName,ConstantDisplay.HRM_HR_Qualification_SpecialLevelID},
+                            {Hre_ProfileQualificationModel.FieldNames.DateFinish,ConstantDisplay.HRM_HR_Qualification_DateFinish},
+                            {Hre_ProfileQualificationModel.FieldNames.TrainingPlace,ConstantDisplay.HRM_HR_Qualification_TrainingPlace},
+                            {Hre_ProfileQualificationModel.FieldNames.FieldOfTraining,ConstantDisplay.HRM_HR_Qualification_FieldOfTraining},
+                        };
+
+                        var grid = new GridBuilderInfo
+                        {
+
+                            Name = "grid_Qualification",
+                            ValueFields = valueFields,
+                            SizeFields = sizeFields,
+                            DisplayFields = displayFields,
+                            ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetQualificationID?profileID=" + profileID,
+                           // ReadData = "filterFieldInfo",
+                            AutoBind = true,
+                            GridHeight = 162,
+                            ShowDeleteButton = true,
+                            ShowCheckAll=false,
+                        };
+                    }
+
+                    @(Html.VnrGrid<Hre_ProfileQualificationModel>(grid))
+                </div>
+                @{
+                    var valueFields1 = string.Empty;
+                    for (int i = 0; i < valueFields.Count(); i++)
+                    {
+                        valueFields1 += "," + valueFields[i];
+                    }
+                }
+                @Html.Hidden("valueFieldsGrid", valueFields1)
+            </div>
+        </div>
+<div>
+            <!--Kỹ luật-->
+            <div>
+                @{
+                    var windowDisc = new WindowBuilderInfo
+                    {
+                        Name = "windowComputing",
+                        Visible = false,
+                        Width = 700,
+                        LoadContentFrom = @_hrm_Main_Web + "Hre_Computing/ComputingInfo?profileID=" + profileID,
+                    };
+                }
+                @(Html.VnrWindow(windowDisc))
+                <script>
+                    var titleEditPopUpDiscipline = '@Html.Raw(ConstantDisplay.HRM_HR_Computing_Edit.TranslateString())';
+                    var titleCreatePopUpDiscipline = '@Html.Raw(ConstantDisplay.HRM_HR_Computing_AddNew.TranslateString())';
+                     
+
+                    //Xử lý sự kiện click button tìm kiếm
+                    $(document).ready(function () {
+
+                        $("#btnSearchComputing").click(function () {
+                            ReadGrid("grid_Computing");
+                        });
+
+                        //Show Hide Panel
+                        ShowHidePanel();
+
+                        //Xử lý Edit
+                        var url = '@_hrm_Main_Web' + "Hre_Computing/ComputingInfo/";
+                        EditGridPopUp("grid_Computing", "windowComputing", url, '@ConstantPermission.Hre_Discipline', titleEditPopUpDiscipline);
+                    });
+
+                    //Xử lý tạo mới
+                    $("#btnCreateComputing").click(function () {
+                        
+                        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Discipline');
+                        if (!isAccess) {
+                            return;
+                        }
+                        var x = '@profileID';
+                        if (x == '') {
+                            PopUpCreate("windowError");
+                        }
+                        else {
+                            var url = '@_hrm_Main_Web' + "Hre_Computing/ComputingInfo/";
+                            PopUpEdit("windowComputing",url,SelectID ,titleCreatePopUpDiscipline);
+                        }
+                    });
+
+                    //Xử Lý grid
+                    GridCheckbox("grid_Computing");
+
+                    //Xử lý delete
+                    $('#btnDeleteComputing').click(function (e) {
+                        if (selectedIds == "") {
+                            DeleteFail();
+                            return;
+                        }
+                        e.preventDefault();
+                        DeleteSelected("grid_Computing", '@_hrm_Main_Web' + "Hre_Computing/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Hre_Discipline');
+                        return false;
+                    });
+
+                    //Expoprt
+                    $("#btnExportAllComputing").click(function () {
+                        var grid = $('#grid_Computing').data("kendoGrid");
+                        if (grid.dataSource.total() == 0) {
+                            ExportAllFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var dataParameter = filterFieldInfo(true);
+                        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Discipline');
+                    });
+
+                    $("#btnExportSelectedComputing").click(function () {
+                        if (selectedIds == "") {
+                            ExportSelectedFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var listIds = selectedIds.join(",");
+                        var listFields = $('#valueFieldsGridDisc').val();
+                        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Discipline');
+                    });
+
+                </script>
+
+                <div class="commandToolBarWidge">
+                    <div class="GridTitle">
+                        @Html.VnrLabel(ConstantDisplay.HRM_HR_ProfileComputing.TranslateString())
+
+                    </div>
+                    <div style="float:right">
+                      
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateComputing", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteComputing", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                    </div>
+                    <div class="clear"></div>
+                </div>
+
+                <div>
+                    <!--Khai báo các thông tin cho Grid-->
+                    @{
+                        var valueFieldsDiscipline = new[]
+                        {
+                            
+                            Hre_ProfileComputingLevelModel.FieldNames.ComputingType,
+                            Hre_ProfileComputingLevelModel.FieldNames.ComputingLevel,
+                            Hre_ProfileComputingLevelModel.FieldNames.UserUpdate,
+                            Hre_ProfileComputingLevelModel.FieldNames.DateUpdate,
+                      
+                        };
+
+                        var sizeFieldsDiscipline = new Dictionary<string, int>()
+                        {
+                          
+                            {Hre_ProfileComputingLevelModel.FieldNames.ComputingType, 100},
+                            {Hre_ProfileComputingLevelModel.FieldNames.ComputingLevel, 60},
+                            {Hre_ProfileComputingLevelModel.FieldNames.UserUpdate, 110},
+                            {Hre_ProfileComputingLevelModel.FieldNames.DateUpdate, 110},
+                          
+                        };
+
+                        var filterableDiscipline = new Dictionary<string, bool>()
+                        {
+
+                        };
+
+                        var displayFieldsDiscipline = new Dictionary<string, string>()
+                        {
+                           
+                            {Hre_ProfileComputingLevelModel.FieldNames.ComputingType, ConstantDisplay.HRM_HR_Computing_Type},
+                            {Hre_ProfileComputingLevelModel.FieldNames.ComputingLevel, ConstantDisplay.HRM_HR_Computing_Level},
+                            {Hre_ProfileComputingLevelModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Payroll_UnusualED_UserUpdate},
+                            {Hre_ProfileComputingLevelModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Payroll_UnusualED_DateUpdate},
+                         
+                        };
+
+                        var grid_Computing = new GridBuilderInfo
+                        {
+
+                            Name = "grid_Computing",
+                            ValueFields = valueFieldsDiscipline,
+                            SizeFields = sizeFieldsDiscipline,
+                            DisplayFields = displayFieldsDiscipline,
+                            ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetComputingProID?profileID=" + profileID,
+                            //ReadData = "filterFieldInfo",
+                            AutoBind = true,
+                            ShowDeleteButton = true,
+                            GridHeight = 162,
+                            ShowCheckAll = false,
+                        };
+                    }
+                    @(Html.VnrGrid<Hre_ProfileComputingLevelModel>(grid_Computing))
+                </div>
+                @{
+                    var sizeFieldsDis = string.Empty;
+                    for (int i = 0; i < valueFieldsDiscipline.Count(); i++)
+                    {
+                        sizeFieldsDis += "," + valueFieldsDiscipline[i];
+                    }
+                }
+                @Html.Hidden("valueFieldsGridDisc", sizeFieldsDis)
+            </div>
+        </div>
+<div>
+            <!--Tai nạn-->
+            <div>
+                @{
+                    var windowAcci = new WindowBuilderInfo
+                    {
+                        Name = "windowLanguage",
+                        Visible = false,
+                        Width = 700,
+                        LoadContentFrom = @_hrm_Main_Web + "Hre_Language/LanguageInfo?profileID=" + profileID,
+                    };
+                }
+                @(Html.VnrWindow(windowAcci))
+                <script>
+                    var titleEditPopUpAccident = '@Html.Raw(ConstantDisplay.HRM_HR_Language_Edit.TranslateString())';
+                    var titleCreatePopUpAccident = '@Html.Raw(ConstantDisplay.HRM_HR_Language_AddNew.TranslateString())';
+                     
+
+                    //Xử lý sự kiện click button tìm kiếm
+                    $(document).ready(function () {
+
+                        $("#btnSearchLanguage").click(function () {
+                            ReadGrid("grid_Language");
+                        });
+
+                        //Show Hide Panel
+                        ShowHidePanel();
+
+                        //Xử lý Edit
+                        var url = '@_hrm_Main_Web' + "Hre_Language/LanguageInfo/";
+                        EditGridPopUp("grid_Language", "windowLanguage", url, '@ConstantPermission.Hre_Accident', titleEditPopUpAccident);
+                    });
+
+                    //Xử lý tạo mới
+                    $("#btnCreateLanguage").click(function () {
+                        
+                        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Accident');
+                        if (!isAccess) {
+                            return;
+                        }
+                        var x = '@profileID';
+                        if (x == '') {
+                            PopUpCreate("windowError");
+                        }
+                        else {
+                            var url = '@_hrm_Main_Web' + "Hre_Language/LanguageInfo/";
+                            PopUpEdit("windowLanguage",url,SelectID ,titleCreatePopUpAccident);
+                        }
+                    });
+
+                    //Xử Lý grid
+                    GridCheckbox("grid_Language");
+
+                    //Xử lý delete
+                    $('#btnDeleteLanguage').click(function (e) {
+                        if (selectedIds == "") {
+                            DeleteFail();
+                            return;
+                        }
+                        e.preventDefault();
+                        DeleteSelected("grid_Language", '@_hrm_Main_Web' + "Hre_Language/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Hre_Accident');
+                        return false;
+                    });
+
+                    //Expoprt
+                    $("#btnExportAllLanguage").click(function () {
+                        var grid = $('#grid_Language').data("kendoGrid");
+                        if (grid.dataSource.total() == 0) {
+                            ExportAllFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var dataParameter = filterFieldInfo(true);
+                        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Accident');
+                    });
+
+                    $("#btnExportSelectedLanguage").click(function () {
+                        if (selectedIds == "") {
+                            ExportSelectedFail();
+                            return;
+                        }
+                        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                        var urlDownload = '@_hrm_Main_Web';
+                        var listIds = selectedIds.join(",");
+                        var listFields = $('#valueFieldsGridAcc').val();
+                        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Qualification');
+                    });
+
+                </script>
+                <div class="commandToolBarWidge">
+                    <div class="GridTitle">
+                        @Html.VnrLabel(ConstantDisplay.HRM_HR_ProfileLanguage.TranslateString())
+                    </div>
+                    <div style="float:right">
+                    
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateLanguage", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteLanguage", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                    </div>
+                    <div class="clear"></div>
+                </div>
+
+                <div>
+                    <!--Khai báo các thông tin cho Grid-->
+                    @{
+
+                        var valueFieldsAccident = new[]
+                        {
+                          
+                            Hre_ProfileLanguageLevelModel.FieldNames.LanguageSkill,
+                            Hre_ProfileLanguageLevelModel.FieldNames.LanguageType,
+                            Hre_ProfileLanguageLevelModel.FieldNames.LanguageLevel,
+                            Hre_ProfileLanguageLevelModel.FieldNames.UserUpdate,
+                            Hre_ProfileLanguageLevelModel.FieldNames.DateUpdate,
+                           
+                        };
+
+                        Dictionary<string, int> sizeFieldsAccident = new Dictionary<string, int>()
+                        {
+                         
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageSkill, 80},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageType, 100},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageLevel, 70},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.UserUpdate, 110},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.DateUpdate, 110}
+                        };
+
+                        Dictionary<string, string> displayFieldsAccident = new Dictionary<string, string>()
+                        {
+                         
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageSkill, ConstantDisplay.HRM_HR_Language_Skill},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageType, ConstantDisplay.HRM_HR_Language_Type},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.LanguageLevel, ConstantDisplay.HRM_HR_Language_Level},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Payroll_UnusualED_UserUpdate},
+                            {Hre_ProfileLanguageLevelModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Payroll_UnusualED_DateUpdate}
+                        };
+
+                        var grid_Language = new GridBuilderInfo
+                        {
+                            Name = "grid_Language",
+                            ValueFields = valueFieldsAccident,
+                            SizeFields = sizeFieldsAccident,
+                            DisplayFields = displayFieldsAccident,
+                            ReadActionUrl = @_Hrm_Hre_Service + "Hre_GetData/GetLanguageProID?profileID=" + profileID,
+                            ShowCommand = false,
+                            AutoBind = true,
+                            GridHeight = 162,
+                            ShowCheckAll = false,
+                            //ReadData = "filterFieldInfo"
+                        };
+                    }
+                    <!--Khởi tạo Grid-->
+                    @(Html.VnrGrid<HRM.Presentation.Hr.Models.Hre_ProfileLanguageLevelModel>(grid_Language))
+                </div>
+                @{
+                    var sizeFieldsAcc = string.Empty;
+                    for (int i = 0; i < valueFieldsAccident.Count(); i++)
+                    {
+                        sizeFieldsAcc += "," + valueFieldsAccident[i];
+                    }
+                }
+                @Html.Hidden("valueFieldsGridAcc", sizeFieldsAcc)
+            </div>
+        </div>
+<script>
+    $("#grid_Language .k-grid-pager").css('display', 'none');
+    $("#grid_Computing .k-grid-pager").css('display', 'none');
+    $("#grid_Qualification .k-grid-pager").css('display', 'none');
+    $(document).ready(function () {
+        $("#panelbarQualification").kendoPanelBar();
+    });
+</script>
+

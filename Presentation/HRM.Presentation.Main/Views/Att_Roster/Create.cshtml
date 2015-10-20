@@ -1,0 +1,92 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_RosterModel
+@{
+    ViewBag.Title = "Index  AttRoster";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+<div>
+    @ViewBag.MsgInsert
+</div>
+<script>
+    SetFieldRequired();
+
+    var doSave = function () { 
+        var result = false;
+        
+        var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        if (ProfileID != null)
+            $('#@Html.FieldIdFor(model => model.ProfileIds)').val(ProfileID.join(','));
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        checkedNodes != null ? $('#@Html.FieldIdFor(model => model.OrgStructureIDs)').val(checkedNodes.join(',')) : null;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'api/Att_Roster',
+            data: queryStringToJSON(slpitQueryEntity($("#form-create").serialize())),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                
+                if (data.ActionStatus.indexOf('[') == 0) {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    return;
+                }
+                if (data.ActionStatus.indexOf(',') > 0) {
+                    
+                    var strStatus = data.ActionStatus.split(',');
+                    if (strStatus[0] == "Error") {
+
+                        ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', data.ActionStatus.substring(6, data.ActionStatus.length - 16) + " Đã Có Ca Làm Việc", "k-block k-info-colored");
+                        return;
+                    }
+                    if (strStatus[0] == "Info") {
+                        ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Không Có Nhân Viên Nào", "k-block k-info-colored");
+                        return;
+                    }
+                }
+           
+                ShowNotificationProcessor(data.ActionStatus);
+                result = true;
+                return result;
+
+            }
+        });
+
+        return result;
+    }
+    function doSaveNew() {
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Att_Roster/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+</script>
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.Att_Roster" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Attendance_Roster_Create.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_Attendance_Back_To_Roster_List.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-continue", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+
+                    </div>
+                </div>
+                @Html.Partial("CreateOrUpdate", Model)
+            </div>
+        </div>
+    </div>
+</form>
+

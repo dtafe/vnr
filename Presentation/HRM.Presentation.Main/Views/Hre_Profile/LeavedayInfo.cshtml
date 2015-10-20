@@ -1,0 +1,576 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using System.Collections
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Attendance.Models
+
+
+@model HRM.Presentation.Attendance.Models.Att_LeaveDayModel
+
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Guid ProfileID = Guid.Empty;
+
+    string profileID = ViewBag.profileID;
+    if (!string.IsNullOrEmpty(profileID))
+    {
+        ProfileID = Common.ConvertToGuid(profileID.ToString());
+    }
+
+}
+@{
+    IList<SelectListItem> listDurationType = Enum.GetValues(typeof(LeaveDayDurationType))
+    .Cast<LeaveDayDurationType>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+    .ToList();
+
+    IList<SelectListItem> list = Enum.GetValues(typeof(AttendanceDataStatus))
+        .Cast<AttendanceDataStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+    SelectList data = new SelectList(list, "Value", "Text");
+}
+@Html.ValidationSummary(false)
+@Html.AntiForgeryToken()
+<script>
+    // Mặc định load tên NV
+    $("#LeavedayInfo_ProfileName").prop('disabled', true);
+    $("#LeavedayInfo_ProfileName").val($("#profileNameView").html())
+    $("#Host").val('@_hrm_Main_Web');
+
+    //Gán profile id lại cho tất cả các form đư
+    $("input[name=ProfileID]").val(SelectID);
+    $("input[name=ProfileIds]").val(SelectID);
+
+
+
+    //$(document).ready(function () {
+    //    alert(SelectID);
+
+
+    //});
+    // Validate
+    SetFieldRequired();
+    SetFieldRequiredByScreenName('Att_Leaveday_Tab');
+    var data = SetCharacteFieldRequired();
+
+
+    $('#LeaveHours').change(function () {
+    });
+    function SetShowHide(item1, item2, value1, value2) {
+        for (var i = 0; i < item1.length; i++) {
+            item1[i].style.display = value1;
+            item2.style.display = value2;
+        }
+    }
+
+    function SetComputeDurationTypes(value) {
+        var item1 = document.getElementsByClassName("OtherDurationType");
+        var item2 = document.getElementById("DurationTypeFullShift");
+        var item3 = document.getElementById("DurationTypeDetail");
+        var dateFrom = $("#LeaveDayInfo_DateFrom").data("kendoTimePicker");
+        var dateTo = $("#LeaveDayInfo_DateTo").data("kendoTimePicker");
+
+
+        if (value == '@LeaveDayDurationType.E_FULLSHIFT') {
+            SetShowHide(item1, item2, "none", "");
+            ComputeDurationTypes(value);
+            item3.style.display = "";
+        }
+        else if (value == '@LeaveDayDurationType.E_FIRSTHALFSHIFT') {
+            SetShowHide(item1, item2, "", "none");
+            document.getElementById("LeaveHours").readOnly = true;
+
+            ComputeDurationTypes(value);
+            item3.style.display = "";
+            dateFrom.enable();
+            dateTo.enable();
+        }
+        else if (value == '@LeaveDayDurationType.E_LASTHALFSHIFT') {
+            SetShowHide(item1, item2, "", "none");
+            document.getElementById("LeaveHours").readOnly = true;
+
+            ComputeDurationTypes(value);
+            item3.style.display = "";
+            dateFrom.enable();
+            dateTo.enable();
+        }
+        else if (value == '@LeaveDayDurationType.E_MIDDLEOFSHIFT') {
+            $("#LeaveDayInfo_DateFrom").val("");
+            $("#LeaveDayInfo_DateTo").val("");
+            $("#LeaveHours").val(0);
+            dateFrom.enable();
+            dateTo.enable();
+            document.getElementById("LeaveHours").readOnly = false;
+            SetShowHide(item1, item2, "", "none");
+            item3.style.display = "";
+        }
+        else {
+            $("#LeaveDayInfo_DateFrom").val("");
+            $("#LeaveDayInfo_DateTo").val("");
+            $("#LeaveHours").val(0);
+            $("#LeaveDays").val(0);
+            item3.style.display = "none";
+        }
+
+    }
+    function onChageDate(e) {
+        var value = $("#LeaveDayInfo_DurationType").val();
+        SetComputeDurationTypes(value);
+    }
+
+
+    //Save and close
+    function onSaveClose() {
+
+        onSaveAndClose($('#form_Leaveday'), '@_hrm_Hr_Service', 'api/Att_Leaveday/', 'gridTab_LeavedayView', '@ConstantControlName.HRM_Att_Leaveday_PopUp_Name');
+        return false;
+    }
+    //Save
+    function onSaveDataPopUp() {
+        onlySave($('#form_Leaveday'), '@_hrm_Hr_Service', 'api/Att_Leaveday/', 'gridTab_LeavedayView'); return false;
+    }
+
+
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Leaveday" }))
+{
+    @Html.HiddenFor(model => model.LeaveDay_ID)
+    <div>
+        @{
+            if (Model != null)
+            {
+                @Html.HiddenFor(m => m.ProfileID)
+            }
+            else
+            {
+                @Html.Hidden("ProfileID", ProfileID)
+                @Html.Hidden("ProfileIds", ProfileID)
+            }
+        }
+    </div>
+
+    <table style="width: 100%">
+        <tr>
+            <td>
+                <div style="width: 100%">
+                    <div style=" float:left; width:50%">
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.HiddenFor(mode => mode.ID)
+                                @Html.HiddenFor(mode => mode.Host)
+                                @Html.VnrLabelFor(mode => mode.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var _ProfileName = new TextBoxBuilderInfo()
+    {
+        Name = "LeavedayInfo_ProfileName",
+        Width = 380,
+        Disabled = true
+    };
+    if (Model != null)
+    {
+        _ProfileName.Value = Model == null ? string.Empty : Model.ProfileName;
+    }
+                                }
+                                @Html.VnrTextBoxFor(model => model.ProfileName, _ProfileName)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Attendance_Leaveday_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var dateStart = new DatePickerBuilderInfo()
+    {
+        Name = "LeaveDayInfo_DateStart",
+        Format = ConstantFormat.HRM_Format_DayMonthYear,
+        EventSelect = "onChageDate",
+        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+        StyleCss = "width:120px",
+    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, dateStart)
+                                @{
+    var DateEnd = new DatePickerBuilderInfo()
+    {
+        Name = "LeaveDayInfo_DateEnd",
+        Format = ConstantFormat.HRM_Format_DayMonthYear,
+        EventSelect = "onChageDate",
+        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+        StyleCss = "width:120px",
+    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, DateEnd)
+                                @Html.ValidationMessageFor(model => model.DateEnd)
+                            </div>
+
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.LeaveDayTypeID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var mtsLeaveDayType = new DropDownListBuilderInfo()
+    {
+
+
+        Name = "LeaveDayInfo_LeaveDayTypeID",
+        DataTextField = "LeaveDayTypeName",
+        DataValueField = "ID",
+        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiLeaveDayType",
+        OptionLabel = ConstantDisplay.HRM_Category_SelectLeaveDayType.TranslateString(),
+        StyleCss = "width:300px",
+        Value = @Html.DisplayFor(mode => mode.LeaveDayTypeID).ToString()
+    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.LeaveDayTypeID, mtsLeaveDayType))
+                                <script>
+                                    var dropdownlist = $("#LeaveDayInfo_LeaveDayTypeID").data("kendoDropDownList");
+                                    dropdownlist.value('@Html.DisplayFor(mode => mode.LeaveDayTypeID).ToString()');
+                                </script>
+                            </div>
+                        </div>
+                        <div id="div10">
+                            <script>
+                                function ComputeDurationTypes(ShiftType) {
+
+                                    var dateStart = $("#LeaveDayInfo_DateStart").val();
+                                    var dateEnd = $("#LeaveDayInfo_DateEnd").val();
+                                    var temp1 = dateStart.split("/");
+                                    var temp2 = dateEnd.split("/");
+                                    var dateStartNew = temp1[1] + "/" + temp1[0] + "/" + temp1[2];
+                                    var dateEndNew = temp2[1] + "/" + temp2[0] + "/" + temp2[2];
+                                    var profileId = $("#ProfileID").val();
+
+                                    $.ajax({
+                                        url: '@_hrm_Hr_Service' + "Att_GetData/GetRosterForCheckLeaveDay/",
+                                        data: { profileId: profileId, dateStart: dateStartNew, dateEnd: dateEndNew, ShiftType: ShiftType },
+                                        type: 'POST',
+                                        success: function (data) {
+
+                                            if (data.Messages != null) {
+                                                ShowNotificationProcessor(data.Messages);
+                                                $("#LeaveHours").val(0);
+                                                $("#LeaveDays").val(0);
+
+                                            }
+                                            else {
+                                                //$("#LeaveDays").val(data.LeaveDays);
+                                                //var dateFrom = new Date(parseInt(data.DateFrom.substr(6)));
+                                                //var dateTo = new Date(parseInt(data.DateTo.substr(6)));
+                                                //var time1 = dateFrom.toTimeString().substr(0,5);
+                                                //var time2 = dateTo.toTimeString().substr(0, 5);
+
+                                                //$("#LeaveDayInfo_DateFrom").val(time1);
+                                                //$("#LeaveDayInfo_DateTo").val(time2);
+                                                //$("#LeaveHours").val(data.LeaveHours);
+
+                                                $("#LeaveDays").val(data.LeaveDays);
+                                                var hoursFrom = new Date(parseInt(data.HoursFrom.substr(6)));
+                                                var hoursTo = new Date(parseInt(data.HoursTo.substr(6)));
+                                                var time1 = hoursFrom.toTimeString().substr(0, 5);
+                                                var time2 = hoursTo.toTimeString().substr(0, 5);
+
+                                                $("#LeaveDayInfo_DateFrom").val(time1);
+                                                $("#LeaveDayInfo_DateTo").val(time2);
+                                                $("#LeaveHours").val(data.LeaveHours);
+                                            }
+                                        },
+                                        error: function (data) {
+                                            ShowNotificationProcessor(data.responseText);
+                                        }
+                                    });
+                                }
+
+                                function onSelectDurationType(e) {
+
+                                    var dataItem = this.dataItem(e.item.index());
+                                    var value = dataItem.Value;
+                                    SetComputeDurationTypes(value);
+                                }
+                            </script>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.DurationType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var DurationType = new DropDownListBuilderInfo()
+    {
+        Name = "LeaveDayInfo_DurationType",
+        BindTo = listDurationType,
+        DataTextField = "Text",
+        DataValueField = "Value",
+        OptionLabel = ConstantDisplay.HRM_Category_SelectType.TranslateString(),
+        StyleCss = "width:300px",
+        EventSelect = "onSelectDurationType"
+    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.DurationType, DurationType)
+                                <div id="DurationTypeDetail" style="width: 200px; border-radius: 6px;">
+                                    <div class="OtherDurationType" style="width:245px">
+                                        <div class="FieldTitle150" style="margin-left: 0px; width: 110px;">
+                                            @Html.VnrLabelFor(mode => mode.DateStart)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var dateFrom = new TimePickerBuilderInfo()
+    {
+        Name = "LeaveDayInfo_DateFrom",
+        StyleCss = "width: 120px;",
+    };
+                                            }
+                                            @Html.VnrTimePickerFor(mode => mode.DateStart, dateFrom)
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div class="OtherDurationType" style="width:245px">
+                                        <div class="FieldTitle150" style="margin-left: 0px; width: 110px;">
+                                            @Html.VnrLabelFor(mode => mode.DateEnd)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var dateTo = new TimePickerBuilderInfo()
+    {
+        Name = "LeaveDayInfo_DateTo",
+        StyleCss = "width: 120px;",
+    };
+                                            }
+                                            @Html.VnrTimePickerFor(mode => mode.DateEnd, dateTo)
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div class="OtherDurationType" style="width:245px">
+                                        <div class="FieldTitle150" style="margin-left: 0px; width: 110px;">
+                                            @Html.VnrLabelFor(mode => mode.LeaveHours)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.LeaveHours, "width:120px;")
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div id="DurationTypeFullShift" style="width:245px">
+                                        <div class="FieldTitle150" style="margin-left: 0px; width: 110px; margin-top: 5px;">
+                                            @Html.VnrLabelFor(mode => mode.LeaveDays)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.LeaveDays, "width:120px;")
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                </div>
+
+                            </div>
+                            <script>
+                                $(document).ready(function () {
+                                    var dateFrom = $("#LeaveDayInfo_DateFrom").data("kendoTimePicker");
+                                    var dateTo = $("#LeaveDayInfo_DateTo").data("kendoTimePicker");
+                                    dateFrom.enable(false);
+                                    dateTo.enable(false);
+                                    document.getElementById("LeaveHours").readOnly = true;
+                                    document.getElementById("LeaveDayInfo_Status").readOnly = true;
+                                    document.getElementById("LeaveDays").readOnly = true;
+                                    var item1 = document.getElementsByClassName("OtherDurationType");
+                                    var item2 = document.getElementById("DurationTypeFullShift");
+                                    var item3 = document.getElementById("DurationTypeDetail");
+                                    var value = $("#LeaveDayInfo_DurationType").val();
+                                    if (value == '@LeaveDayDurationType.E_FULLSHIFT') {
+                                        SetShowHide(item1, item2, "none", "");
+                                        item3.style.display = "";
+                                    }
+                                    else {
+                                        SetShowHide(item1, item2, "", "none");
+                                        item3.style.display = "";
+                                    }
+                                });
+                            </script>
+                        </div>
+                        <div id="div11">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.UserApproveID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    System.Collections.IEnumerable valueUserApprove = new string[] { };
+    if (Model != null)
+    {
+        valueUserApprove = new[] { new { UserInfoName = Model.UserApproveName, ID = Model.UserApproveID } };
+    }
+                                }
+                                @{
+    var multiSelectUserApproveID1 = new MultiSelectBuilderInfo()
+    {
+        Name = "LeaveDayInfo_UserApproveID",
+        DataTextField = "UserInfoName",
+        DataValueField = "ID",
+        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_LEAVE_DAY.ToString(),
+        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+        MaxSelectedItems = 1,
+        Value = valueUserApprove,
+        Width = 300
+    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.UserApproveID, multiSelectUserApproveID1)
+                            </div>
+                        </div>
+                        <div id="div12">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.UserApproveID2)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    System.Collections.IEnumerable valueUserApprove2 = new string[] { };
+    if (Model != null)
+    {
+        valueUserApprove2 = new[] { new { UserInfoName = Model.UserApproveName2, ID = Model.UserApproveID2 } };
+    }
+                                }
+                                @{
+    var multiSelectUserApproveID2 = new MultiSelectBuilderInfo()
+    {
+        Name = "LeaveDayInfo_UserApproveID2",
+        DataTextField = "UserInfoName",
+        DataValueField = "ID",
+        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_LEAVE_DAY.ToString(),
+        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+        MaxSelectedItems = 1,
+        Value = valueUserApprove2,
+        Width = 300
+    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.UserApproveID2, multiSelectUserApproveID2)
+                            </div>
+                        </div>
+                        <div id="div7">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Status)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var Status = new DropDownListBuilderInfo()
+    {
+        StyleCss = "width:300px",
+        Name = "LeaveDayInfo_Status",
+        BindTo = list,
+        DataTextField = "Text",
+        DataValueField = "Value",
+        Value = AttendanceDataStatus.E_SUBMIT.ToString()
+    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.Status, Status)
+                                @Html.ValidationMessageFor(model => model.Status)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    <div style="width: 50%; float: left">
+                        <div id="div15">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Comment)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(model => model.Comment, "width:300px;height:100px;")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div13">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.CommentApprove)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(model => model.CommentApprove, "width:300px;height:100px;")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div14">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.DeclineReason)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(model => model.DeclineReason, "width:300px;height:100px;")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-Leaveday", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-Leaveday", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+
+<div>
+    @{
+        if (Model == null)
+        {
+            <script>
+                $(document).ready(function () {
+                    debugger;
+                    var proId = $("#ProfileID").val();
+
+                    if (proId != null) {
+                        $.ajax({
+                            type: 'POST',
+                            url: '@_hrm_Hr_Service' + 'Hre_GetData/GetHighSupervisor',
+                            data: { ProfileID: proId },
+                            datatype: 'JSON',
+                            success: function (result) {
+                                debugger;
+                                var multiUA1 = $("#LeaveDayInfo_UserApproveID").data("kendoMultiSelect");
+                                var multiUA2 = $("#LeaveDayInfo_UserApproveID2").data("kendoMultiSelect");
+
+                                if (result.SupervisorID != null) {
+                                    multiUA1.dataSource.add({ UserInfoName: result.SupervisorName, ID: result.SupervisorID });
+                                    multiUA1.refresh();
+
+                                    multiUA1.value(result.SupervisorID);
+                                } else {
+                                    multiUA1.refresh();
+                                    multiUA1.value(null);
+                                }
+
+                                if (result.HighSupervisorID != null) {
+                                    multiUA2.dataSource.add({ UserInfoName: result.HighSupervisorName, ID: result.HighSupervisorID });
+                                    multiUA2.refresh();
+
+                                    multiUA2.value(result.HighSupervisorID);
+                                } else {
+                                    multiUA2.refresh();
+                                    multiUA2.value(null);
+                                }
+                            }
+                        });
+                    }
+                });
+            </script>
+        }
+    }
+</div>

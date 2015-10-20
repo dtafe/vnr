@@ -1,0 +1,339 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Payroll.Models;
+
+@model Sal_ProductSalarySearchModel
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Services = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+
+
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSal_ProductSalary",
+        Visible = false,
+        Width = 500,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_ProductSalary/Sal_ProductSalaryInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+@Html.Hidden("Screen", screen)
+<script type="text/javascript">
+
+    function EvenBtnProductSalary() {
+        ReadGrid('@ConstantControlName.HRM_gridSal_ProductSalary_Grid_Name');
+    };
+
+    function EvenComputeProductSalary() {
+        PopUpCreate("windowSal_ProductSalary", '@Html.Raw(ConstantDisplay.HRM_Sal_ComputeProductSalary.TranslateString())', '@ConstantPermission.Sal_ProductSalary');
+    };
+
+    function filterFieldInfo(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#OrgStructure").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var ProductID = $('#ProductTive_ProductID').data("kendoComboBox");
+        var ProductItemID = $('#ProductTive_ProductItemID').data("kendoComboBox");
+        var dataParameter = {
+            MonthStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Index_MonthStart").val()),
+            MonthEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Index_MonthEnd").val()),
+            ProductID: ProductID.value(),
+            ProductItemID: ProductItemID.value(),
+            OrgStructure: checkedNodes.join(','),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return dataParameter;
+    };
+
+    $("#btnExportAll").click(function () {
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportAllSalGradeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_ProductSalary');
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds.length == 0) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Services' + "Sal_GetData/ExportProductSalarySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_ProductSalary');
+
+    });
+    $('#btnDelete').click(function (e) {
+
+        if(selectedIds.length==0)
+        {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridSal_ProductSalary", '@_hrm_Main_Web' + "Sal_ProductSalary/RemoveSelected/", selectedIds, '@ConstantPermission.Sal_ProductSalary');
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form id="form-search">
+                    <div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.MonthStart)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerMonthStart = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "Index_MonthStart",
+                                        Value = @Html.DisplayFor(mode => mode.MonthStart).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Format = ConstantFormat.HRM_Format_MonthYear,
+                                        Placeholder = ConstantDisplay.HRM_INS_RptD02TS_FromMonth.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthStart, datepickerMonthStart)
+
+                                @{
+                                    var datepickerMonthEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "Index_MonthEnd",
+                                        Value = @Html.DisplayFor(mode => mode.MonthStart).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_INS_RptD02TS_ToMonth.TranslateString(),
+                                        Format = ConstantFormat.HRM_Format_MonthYear                                        
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthEnd, datepickerMonthEnd)
+                            </div>
+                            <br />
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.OrgStructure)
+                                @*@Html.HiddenFor(model => model.Id)*@
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _org = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Name = "OrgStructure",
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", _org)
+                            </div>
+                        </div>
+
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProductID)
+                                @*@Html.HiddenFor(model => model.Id)*@
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ProductID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "ProductTive_ProductID",
+                                        DataTextField = "ProductName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiProduct",
+                                        Placeholder = ConstantDisplay.HRM_Category_Product_SelectProductType.TranslateString(),
+                                        //Autobind = true,
+                                        Value = (Model != null && Model.ProductID != null) ? Model.ProductID.ToString() : "",
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.ProductID, _ProductID)
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProductItemID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ProductItemID = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "ProductTive_ProductItemID",
+                                        DataTextField = "ProductItemName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetFieldterProductITemMulti",
+                                        //CascadeFrom = "ProductTive_ProductID",
+                                        //Data = "filterProduct",
+                                        ServerFilter = true,
+                                        Value = (Model != null && Model.ProductItemID != null) ? Model.ProductItemID.ToString() : "",
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(m => m.ProductItemID, ProductItemID)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenComputeProductSalary", Name = "btnComputeProductSalary", Content = ConstantDisplay.HRM_Sal_ComputeProductSalary.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenBtnProductSalary", Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })*@
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnProductSalary", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Payroll.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridSal_ProductSalary_Grid_Name + "__Sal_ProductSalary_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridSal_ProductSalary_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Services + "Sal_GetData/GetSal_ProductSalary/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Sal_ProductSalaryModel.FieldNames.ProfileName,
+                  Sal_ProductSalaryModel.FieldNames.ProductName,
+                    Sal_ProductSalaryModel.FieldNames.ProductItemName,
+                      Sal_ProductSalaryModel.FieldNames.MonthYear,
+                           Sal_ProductSalaryModel.FieldNames.QtyActual,
+                                Sal_ProductSalaryModel.FieldNames.QtyNext,
+                                     Sal_ProductSalaryModel.FieldNames.QtyPrevious,
+                                          Sal_ProductSalaryModel.FieldNames.QtySalary,
+                                            Sal_ProductSalaryModel.FieldNames.Amount,
+                                              Sal_ProductSalaryModel.FieldNames.CurrencyName,
+
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Sal_ProductSalaryModel.FieldNames.ProfileName, 135},
+                {Sal_ProductSalaryModel.FieldNames.ProductName, 135},
+                {Sal_ProductSalaryModel.FieldNames.ProductItemName, 135},
+                {Sal_ProductSalaryModel.FieldNames.MonthYear, 135},
+                {Sal_ProductSalaryModel.FieldNames.QtyActual, 135},
+                {Sal_ProductSalaryModel.FieldNames.QtyNext, 135},
+                {Sal_ProductSalaryModel.FieldNames.QtyPrevious, 135},
+                {Sal_ProductSalaryModel.FieldNames.QtySalary, 135},
+                {Sal_ProductSalaryModel.FieldNames.Amount, 135},
+                {Sal_ProductSalaryModel.FieldNames.CurrencyName, 135},
+
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_ProductSalaryModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Sal_ProductSalaryModel.FieldNames.ProductName, ConstantDisplay.HRM_Category_Product_ProductName},
+                {Sal_ProductSalaryModel.FieldNames.ProductItemName, ConstantDisplay.HRM_Category_ProductItem_ProductItemName},
+                {Sal_ProductSalaryModel.FieldNames.MonthYear, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthYear},
+                //{Sal_ProductSalaryModel.FieldNames.QtyActual, ConstantDisplay.HRM_Attendance_AttendanceTable_Note},
+                //{Sal_ProductSalaryModel.FieldNames.QtyNext, ConstantDisplay.HRM_Attendance_AttendanceTable_Note},
+                //{Sal_ProductSalaryModel.FieldNames.QtyPrevious, ConstantDisplay.HRM_Attendance_AttendanceTable_Note},
+                //{Sal_ProductSalaryModel.FieldNames.QtySalary, ConstantDisplay.HRM_Attendance_AttendanceTable_Note},
+                {Sal_ProductSalaryModel.FieldNames.Amount, ConstantDisplay.FIN_ClaimItem_Amount},
+                {Sal_ProductSalaryModel.FieldNames.CurrencyName, ConstantDisplay.FIN_ClaimItem_CurrencyName},
+
+
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sal_ProductSalaryModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnProductSalary", "Sal_ProductSalaryModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

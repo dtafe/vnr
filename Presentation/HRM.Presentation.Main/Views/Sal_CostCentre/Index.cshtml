@@ -1,0 +1,271 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@using HRM.Infrastructure.Security
+
+@model SalCostCentreModel
+@{
+    //ViewBag.Title = "Salary CostCentre Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSalCostCentre",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_CostCentre/SalCostCentreInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Category_CostCentre_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_CostCentre_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_CostCentre_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_CostCentre_Create_Title.TranslateString())';
+
+    //Tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            ProfileName: $('#SProfileName').val(),
+            //CostCentreCode: $('#SCode').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid('grid_salCostcentre');
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Sal_CostCentre/SalCostCentreInfo/";
+        EditGridPopUp("grid_salCostcentre", "windowSalCostCentre", url, '@ConstantPermission.Sal_CostCentre', titleEditPopUp);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreateCostCentre").click(function () {
+        PopUpCreate("windowSalCostCentre", titleCreatePopUp, '@ConstantPermission.Sal_CostCentre');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == []) {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('grid_salCostcentre', '@_hrm_Main_Web' + "Sal_CostCentre/RemoveSelected/", selectedIds, '@ConstantPermission.Sal_CostCentre');
+        return false;
+    });
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == []) {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportSalCostCentreSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_CostCentre');
+    });
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        @*var grid = $('#@ConstantControlName.HRM_Category_CostCentre_Grid_Name').data("kendoGrid");*@
+        var grid = $('#grid_salCostcentre').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllSalCostCentreList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_CostCentre');
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.ProfileName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SProfileName", "width:200px;")
+                    </div>
+                </div>
+                @*<div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("SCode", "width:250px")
+                    </div>
+                </div>*@
+
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCostCentre", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+        <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+            <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+            @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+            <span class="caret"></span>
+        </button>
+        <ul class="dropdown-menu pull-right" role="menu">
+            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+        </ul>
+    </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnCostCentre", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_salCostcentre_Name + "__Sal_CostCentre_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_salCostcentre_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSalCostCentreList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                SalCostCentreModel.FieldNames.CodeEmp,
+                SalCostCentreModel.FieldNames.ProfileName,
+                SalCostCentreModel.FieldNames.CostCentreName,
+                 SalCostCentreModel.FieldNames.ElementType,
+                SalCostCentreModel.FieldNames.DateStart,
+                SalCostCentreModel.FieldNames.Rate,
+             //   SalCostCentreModel.FieldNames.UserCreate,
+             //   SalCostCentreModel.FieldNames.DateUpdate,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {SalCostCentreModel.FieldNames.CodeEmp,100},
+                {SalCostCentreModel.FieldNames.ProfileName,140},
+                {SalCostCentreModel.FieldNames.CostCentreName,120},
+                {SalCostCentreModel.FieldNames.ElementType,120},
+                {SalCostCentreModel.FieldNames.DateStart,100},
+                {SalCostCentreModel.FieldNames.Rate,90},
+             //   {SalCostCentreModel.FieldNames.UserCreate,110},
+              //  {SalCostCentreModel.FieldNames.DateUpdate,100},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {SalCostCentreModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Payroll_Costcentre_CodeEmp},
+                {SalCostCentreModel.FieldNames.ProfileName,ConstantDisplay.HRM_Payroll_Costcentre_ProfileID},
+                {SalCostCentreModel.FieldNames.CostCentreName,ConstantDisplay.HRM_Payroll_Costcentre_CostCentreID},
+                {SalCostCentreModel.FieldNames.ElementType,ConstantDisplay.HRM_Payroll_CodeAlocal_ElementType},
+                {SalCostCentreModel.FieldNames.DateStart,ConstantDisplay.HRM_Payroll_Costcentre_DateStart},
+                {SalCostCentreModel.FieldNames.Rate,ConstantDisplay.HRM_Payroll_Costcentre_Rate},
+               // {SalCostCentreModel.FieldNames.UserCreate,ConstantDisplay.HRM_Hr_CardHistory_UserCreate},
+               // {SalCostCentreModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Hr_CardHistory_DateUpdate},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //Dictionary<string, string> formatField1s = new Dictionary<string, string>()
+        //{
+        //    {SalCostCentreModel.FieldNames.Rate, "p0"},
+        //};
+        
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_salCostcentre",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        // //   FormatFields = formatField1s,
+        // //   Filterable = filterable,
+        //    ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSalCostCentreList/",
+        //    ReadData = "filterFieldInfo",
+        //};
+    }
+
+    @(Html.VnrGrid<SalCostCentreModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnCostCentre", "SalCostCentreModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

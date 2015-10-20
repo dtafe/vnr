@@ -1,0 +1,322 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@model HRM.Presentation.Payroll.Models.Sal_UnusualAllowanceModel
+
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    Layout = null;
+    IList<SelectListItem> listEDType = Enum.GetValues(typeof(EnumDropDown.EDType))
+    .Cast<EnumDropDown.EDType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+}
+<script>
+    //var data = SetCharacteFieldRequired();
+
+    $(document).ready(function () {
+        document.getElementById("Formula").disabled = true;
+    });
+
+
+    SetFieldRequiredByScreenName('Sal_UnusualED');
+
+    function UpdateData() {
+        var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        ProfileID != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val(ProfileID.join(',')) : null;
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        checkedNodes != null ? $('#@Html.FieldIdFor(model => model.OrgStructureID)').val(checkedNodes.join(',')) : null;
+        $("#OrgStructureIDs").val(checkedNodes.join(','));
+    };
+
+    function onSave() {
+        //UpdateData();
+        onSaveAndContinue($('#form_Sal_UnusualEDModel'), '@_hrm_Hr_Service', 'api/Sal_UnusualED/', 'grid_UnusualED', '@ConstantControlName.HRM_Payroll_UnusualED_PopUp_Name');
+        return false;
+    };
+    function onSaveClose() {
+        //UpdateData();
+        onSaveAndClose($('#form_Sal_UnusualEDModel'), '@_hrm_Hr_Service', 'api/Sal_UnusualED/', 'grid_UnusualED', '@ConstantControlName.HRM_Payroll_UnusualED_PopUp_Name');
+        return false;
+    };
+    function onSaveDataPopUp() {
+        //UpdateData();
+        onlySave($('#form_Sal_UnusualEDModel'), '@_hrm_Hr_Service', 'api/Sal_UnusualED/', 'grid_UnusualED');
+        return false;
+    };
+
+    function filterUnusual() {
+        var Type = $("#UnusualIEDInfo_Type").data("kendoDropDownList");
+        var ProfileUnusual = $("#UnusualIEDInfo_UnusualEDTypeID").data("kendoComboBox");
+        var Type_value = Type.value();
+        var Text = ProfileUnusual.text();
+        return {
+            type: Type_value,
+            text: Text,
+        };
+    };
+    function ChangeUnusualType() {
+        var Type = $("#UnusualIEDInfo_UnusualEDTypeID").data("kendoComboBox");
+        Type.dataSource.read();
+    };
+
+    function ChangeUnusualEDType(e) {
+        var Type = $("#UnusualIEDInfo_UnusualEDTypeID").data("kendoComboBox");
+
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/GetFormulaByUnusualEDType',
+            data: { id: Type.value() },
+            dataType: 'json',
+            success: function (data) {
+                if (data != undefined) {
+                    $("#Formula").val(data.Formula);
+                }
+            }
+        });
+    };
+</script>
+
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Sal_UnusualEDModel" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    <table>
+        <tr>
+            <td>
+
+                <div id="div1">
+                    <div class="FieldTitle150">
+                        @Html.HiddenFor(m => m.IsGeneralProfile, new { @Value = Model != null ? true : false })
+                        @(Html.HiddenFor(model => model.ProfileID))
+                        @(Html.HiddenFor(model => model.ProfileIDs))
+                        @(Html.HiddenFor(model => model.OrgStructureIDs))
+                        @(Html.HiddenFor(m => m.ProfileIDExclusion))
+                        @*@Html.VnrLabel(ConstantDisplay.HRM_Rec_Interview_CandidateName.TranslateString())*@
+                        @Html.VnrLabelFor(model => model.ProfileName)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    IEnumerable valuepro = new string[] { };
+    if (Model != null)
+    {
+        valuepro = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+    }
+
+    var _ProfileIDs1 = new MultiSelectBuilderInfo
+    {
+
+        DataTextField = "ProfileName",
+        DataValueField = "ID",
+        Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+        //  MaxSelectedItems = 1,
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+        Value = valuepro
+    };
+                        }
+                        @{
+    var ProfileOrOrgStructure = new HRM.Presentation.UI.Controls.VnrSelectProfileOrOrgStructure()
+    {
+        Name = "SelectProfileOrOrgStructure_Unusual",
+        ProfileMultiSelect = _ProfileIDs1,
+        BindingProfileForField = "ProfileIDs",
+        BindingOrgStructureForField = "OrgStructureIDs",
+        BindingExclusionProfileForField = "ProfileIDExclusion",
+
+    };
+                        }
+                        @Html.Partial("EditorTemplates/SelectProfileOrOrgStructure", ProfileOrOrgStructure)
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+
+
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Type)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlType = new DropDownListBuilderInfo()
+    {
+        StyleCss = "width:300px",
+        Name = "UnusualIEDInfo_Type",
+        DataTextField = "Text",
+        DataValueField = "Value",
+        BindTo = listEDType,
+        Autobind = true,
+        EventChange = "ChangeUnusualType",
+        //OptionLabel = ConstantDisplay.HRM_Payroll_UnusualED_Type.TranslateString(),
+    };
+                        }
+                        @Html.VnrDropDownListFor(model => model.Type, ddlType)
+                        @Html.VnrCheckBoxFor(model => model.AddToHourlyRate)
+                        @Html.VnrLabelFor(mode => mode.AddToHourlyRate)
+                    </div>
+
+
+
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.UnusualEDTypeID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlUnusualEDType = new ComboBoxBuilderInfo()
+    {
+        Name = "UnusualIEDInfo_UnusualEDTypeID",
+        DataTextField = "UnusualAllowanceCfgNameCode",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiUnusualAllowanceCfg",
+        ServerFilter = true,
+        Data = "filterUnusual",
+        Value = (Model == null || Model.UnusualEDTypeID == null) ? string.Empty : Model.UnusualEDTypeID.ToString(),
+        StyleCss = "Width:300px",
+        EventChange = "ChangeUnusualEDType",
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.UnusualEDTypeID, ddlUnusualEDType).Text(Model == null ? string.Empty : Model.UnusualAllowanceCfgName))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Formula)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextAreaFor(m => m.Formula, "width:500px;height:100px;")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.ChargePIT)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrCheckBoxFor(model => model.ChargePIT)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.Amount)
+                    </div>
+                    <div class="FieldValue">
+                        @*@{
+                                NumericTextBoxBuilderInfo<double> number=new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Name = "UnusualEDInfo_Amount",
+                                    StyleCss="width:150px;",
+                                   // Min=0,
+                                    //Max=Int32.MaxValue,
+                                    Format = ConstantFormat.HRM_Format_Int
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.Amount, number)*@
+                        @Html.Kendo().NumericTextBoxFor(m => m.Amount).Name("UnusualEDInfo_Amount").Format(ConstantFormat.HRM_Format_Int).Min(Int32.MinValue).Max(Int32.MaxValue)
+                        @{
+    var ddlCurrency = new ComboBoxBuilderInfo()
+    {
+        Name = "UnusualIEDInfo_CurrencyID",
+        StyleCss = "width:135px;",
+        DataTextField = "CurrencyName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrency",
+        Value = Model == null ? string.Empty : Model.CurrencyID.ToString(),
+        // OptionLabel =string.Empty,
+        //  OptionLabel = ConstantDisplay.HRM_Category_Currency.TranslateString(),
+    };
+                        }
+                        @(Html.VnrComboBoxFor(model => model.CurrencyID, ddlCurrency).Text(Model == null ? string.Empty : Model.CurrencyName))
+                    </div>
+
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.BudgetId)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var ddlBudget = new DropDownListBuilderInfo()
+    {
+        StyleCss = "width:300px",
+        Name = "UnusualIEDInfo_BudgetId",
+        DataTextField = "BudgetName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiBudget",
+        //OptionLabel = ConstantDisplay.HRM_Category_Budget_BudgetName.TranslateString(),
+    };
+                        }
+                        @Html.VnrDropDownListFor(model => model.BudgetId, ddlBudget)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(model => model.MonthStart)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var MonthStart = new DatePickerBuilderInfo()
+    {
+        Name = "UnusualIEDInfo_MonthStart",
+        StyleCss = "width:120px;",
+        Placeholder = ConstantDisplay.HRM_Payroll_UnusualED_MonthStart.TranslateString(),
+    };
+                        }
+                        @Html.VnrDatePickerFor(model => model.MonthStart, MonthStart)
+                        @{
+    var MonthEnd = new DatePickerBuilderInfo()
+    {
+        Name = "UnusualIEDInfo_MonthEnd",
+        StyleCss = "width:120px;",
+        Placeholder = ConstantDisplay.HRM_Payroll_UnusualED_MonthEnd.TranslateString(),
+    };
+                        }
+                        @Html.VnrDatePickerFor(model => model.MonthEnd, MonthEnd)
+                        @Html.VnrCheckBoxFor(model => model.IsFollowDay)
+                        @Html.VnrLabelFor(mode => mode.IsFollowDay)
+                    </div>
+
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Notes)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextAreaFor(model => model.Notes, "width:500px;height:100px;")
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div class="FieldTitle150">
+                </div>
+                <div class="FieldValue">
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-UnusualIED", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-UnusualIED", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-UnusualIED", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                </div>
+            </td>
+        </tr>
+    </table>
+
+
+}
+
+<!-- Gán giá trị cho cây phòng ban khi edit -->
+@*@if (Model != null)
+    {
+                <script type="text/javascript">
+                    $(document).ready(function () {
+                        $("#TreeViewDropDownInput").val('@Model.OrgStructureName');
+                        $("#OrgStructureID").val('@Model.OrgStructureID');
+                    });
+                </script>
+    }*@

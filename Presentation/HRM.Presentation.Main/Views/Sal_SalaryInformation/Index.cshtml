@@ -1,0 +1,453 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security;
+@using System.Collections
+@using HRM.Presentation.Payroll.Models
+
+
+@model Sal_SalaryInformationSearchModel
+@{
+    Layout = null;
+    var hrm_Payroll_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service ;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Payroll_Sal_SalaryInformation_PopUp_Name,
+        Visible = false,
+        Width = 1000,
+        LoadContentFrom = @hrm_Payroll_Web + "Sal_SalaryInformation/Sal_SalaryInformationInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+    var checkedNodes = [];
+     
+    var gridName = '@ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Payroll_Sal_SalaryInformation_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#@ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+            //ReadGrid(gridName);
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }*@
+        EditGridPopUp(gridName, popUpName, '@hrm_Payroll_Web' + "Sal_SalaryInformation/Sal_SalaryInformationInfo/", '@ConstantPermission.Sal_SalaryInformation', titleEditPopUp);
+    });
+    //Lấy dữ liệu khi tìm kiếm
+   
+    function filterFieldInfo(isExport) {
+        //var dataParameter = {
+        return {
+            ProfileName: $('#ProfileName').val(),
+            OrgStructureID: checkedNodes.join(','),
+            AccountName: $('#AccountName').val(),
+            AccountNo: $('#AccountNo').val(),
+            AccountName2: $('#AccountName2').val(),
+            AccountNo2: $('#AccountNo2').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        //return dataParameter;
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridName);
+    //Tạo mới tài khoản
+    $("#btnCreateSal_SalaryInformation").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_SalaryInformation');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(popUpName, titleCreatePopUp);
+    });
+   
+    
+    //Xóa tài khoản
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Sal_SalaryInformation');
+        if (!isAccess) {
+            return;
+        }
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('gridSal_SalaryInformation', '@hrm_Payroll_Web' + "Sal_SalaryInformation/RemoveSelected/", selectedIds.join(","));
+    });
+    $("#btnExportSelected").click(function () {
+  
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportSal_SalaryInformationSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_SalaryInformation');
+    });
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    $("#btnExportAll").click(function () {
+        
+      @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#@ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllSal_SalaryInformationList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_SalaryInformation');
+    });
+
+</script>
+<script>
+    function clickProfile(id) {
+
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + id,'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var txtProfileName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "ProfileName"
+                                };
+                                }
+                                @Html.VnrTextBox(txtProfileName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountName.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var txtAccountName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "AccountName"
+                                };
+                                }
+                                @Html.VnrTextBox(txtAccountName)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountName.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var txtAccountNo = new TextBoxBuilderInfo()
+                                {
+                                    Name = "AccountNo"
+                                };
+                                }
+                                @Html.VnrTextBox(txtAccountNo)
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.AccountName2)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                        var txtAccountName2 = new TextBoxBuilderInfo()
+                                        {
+                                            Name = "AccountName2"
+                                        };
+                                }
+                                @Html.VnrTextBox(txtAccountName2)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.AccountNo2)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                        var txtAccountNo2 = new TextBoxBuilderInfo()
+                                        {
+                                            Name = "AccountNo2"
+                                        };
+                                }
+                                @Html.VnrTextBox(txtAccountNo2)
+                            </div>
+                        </div>
+                    </div>
+
+
+
+                        </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateSal_SalaryInformation", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnSalaryInformation", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+        @{
+            
+         var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name + "__Sal_SalaryInformation_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name,
+            ShowCommand = false,
+            ReadActionUrl = @_hrm_Hr_Service + "Sal_GetData/GetSal_SalaryInformationList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+
+                Sal_SalaryInformationModel.FieldNames.CodeEmp,
+                Sal_SalaryInformationModel.FieldNames.ProfileName,
+              Sal_SalaryInformationModel.FieldNames.E_UNIT,
+                       Sal_SalaryInformationModel.FieldNames.E_DIVISION,
+                Sal_SalaryInformationModel.FieldNames.E_DEPARTMENT,
+                 Sal_SalaryInformationModel.FieldNames.E_TEAM,
+                Sal_SalaryInformationModel.FieldNames.E_SECTION,
+
+
+
+                                //Sal_SalaryInformationModel.FieldNames.DepartmentName,
+                Sal_SalaryInformationModel.FieldNames.IDNo,
+                Sal_SalaryInformationModel.FieldNames.DateHire,
+                                Sal_SalaryInformationModel.FieldNames.GroupBank,
+                Sal_SalaryInformationModel.FieldNames.AccountName,
+                Sal_SalaryInformationModel.FieldNames.AccountNo,
+                Sal_SalaryInformationModel.FieldNames.AccountName2,
+                Sal_SalaryInformationModel.FieldNames.AccountNo2,
+                Sal_SalaryInformationModel.FieldNames.SortCode,
+                Sal_SalaryInformationModel.FieldNames.SwiftCode,
+                Sal_SalaryInformationModel.FieldNames.BankName,
+                Sal_SalaryInformationModel.FieldNames.BankName2,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Sal_SalaryInformationModel.FieldNames.CodeEmp,100},
+                {Sal_SalaryInformationModel.FieldNames.ProfileName,150},
+              {Sal_SalaryInformationModel.FieldNames.E_DEPARTMENT,135},
+                {Sal_SalaryInformationModel.FieldNames.E_DIVISION,135},
+                {Sal_SalaryInformationModel.FieldNames.E_SECTION,135},
+                {Sal_SalaryInformationModel.FieldNames.E_TEAM,135},
+                {Sal_SalaryInformationModel.FieldNames.E_UNIT,135},
+
+                  {Sal_SalaryInformationModel.FieldNames.DepartmentName,150},
+                {Sal_SalaryInformationModel.FieldNames.IDNo,110},
+                    {Sal_SalaryInformationModel.FieldNames.GroupBank,110},
+                {Sal_SalaryInformationModel.FieldNames.DateHire,100},
+                {Sal_SalaryInformationModel.FieldNames.AccountName,140},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo,110},
+                {Sal_SalaryInformationModel.FieldNames.AccountName2,140},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo2,120},
+                {Sal_SalaryInformationModel.FieldNames.SortCode,110},
+                {Sal_SalaryInformationModel.FieldNames.SwiftCode,110},
+                {Sal_SalaryInformationModel.FieldNames.BankName,140},
+                {Sal_SalaryInformationModel.FieldNames.BankName2,140},
+
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+               {Sal_SalaryInformationModel.FieldNames.CodeEmp,true},
+               {Sal_SalaryInformationModel.FieldNames.ProfileName,true},
+             {Sal_SalaryInformationModel.FieldNames.E_DEPARTMENT,true},
+                {Sal_SalaryInformationModel.FieldNames.E_DIVISION,true},
+                {Sal_SalaryInformationModel.FieldNames.E_SECTION,true},
+                {Sal_SalaryInformationModel.FieldNames.E_TEAM,true},
+                {Sal_SalaryInformationModel.FieldNames.E_UNIT,true},
+
+                   {Sal_SalaryInformationModel.FieldNames.DepartmentName,true},
+                {Sal_SalaryInformationModel.FieldNames.IDNo,true},
+                  {Sal_SalaryInformationModel.FieldNames.GroupBank,true},
+                {Sal_SalaryInformationModel.FieldNames.DateHire,true},
+                {Sal_SalaryInformationModel.FieldNames.AccountName,true},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo,true},
+                {Sal_SalaryInformationModel.FieldNames.AccountName2,true},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo2,true},
+                {Sal_SalaryInformationModel.FieldNames.SortCode,true},
+                {Sal_SalaryInformationModel.FieldNames.SwiftCode,true},
+                {Sal_SalaryInformationModel.FieldNames.BankName,true},
+                {Sal_SalaryInformationModel.FieldNames.BankName2,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_SalaryInformationModel.FieldNames.ProfileID,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Sal_SalaryInformationModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Sal_SalaryInformationModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Sal_SalaryInformationModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Sal_SalaryInformationModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Sal_SalaryInformationModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Sal_SalaryInformationModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Sal_SalaryInformationModel.FieldNames.DepartmentName,ConstantDisplay.HRM_Att_Report_DepartmentName},
+                {Sal_SalaryInformationModel.FieldNames.IDNo,ConstantDisplay.HRM_HR_Profile_IDNo},
+                {Sal_SalaryInformationModel.FieldNames.GroupBank,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_GroupBank},
+                {Sal_SalaryInformationModel.FieldNames.DateHire,ConstantDisplay.HRM_HR_Profile_DateHire},
+                {Sal_SalaryInformationModel.FieldNames.AccountName,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountName},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountNo},
+                {Sal_SalaryInformationModel.FieldNames.AccountName2,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountName2},
+                {Sal_SalaryInformationModel.FieldNames.AccountNo2,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_AccountNo2},
+                {Sal_SalaryInformationModel.FieldNames.SortCode,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_SortCode},
+                {Sal_SalaryInformationModel.FieldNames.SwiftCode,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_SwiftCode},
+                {Sal_SalaryInformationModel.FieldNames.BankName,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_Bank1},
+                {Sal_SalaryInformationModel.FieldNames.BankName2,ConstantDisplay.HRM_Payroll_Sal_SalaryInformation_Bank2},
+            };
+
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Sal_SalaryInformationModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = ConstantControlName.HRM_Payroll_Sal_SalaryInformation_Grid_Name,
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Sal_GetData/GetSal_SalaryInformationList/",
+        //    ReadData = "filterFieldInfo",
+        //    HyperlinkFields = hyperlinkFields
+        //};
+    }
+
+    @(Html.VnrGrid<Sal_SalaryInformationModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnSalaryInformation", "Sal_SalaryInformationModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

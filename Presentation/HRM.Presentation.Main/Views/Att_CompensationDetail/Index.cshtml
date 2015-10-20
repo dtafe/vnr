@@ -1,0 +1,361 @@
+﻿@model HRM.Presentation.Attendance.Models.Att_CompensationDetailSearchModel
+@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+@{
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var permissionMessages = string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Attendance_ComputeCompensation.TranslateString());
+
+    IList<SelectListItem> listType = Enum.GetValues(typeof(AnnualLeaveDetailType))
+     .Cast<AnnualLeaveDetailType>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+}
+
+@Html.Hidden("Screen", screen)
+
+@if (1 == 2)
+{
+    <script src="~/Scripts/hrm-data.js"></script>
+}
+<script>
+    SetFieldRequired();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    var checkedNodes = [];
+    //Lay tham so search
+    function filterFieldInfo(isExportDDL) {
+        debugger;
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var orgs = checkedNodes.join(",");
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(","),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            Year: $('#@Html.FieldIdFor(model => model.Year)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnComputeCompensationDetail").click(function () {
+        debugger;
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_CompensationDetail_Compute', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@permissionMessages');
+            return;
+        }
+        ShowHre_ProgressBar();
+
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + 'Att_GetData/ComputeCompensationDetailList/',
+            data: filterFieldInfo(),
+            datatype: 'json',
+            type: 'Post',
+            success: function (data) {
+                debugger;
+                CloseHre_ProgressBar();
+                if (data = "Success") {
+                    var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+                    notificationWidget.show('@ConstantDisplay.HRM_Att_Compensation_ComputeCompensationSuccess.TranslateString()');
+
+                    // reload lai lưới
+                    var grid = $('#gridAtt_CompensationDetail').data("kendoGrid");
+                    grid.dataSource.read();
+                    checkedNodes = [];
+                } else {
+                    var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+                    notificationWidget.show('@ConstantDisplay.HRM_Att_Compensation_ComputeCompensationFail.TranslateString()');
+                }
+            },
+            error: function () {
+                CloseHre_ProgressBar();
+
+            }
+        });
+    });
+
+    var data = SetCharacteFieldRequired();
+    //event nut search
+    $("#btnSearch").click(function () {
+        var year = filterFieldInfo().Year;
+        if (year == '') {
+            ShowNotificationProcessor('@ConstantDisplay.HRM_Attendance_CompensationDetail_Year.TranslateString()' + '@ConstantDisplay.HRM_Common_NotEmtpy.TranslateString()');
+            return;
+        }
+
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var grid = $('#gridAtt_CompensationDetail').data("kendoGrid");
+        grid.dataSource.read();
+        checkedNodes = [];
+    });
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_CompensationDetail");
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+
+    $("#btnExport").click(function () {
+        var grid = $('#gridAtt_CompensationDetail').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/GetCompensationDetailList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        if (dataParameter.ExportId == '') {
+            alert('Chưa Chọn Template!');
+            return;
+        }
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + 'Att_GetData/GetCompensationDetailList', filterFieldInfo(true));
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div id="dvYear">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Year)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var year = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Value = int.Parse(DateTime.Now.Year.ToString()),
+                                    Format = ConstantFormat.HRM_Format_Number_Integer,
+                                    StyleCss = "width:80px"
+                                };
+                            }
+                            @(Html.VnrNumericTextBoxFor(model => model.Year, year))
+                        </div>
+                    </div>
+                    <div id="dvOrgStructureID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => Model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => Model.CodeEmp)
+                        </div>
+                    </div>
+                
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeCompensationDetail", Content = ConstantAction.HRM_Common_ComputeCompensation.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Attendance.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            //{Att_AnalyzeAnnualModel.FieldNames.Type,new object[]
+            //   { "Value", "Text", listType, ConstantDisplay.HRM_Attendance_AnnualLeaveDetail_LeaveType,""}},
+        };
+
+        valueFields = new string[]
+        {
+            Att_CompensationDetailModel.FieldNames.CodeEmp,
+            Att_CompensationDetailModel.FieldNames.ProfileName,
+            Att_CompensationDetailModel.FieldNames.Year,
+            Att_CompensationDetailModel.FieldNames.MonthYear,
+            Att_CompensationDetailModel.FieldNames.MonthBeginInYear,
+            Att_CompensationDetailModel.FieldNames.MonthResetInitAvailable,
+            Att_CompensationDetailModel.FieldNames.MonthStartProfile,
+            Att_CompensationDetailModel.FieldNames.LeaveInMonth,
+            Att_CompensationDetailModel.FieldNames.OvertimeInMonth,
+            Att_CompensationDetailModel.FieldNames.TotalLeaveBef,
+            Att_CompensationDetailModel.FieldNames.TotalOvertimeBef,
+            Att_CompensationDetailModel.FieldNames.Remain,
+            Att_CompensationDetailModel.FieldNames.InitAvailable,
+            //Att_CompensationDetailModel.FieldNames.CompBankCode,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_CompensationDetailModel.FieldNames.CodeEmp, 70},
+            {Att_CompensationDetailModel.FieldNames.ProfileName, 140},
+            {Att_CompensationDetailModel.FieldNames.MonthYear, 80},
+            {Att_CompensationDetailModel.FieldNames.Year, 60},
+            {Att_CompensationDetailModel.FieldNames.MonthBeginInYear, 105},
+            {Att_CompensationDetailModel.FieldNames.MonthResetInitAvailable, 120},
+            {Att_CompensationDetailModel.FieldNames.MonthStartProfile, 157},
+            {Att_CompensationDetailModel.FieldNames.LeaveInMonth, 155},
+            {Att_CompensationDetailModel.FieldNames.OvertimeInMonth, 156},
+            {Att_CompensationDetailModel.FieldNames.TotalLeaveBef, 140},
+            {Att_CompensationDetailModel.FieldNames.TotalOvertimeBef, 138},
+            {Att_CompensationDetailModel.FieldNames.Remain, 100},
+            {Att_CompensationDetailModel.FieldNames.InitAvailable, 110},
+            //{Att_CompensationDetailModel.FieldNames.CompBankCode, 140},
+
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_CompensationDetailModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Att_CompensationDetailModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+            {Att_CompensationDetailModel.FieldNames.Year, ConstantDisplay.HRM_Attendance_AnnualDetail_Year},
+            {Att_CompensationDetailModel.FieldNames.MonthYear, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthYear},
+            {Att_CompensationDetailModel.FieldNames.MonthBeginInYear, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthBeginInYear},
+            {Att_CompensationDetailModel.FieldNames.MonthResetInitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_MonthStartProfile},
+            {Att_CompensationDetailModel.FieldNames.MonthStartProfile, ConstantDisplay.HRM_Attendance_AnnualDetail_Available},
+            {Att_CompensationDetailModel.FieldNames.Available, ConstantDisplay.HRM_Attendance_AnnualDetail_Available},
+            {Att_CompensationDetailModel.FieldNames.LeaveInMonth, ConstantDisplay.HRM_Attendance_AnnualDetail_LeaveInMonth},
+            {Att_CompensationDetailModel.FieldNames.OvertimeInMonth, ConstantDisplay.HRM_Attendance_CompensationDetail_OvertimeInMonth},
+            {Att_CompensationDetailModel.FieldNames.TotalLeaveBef, ConstantDisplay.HRM_Attendance_CompensationDetail_TotalLeaveBef},
+            {Att_CompensationDetailModel.FieldNames.TotalOvertimeBef, ConstantDisplay.HRM_Attendance_CompensationDetail_TotalOvertimeBef},
+            {Att_CompensationDetailModel.FieldNames.Remain , ConstantDisplay.HRM_Attendance_AnnualDetail_Remain},
+            {Att_CompensationDetailModel.FieldNames.InitAvailable, ConstantDisplay.HRM_Attendance_AnnualDetail_InitAvailable},
+            //{Att_CompensationDetailModel.FieldNames.CompBankCode, ConstantDisplay.HRM_Attendance_CompensationDetail_CompBankCode},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+             {Att_CompensationDetailModel.FieldNames.Year, ConstantFormat.HRM_Format_Number_Integer},
+             {Att_CompensationDetailModel.FieldNames.MonthBeginInYear , ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.MonthResetInitAvailable, ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.MonthStartProfile, ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.Available , ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.LeaveInMonth, ConstantFormat.HRM_Format_Number_Double},
+             {Att_CompensationDetailModel.FieldNames.TotalLeaveBef, ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.Remain , ConstantFormat.HRM_Format_Int},
+             {Att_CompensationDetailModel.FieldNames.InitAvailable, ConstantFormat.HRM_Format_Int},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_CompensationDetail",
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hre_Service + "Att_GetData/GetCompensationDetailList/",
+            ShowCommand = false,
+            ShowEditIcon = false,
+            ReadData = "filterFieldInfo",
+            EventDataBound = "changePageGird",
+            ForeignKey = foreignKey
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_CompensationDetailModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

@@ -1,0 +1,408 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+
+@model Hre_ProfileQualificationModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Qualification.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen);
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantDisplay.HRM_HR_Qualification_AddNew,
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_ProfileQualification/ProfileQualificationInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var titleUpdate = '@Html.Raw(ConstantDisplay.HRM_HR_Qualification_Update.TranslateString())';
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var gridName = '@ConstantControlName.HRM_gridHre_Qualification_Grid_Name';
+    var windowName = '@ConstantDisplay.HRM_HR_SoftSkill_AddNew';
+    var isCreateTemplateForDynamicGrid = false;
+
+    var titleCreate = '@Html.Raw(ConstantDisplay.HRM_HR_Qualification_AddNew.TranslateString())';
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+
+        var profileName = $('#@Html.FieldIdFor(model => model.ProfileName)').val();
+        var codeEmp = $('#@Html.FieldIdFor(model => model.CodeEmp)').val();
+        var qualificationName = $('#@Html.FieldIdFor(model => model.QualificationName)').val();
+        var orgStructureID = checkedNodes.join(',');
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        jobTitleID = jobTitleID != null ? jobTitleID[0] : jobTitleID;
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+        positionID = positionID != null ? positionID[0] : positionID;
+        return {
+            ProfileName: profileName,
+            CodeEmp: codeEmp,
+            OrgStructureID: orgStructureID,
+            JobTitleID: jobTitleID,
+            PositionID: positionID,
+            QualificationName: qualificationName,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#@ConstantControlName.HRM_gridHre_Qualification_Grid_Name').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+            //ReadGrid(gridName);
+        });
+        @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Cat_Product');
+        if (!isAccess) {
+            return;
+        }*@
+        var url = '@_hrm_Main_Web' + "Hre_ProfileQualification/ProfileQualificationInfo/";
+        EditGridPopUp(gridName, '@ConstantDisplay.HRM_HR_Qualification_AddNew', url, '@ConstantPermission.Hre_ProfileQualification', titleUpdate);
+    });
+
+
+
+
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        @*KendoRouteMapping('#Hrm_Main_Web/Hre_StopWorking/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');*@
+        PopUpCreate('@ConstantDisplay.HRM_HR_Qualification_AddNew', titleCreate, '@ConstantPermission.Cat_Unit');
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    GridCheckbox(gridName);
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridHre_Qualification", '@_hrm_Main_Web' + "Hre_ProfileQualification/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Qualification');
+        return false;
+    });
+    $("#btnExportAll").click(function () {
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportQualificationList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Qualification');
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportProfileQualificationSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Qualification');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                <form action="#" method="POST" id="form-search">
+                    <div>
+                        <div class="hrm_box">
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.ProfileName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.ProfileName)
+                                </div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.CodeEmp)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.CodeEmp)
+                                </div>
+                            </div>
+                            <div id="div14">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hrm_box">
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.PositionID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var mts = new HRM.Presentation.UI.Controls.Kendo.MultiSelect.MultiSelectInformation()
+                                        {
+                                            Name = Hre_QualificationModel.FieldNames.PositionID,
+                                            DataTextField = Hre_QualificationModel.FieldNames.PositionName,
+                                            DataValueField = Hre_QualificationModel.FieldNames.ID,
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                            MaxSelectedItems = 1,
+                                            Width= 200
+                                        };
+                                    }
+                                    @(Html.MultiSelectListControl(mts))
+                                </div>
+                            </div>
+                            <div id="5">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.JobTitleID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var mts1 = new HRM.Presentation.UI.Controls.Kendo.MultiSelect.MultiSelectInformation()
+                                        {
+                                            Name = Hre_QualificationModel.FieldNames.JobTitleID,
+                                            DataTextField = Hre_QualificationModel.FieldNames.JobTitleName,
+                                            DataValueField = Hre_QualificationModel.FieldNames.ID,
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                            Placeholder = ConstantDisplay.HRM_HR_SelectJobTitle.TranslateString(),
+                                            MaxSelectedItems = 1,
+                                            Width = 200
+                                        };
+                                    }
+                                    @(Html.MultiSelectListControl(mts1))
+                                </div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.QualificationName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _QualificationName = new ComboBoxBuilderInfo()
+                                        {
+                                            DataTextField = "QualificationName",
+                                            DataValueField = "QualificationName",
+                                            Url = _hrm_Hr_Service + "Cat_GetData/GetMultiQualification",
+                                            Value = Model == null ? string.Empty : Model.QualificationName,
+                                            Autobind = true,
+                                            StyleCss="width:200px;"
+                                        };
+                                    }
+                                    @(Html.VnrComboBoxFor(mode => mode.QualificationName, _QualificationName))
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeQualification", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridHre_Qualification_Grid_Name + "__Hre_QualificationIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridHre_Qualification_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetQualificationList/",
+            ReadData = "filterFieldInfo",
+            //EventDataBound = "changePageGird",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+          grid.ValueFields = new[]
+            {
+                Hre_ProfileQualificationModel.FieldNames.CodeEmp,
+                Hre_ProfileQualificationModel.FieldNames.ProfileName,
+                              Hre_ProfileQualificationModel.FieldNames.E_UNIT,
+                       Hre_ProfileQualificationModel.FieldNames.E_DIVISION,
+                Hre_ProfileQualificationModel.FieldNames.E_DEPARTMENT,
+                 Hre_ProfileQualificationModel.FieldNames.E_TEAM,
+                Hre_ProfileQualificationModel.FieldNames.E_SECTION,
+
+                Hre_ProfileQualificationModel.FieldNames.PositionName,
+                Hre_ProfileQualificationModel.FieldNames.JobTitleName,
+
+
+                Hre_ProfileQualificationModel.FieldNames.QualificationName,
+                Hre_ProfileQualificationModel.FieldNames.FieldOfTraining,
+                Hre_ProfileQualificationModel.FieldNames.TrainingPlace,
+                Hre_ProfileQualificationModel.FieldNames.TrainingAddress,
+                Hre_ProfileQualificationModel.FieldNames.DateStart,
+                Hre_ProfileQualificationModel.FieldNames.DateFinish,
+                Hre_ProfileQualificationModel.FieldNames.CertificateName,
+                Hre_ProfileQualificationModel.FieldNames.GraduationDate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Hre_ProfileQualificationModel.FieldNames.CodeEmp, 80},
+                {Hre_ProfileQualificationModel.FieldNames.ProfileName, 140},
+                {Hre_ProfileQualificationModel.FieldNames.PositionName, 110},
+                {Hre_ProfileQualificationModel.FieldNames.JobTitleName, 110},
+              {Hre_ProfileQualificationModel.FieldNames.E_DEPARTMENT,135},
+                {Hre_ProfileQualificationModel.FieldNames.E_DIVISION,135},
+                {Hre_ProfileQualificationModel.FieldNames.E_SECTION,135},
+                {Hre_ProfileQualificationModel.FieldNames.E_TEAM,135},
+                {Hre_ProfileQualificationModel.FieldNames.E_UNIT,135},
+
+                {Hre_ProfileQualificationModel.FieldNames.QualificationName, 140},
+                {Hre_ProfileQualificationModel.FieldNames.FieldOfTraining, 120},
+                {Hre_ProfileQualificationModel.FieldNames.TrainingPlace, 100},
+                {Hre_ProfileQualificationModel.FieldNames.TrainingAddress, 120},
+                {Hre_ProfileQualificationModel.FieldNames.DateStart, 100},
+                {Hre_ProfileQualificationModel.FieldNames.DateFinish, 100},
+                {Hre_ProfileQualificationModel.FieldNames.CertificateName, 120},
+                {Hre_ProfileQualificationModel.FieldNames.GraduationDate, 115}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Hre_ProfileQualificationModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_ProfileQualificationModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Qualification_ProfileID},
+                        {Hre_ProfileQualificationModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_ProfileQualificationModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_ProfileQualificationModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_ProfileQualificationModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_ProfileQualificationModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Hre_ProfileQualificationModel.FieldNames.JobTitleName, ConstantDisplay.HRM_Attendance_JobTitle},
+                {Hre_ProfileQualificationModel.FieldNames.PositionName, ConstantDisplay.HRM_Category_JobTitle_PositionID},
+                {Hre_ProfileQualificationModel.FieldNames.QualificationName, ConstantDisplay.HRM_HR_Qualification_QualificationName},
+                {Hre_ProfileQualificationModel.FieldNames.FieldOfTraining, ConstantDisplay.HRM_HR_Qualification_FieldOfTraining},
+                {Hre_ProfileQualificationModel.FieldNames.TrainingPlace, ConstantDisplay.HRM_HR_Qualification_TrainingPlace},
+                {Hre_ProfileQualificationModel.FieldNames.TrainingAddress, ConstantDisplay.HRM_HR_Qualification_TrainingAddress},
+                {Hre_ProfileQualificationModel.FieldNames.DateStart, ConstantDisplay.HRM_HR_Qualification_DateStart},
+                {Hre_ProfileQualificationModel.FieldNames.DateFinish, ConstantDisplay.HRM_HR_Qualification_DateFinish},
+                {Hre_ProfileQualificationModel.FieldNames.CertificateName, ConstantDisplay.HRM_HR_Qualification_CertificateName},
+                {Hre_ProfileQualificationModel.FieldNames.GraduationDate, ConstantDisplay.HRM_HR_Qualification_GraduationDate}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridHre_Qualification",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetQualificationList/",
+        //    ShowCommand = false,
+        //    ReadData = "filterFieldInfo"
+        //};
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Hr.Models.Hre_QualificationModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeQualification", "Hre_ProfileQualificationModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+

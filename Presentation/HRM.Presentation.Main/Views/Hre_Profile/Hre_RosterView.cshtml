@@ -1,0 +1,259 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.Hr.Models
+
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+@{
+    Layout = null;
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_Roster.TranslateString();
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Att_Service;
+    var profileID = Guid.Empty;
+    var ProfileName = string.Empty;
+
+    if (Model != null)
+    {
+        profileID = Model.ID;
+
+    }
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(AttendanceDataStatus))
+        .Cast<AttendanceDataStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+    IList<SelectListItem> listRosterType = Enum.GetValues(typeof(RosterType))
+       .Cast<RosterType>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+       .ToList();
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Att_Roster_PopUp_Name,
+        Visible = false,
+        Width=1000,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_Profile/RosterInfo?profileID=" + profileID + "&ProfileName=" + ProfileName
+    };
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Chưa Có Nhân Viên!!!</b></center>"
+    };
+}
+@(Html.VnrWindow(windowError))
+
+<script type="text/javascript">
+
+    var gridName = '@ConstantControlName.HRM_Att_Roster_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Att_Roster_PopUp_Name';
+    var titleEditPopUpRoster = '@Html.Raw(ConstantDisplay.HRM_Att_Roster_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpRoster = '@Html.Raw(ConstantDisplay.HRM_Att_Roster_PopUp_Create_Title.TranslateString())';
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+
+        resizeControl('gridTab_RosterView', 200);
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid("gridTab_RosterView");
+        });
+
+
+
+        //Xử lý nút Edit
+
+        $('#gridTab_RosterView').on("click", ".gridEditImgButton", function (e) {
+            var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Att_Roster');
+            if (!isAccess) {
+                return;
+            }
+            var grid = $('#gridTab_RosterView').data("kendoGrid");
+            var selectedItem = grid.dataItem(grid.select());
+
+            if (selectedItem.Status == "Yêu Cầu" || selectedItem.Status == "E_SUBMIT") {
+                EditGridPopUp('gridTab_RosterView', popUpName, '@_hrm_Main_Web' + "Hre_Profile/RosterInfo/", '@ConstantPermission.Att_Roster', titleEditPopUpRoster);
+            } else {
+                ShowNotificationProcessor('Error,Dữ Liệu Ở Trạng Thái Yêu Cầu Mới Được Chỉnh Sữa');
+                return;
+            }
+        });
+    });
+
+    //function filterFieldInfo_Reload() {
+    //    var elementParam = {
+    //        ProfileID: SelectID
+    //    };
+    //    return elementParam
+    //}
+
+    //Xử Lý grid
+    GridCheckbox("gridTab_RosterView");
+
+    $("#btnExport_Roster").click(function () {
+        var grid = $('#gridTab_RosterView').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetRosterByProIDandCutOID/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo_Reload(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Roster');
+    });
+
+    $("#btnCreate_Roster").click(function () {
+
+        var x = '@profileID';
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+            var url = '@_hrm_Main_Web' + "Hre_Profile/RosterInfo/";
+            PopUpEdit('@ConstantControlName.HRM_Att_Roster_PopUp_Name', url, SelectID, titleCreatePopUpRoster);
+
+        }
+    });
+
+    //Xử Lý button delete
+    $('#btnDelete_Roster').click(function (e) {
+        //  e.preventDefault();
+        DeleteSelected("gridTab_RosterView", '@_hrm_Main_Web' + "Att_Roster/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Att_Roster');
+    })
+
+
+</script>
+<div>
+    @{
+        if (Model != null)
+        {
+            @Html.HiddenFor(m => m.ID)
+            @Html.HiddenFor(m => m.ProfileName)
+        }
+        else
+        {
+
+            @Html.Hidden("ProfileName", ProfileName)
+        }
+
+    }
+</div>
+<div class="clear"></div>
+
+<div style="margin-top:3px">
+    <!--Hidden field cho mỗi tab giúp xác định dữ liệu đã load rồi thì không load lại-->
+    <div class="commandToolBarWidge">
+        <div class="GridTitle">
+            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_Roster.TranslateString())
+        </div>
+
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_Roster", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport_Roster", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_Roster", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div style="overflow:hidden">
+        @{
+            Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_RosterModel.FieldNames.Type,new object[]
+               { "Value", "Text", listRosterType, ConstantDisplay.HRM_Attendance_Roster_Type,""}},
+               
+                {Att_RosterModel.FieldNames.Status,new object[]
+               { "Value", "Text", listStatus, ConstantDisplay.HRM_Attendance_Roster_Status,""}},
+        };
+
+            valueFields = new string[]
+                            {
+                                Att_RosterModel.FieldNames.DateStart,
+                                Att_RosterModel.FieldNames.DateEnd,
+                                Att_RosterModel.FieldNames.Type,
+                                Att_RosterModel.FieldNames.MonShiftName,
+                                Att_RosterModel.FieldNames.TueShiftName,
+                                Att_RosterModel.FieldNames.WedShiftName,
+                                Att_RosterModel.FieldNames.ThuShiftName,
+                                Att_RosterModel.FieldNames.FriShiftName,
+                                Att_RosterModel.FieldNames.SatShiftName,
+                                Att_RosterModel.FieldNames.SunShiftName,
+                                Att_RosterModel.FieldNames.Status
+                            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Att_RosterModel.FieldNames.DateStart,100},
+                                {Att_RosterModel.FieldNames.DateEnd,100},
+                                {Att_RosterModel.FieldNames.Type,100},
+                                {Att_RosterModel.FieldNames.MonShiftName,80},
+                                {Att_RosterModel.FieldNames.TueShiftName,80},
+                                {Att_RosterModel.FieldNames.WedShiftName,80},
+                                {Att_RosterModel.FieldNames.ThuShiftName,80},
+                                {Att_RosterModel.FieldNames.FriShiftName,80},
+                                {Att_RosterModel.FieldNames.SatShiftName,80},
+                                {Att_RosterModel.FieldNames.SunShiftName,80},
+                                {Att_RosterModel.FieldNames.Status,100}
+                            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Att_RosterModel.FieldNames.DateStart, ConstantDisplay.HRM_Attendance_Roster_DateStart},
+                                {Att_RosterModel.FieldNames.DateEnd, ConstantDisplay.HRM_Attendance_Roster_DateEnd},
+                                {Att_RosterModel.FieldNames.Type, ConstantDisplay.HRM_Attendance_Roster_Type},
+                                {Att_RosterModel.FieldNames.MonShiftName, ConstantDisplay.HRM_Attendance_Roster_MonShiftName},
+                                {Att_RosterModel.FieldNames.TueShiftName, ConstantDisplay.HRM_Attendance_Roster_TueShiftName},
+                                {Att_RosterModel.FieldNames.WedShiftName, ConstantDisplay.HRM_Attendance_Roster_WedShiftName},
+                                {Att_RosterModel.FieldNames.ThuShiftName, ConstantDisplay.HRM_Attendance_Roster_ThuShiftName},
+                                {Att_RosterModel.FieldNames.FriShiftName, ConstantDisplay.HRM_Attendance_Roster_FriShiftName},
+                                {Att_RosterModel.FieldNames.SatShiftName, ConstantDisplay.HRM_Attendance_Roster_SatShiftName},
+                                {Att_RosterModel.FieldNames.SunShiftName, ConstantDisplay.HRM_Attendance_Roster_SunShiftName},
+                                {Att_RosterModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_Roster_Status}
+                            };
+
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridTab_RosterView",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetRosterByProIDandCutOID",
+                ReadData = "filterFieldInfo_Reload",
+                AutoBind = true,
+                ShowDeleteButton = true,
+                ShowCheckAll = false,
+                ShowEditIcon = true,
+                GridWidth = Common.ScreenWidth - 260,
+                DeleteActionUrl = _hrm_Main_Web + "/Att_Roster/Remove/",
+                ForeignKey = foreignKey
+                //SelectionHandler = "onChange"
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_RosterModel>(grid))
+
+    </div>
+</div>
+@{
+    var valueFields1 = ",ProfileName,CodeEmp";
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+<script>
+    $(document).ready(function () {
+        $("#valueFieldsGrid").val('@valueFields1');
+    });
+</script>

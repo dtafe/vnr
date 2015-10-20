@@ -1,0 +1,291 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model  Eva_BonusSalarySearchModel
+@{
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    string gridName = ConstantControlName.HRM_Evaluation_BonusSalary_Grid_Name;
+    string windowName = ConstantControlName.HRM_Evaluation_BonusSalary_PopUp_Name;
+}
+@{
+    var windowBonusSalary = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Eva_BonusSalary/EvaBonusSalaryInfo/",
+    };
+}
+@(Html.VnrWindow(windowBonusSalary))
+<script>
+    var gridName = '@gridName';
+    var windowName = '@windowName';
+    var titleCreatePopup = '@ConstantDisplay.HRM_Evaluation_SaleBonus_PopUp_Create_Title.TranslateString()';
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        var dataParameter = {
+            @*CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),*@
+            Month: $("#Month1").val(),
+            Type: null,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return dataParameter;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+
+            // var treeView = $("#treeviewOrg").data("kendoTreeView");
+            //checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+            // checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid(gridName);
+            //selectedIds = [];
+            //checkedNodes = [];
+        });
+        ShowHidePanel();
+        @*EditGridNewPage(gridName, '#Hrm_Eva_Web/Eva_Performance/Edit/', 'Hrm_Eva_Web', '@_Hrm_Eva_Web');*@
+    });
+
+    //tao moi
+    $("#btnCreate").click(function () {
+        PopUpCreate(windowName, titleCreatePopup, '@ConstantPermission.Eva_BonusSalary');
+        @*KendoRouteMapping('#Hrm_Eva_Web/Eva_BonusSalary/Create/', 'Hrm_Eva_Web', '@_Hrm_Eva_Web');*@
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_BonusSalary/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_BonusSalary');
+        return false;
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportBonusSalaryList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_BonusSalary');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportBonusSalarySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Eva_BonusSalary');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Month)
+                        </div>
+                        <div class="FieldValue" id="dpMonth">
+                            @{
+                                var dpMonth = new DatePickerBuilderInfo()
+                                {
+                                    Name = "Month1",
+                                    StyleCss = "Width:100px;",
+                                    //Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.Month, dpMonth).Format(ConstantFormat.HRM_Format_MonthYear)
+                        </div>
+                    </div>
+
+                </div>
+                <div class="hrm_box">
+                    @*<div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.JobTitleID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var JobTitleName = new MultiSelectBuilderInfo
+                                    {
+                                        DataTextField = "JobTitleName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiJobTitle",
+                                        MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                            </div>
+                        </div>*@
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantDisplay.HRM_Evaluation_BonusSalary.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<script>
+    function clickProfile(ProfileID) {
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + ProfileID, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var hyperlinkFields = new Dictionary<string, string>()
+        {
+            {Eva_BonusSalaryModel.FieldNames.ProfileName,"clickProfile, ProfileID"},
+        };
+        string[] hiddenFields = new[]
+        {
+            Eva_BonusSalaryModel.FieldNames.ProfileID,
+        };
+        string[] valueFields = new string[]
+                        {
+                            Eva_BonusSalaryModel.FieldNames.CodeEmp,
+                            Eva_BonusSalaryModel.FieldNames.ProfileName,
+                            Eva_BonusSalaryModel.FieldNames.JobTitleName,
+              Eva_BonusSalaryModel.FieldNames.E_UNIT,
+                       Eva_BonusSalaryModel.FieldNames.E_DIVISION,
+                Eva_BonusSalaryModel.FieldNames.E_DEPARTMENT,
+                 Eva_BonusSalaryModel.FieldNames.E_TEAM,
+                Eva_BonusSalaryModel.FieldNames.E_SECTION,
+
+
+                            Eva_BonusSalaryModel.FieldNames.SalesTypeName,
+                            Eva_BonusSalaryModel.FieldNames.Month,
+                            Eva_BonusSalaryModel.FieldNames.Quarter,
+                            Eva_BonusSalaryModel.FieldNames.Bonus
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Eva_BonusSalaryModel.FieldNames.CodeEmp, 100},
+                            {Eva_BonusSalaryModel.FieldNames.ProfileName, 180},
+                            {Eva_BonusSalaryModel.FieldNames.JobTitleName, 80},
+
+  {Eva_BonusSalaryModel.FieldNames.E_DEPARTMENT,135},
+                {Eva_BonusSalaryModel.FieldNames.E_DIVISION,135},
+                {Eva_BonusSalaryModel.FieldNames.E_SECTION,135},
+                {Eva_BonusSalaryModel.FieldNames.E_TEAM,135},
+                {Eva_BonusSalaryModel.FieldNames.E_UNIT,135},
+
+                            {Eva_BonusSalaryModel.FieldNames.SalesTypeName,200},
+                            {Eva_BonusSalaryModel.FieldNames.Month, 100},
+                            {Eva_BonusSalaryModel.FieldNames.Quarter, 130},
+                            {Eva_BonusSalaryModel.FieldNames.Bonus, 150}
+                        };
+
+        var filterable = new Dictionary<string, bool>()
+        {
+            {Eva_BonusSalaryModel.FieldNames.CodeEmp,true},
+            {Eva_BonusSalaryModel.FieldNames.ProfileName,true},
+            {Eva_BonusSalaryModel.FieldNames.JobTitleName, true},
+
+  {Eva_BonusSalaryModel.FieldNames.E_DEPARTMENT,true},
+                {Eva_BonusSalaryModel.FieldNames.E_DIVISION,true},
+                {Eva_BonusSalaryModel.FieldNames.E_SECTION,true},
+                {Eva_BonusSalaryModel.FieldNames.E_TEAM,true},
+                {Eva_BonusSalaryModel.FieldNames.E_UNIT,true},
+
+            {Eva_BonusSalaryModel.FieldNames.SalesTypeName,true},
+            {Eva_BonusSalaryModel.FieldNames.Month,true},
+            {Eva_BonusSalaryModel.FieldNames.Quarter,true},
+            {Eva_BonusSalaryModel.FieldNames.Bonus,true}
+        };
+        var displayFields = new Dictionary<string, string>()
+           {
+               {Eva_BonusSalaryModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+               {Eva_BonusSalaryModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+               {Eva_BonusSalaryModel.FieldNames.JobTitleName, ConstantDisplay.HRM_HR_Profile_JobTitleName},
+
+                             {Eva_BonusSalaryModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Eva_BonusSalaryModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Eva_BonusSalaryModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Eva_BonusSalaryModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Eva_BonusSalaryModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+
+               {Eva_BonusSalaryModel.FieldNames.SalesTypeName, ConstantDisplay.HRM_Evaluation_SalesType_SalesTypeName},
+               {Eva_BonusSalaryModel.FieldNames.Month, ConstantDisplay.HRM_Common_Search_Month},
+               {Eva_BonusSalaryModel.FieldNames.Quarter, ConstantDisplay.HRM_Evaluation_BonusSalary_Quarter},
+               {Eva_BonusSalaryModel.FieldNames.Bonus, ConstantDisplay.HRM_Evaluation_BonusSalary_Bonus}
+           };
+        //Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        //{
+        //                 {Eva_PerformanceModel.FieldNames.Status,new object[]
+        //       { "Value", "Text", PerformaceStatus, ConstantDisplay.HRM_Evaluation_Performance_Status,""}},
+        //};
+        var grid = new GridBuilderInfo
+        {
+
+            Name = gridName,
+            ReadActionUrl = _Hrm_Hre_Service + "Eva_GetData/GetBonusSalaryList/",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowEditIcon = false,
+            Filterable = filterable,
+            ReadData = "filterFieldInfo",
+            HyperlinkFields = hyperlinkFields,
+            HiddenFields = hiddenFields
+        };
+    }
+    @(Html.VnrGrid<Eva_BonusSalaryModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

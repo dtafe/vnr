@@ -1,0 +1,415 @@
+﻿@model HRM.Presentation.Attendance.Models.Att_ReportMonthlyOvertimeModel
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> lstStatusEmp = Enum.GetValues(typeof(EnumDropDown.StatusEmployee))
+        .Cast<EnumDropDown.StatusEmployee>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+        .ToList();
+
+    IList<SelectListItem> lstOTStatus = Enum.GetValues(typeof(EnumDropDown.StatusApproved))
+        .Cast<EnumDropDown.StatusApproved>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+        .ToList();
+}
+@Html.Hidden("Screen", screen)
+
+
+<script>
+
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL, isExport) {
+        
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _payrollGroup = $('#@Html.FieldIdFor(model => model.PayrollGroup)').val() != null ? $('#@Html.FieldIdFor(model => model.PayrollGroup)').val().join(',') : null;
+        var _cumulativeType = $('#@Html.FieldIdFor(model => model.CumulativeType)').val() != null ? $('#@Html.FieldIdFor(model => model.CumulativeType)').val().join(',') : null;
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            StatusEmployee: $('#@Html.FieldIdFor(model => model.StatusEmployee)').val(),
+            PayrollGroup: _payrollGroup,
+            OvertimeStatus: $('#@Html.FieldIdFor(model => model.OvertimeStatus)').val(),
+            CumulativeType: _cumulativeType,
+            TypeHour: $('#@Html.FieldIdFor(model => model.TypeHour)').val(),
+
+            OvertimeDetail: $('#@Html.FieldIdFor(model => model.OvertimeDetail)').val(),
+            RemoveNotHasWorkday: $('#@Html.FieldIdFor(model => model.RemoveNotHasWorkday)').val(),
+            IncludeAllEmployee: $('#@Html.FieldIdFor(model => model.IncludeAllEmployee)').val(),
+            RemoveCompensation100: $('#@Html.FieldIdFor(model => model.RemoveCompensation100)').val(),
+            RecordIns: $('#@Html.FieldIdFor(model => model.RecordIns)').val(),
+            Cumulative: $('#@Html.FieldIdFor(model => model.Cumulative)').val(),
+
+            IsExport: isExport,
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $('input[type=checkbox]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            
+            debugger;
+
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportMonthlyOvertimeListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    debugger;
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        ShowHre_ProgressBar();
+                        
+                        $.ajax({
+                            url: '@_hrm_Hr_Service' + "Att_GetData/GetReportMonthlyOvertimeList",
+                            type: 'POST',
+                            data: filterFieldInfo(false),
+                            datatype: 'json',
+                            success: function (data) {
+                                CloseHre_ProgressBar();
+                                debugger;
+                                var grid = VnrGridDynamic;
+                                grid.GridName = 'gridAtt_ReportMonthlyOvertime';
+                                grid.DataSource = data.Data;
+                                VnrGridDynamicControl(grid);
+
+                            },
+                            error: function () {
+                                CloseHre_ProgressBar();
+                            }
+
+                        });
+                        checkedNodes = [];
+                    }
+                  
+                }
+            });
+
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportMonthlyOvertime');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportMonthlyOvertimeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportMonthlyOvertimeList', filterFieldInfo(true));
+    });
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                                @Html.HiddenFor(m => m.UserExport)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToShortDateString(),
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                                @{
+                                    var DateTo = new DatePickerBuilderInfo()
+                                    {
+                                        Value = DateTime.Today.ToShortDateString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                    };
+
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.StatusEmployee)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _sttEmp = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectEmployeeType.TranslateString(),
+                                        BindTo = lstStatusEmp,
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.StatusEmployee, _sttEmp)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.PayrollGroup)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _PayrollGroup = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "PayrollGroupName",
+                                        DataValueField = "ID",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectGroupPayroll.TranslateString(),
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                        Width = 200
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.PayrollGroup, _PayrollGroup))
+                            </div>
+                        </div>
+                        <div id="div9">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _OvertimeDetail = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.OvertimeDetail, _OvertimeDetail)
+                                    @Html.VnrLabelFor(mode => mode.OvertimeDetail)
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div10">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _RemoveNotHasWorkday = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.RemoveNotHasWorkday, _RemoveNotHasWorkday)
+                                    @Html.VnrLabelFor(mode => mode.RemoveNotHasWorkday)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">                        
+                        <div id="div5">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OvertimeStatus)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _OTS = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = lstOTStatus,
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.OvertimeStatus, _OTS)
+                            </div>
+                        </div>
+                        <div id="div11">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _IncludeAllEmployee = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.IncludeAllEmployee, _IncludeAllEmployee)
+                                    @Html.VnrLabelFor(mode => mode.IncludeAllEmployee)
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div12">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _RemoveCompensation100 = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.RemoveCompensation100, _RemoveCompensation100)
+                                    @Html.VnrLabelFor(mode => mode.RemoveCompensation100)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div7">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.CumulativeType)
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _OvertimeType = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "OvertimeTypeName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiOvertimeType",
+                                            Width = 200
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.CumulativeType, _OvertimeType))
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div8">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.TypeHour)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _OTStt = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = lstOTStatus,
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.TypeHour, _OTStt)
+                            </div>
+                        </div>
+                        <div id="div13">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _RecordIns = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.RecordIns, _RecordIns)
+                                    @Html.VnrLabelFor(mode => mode.RecordIns)
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div14">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _Cumulative = new CheckBoxBuilderInfo() { };
+                                    }
+                                    @Html.VnrCheckBoxFor(model => model.Cumulative, _Cumulative)
+                                    @Html.VnrLabelFor(mode => mode.Cumulative)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float: left">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantDisplay.HRM_Common_Search_Button.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })</div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString() , ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <div id="gridAtt_ReportMonthlyOvertime"></div>
+</div>

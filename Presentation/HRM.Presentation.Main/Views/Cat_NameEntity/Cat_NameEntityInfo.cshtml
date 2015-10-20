@@ -1,0 +1,360 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Category.Models;
+@using HRM.Presentation.Evaluation.Models
+
+@model Cat_NameEntityModel
+
+@{
+    Layout = null;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var Hrm_Main_Web = ConstantPathWeb.Hrm_Cat_Web;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _Hrm_Eva_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _Hrm_Eva_Web = ConstantPathWeb.Hrm_Eva_Web;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Evaluation_KPI_PopUp_Name,
+        Visible = false,
+
+        LoadContentFrom = @_hrm_Main_Web + "Cat_NameEntity/EvalKPIInfo/",
+    };
+}
+@Html.VnrWindow(window)
+<script>
+    var selectedIds = [];
+
+    var gridName = '@ConstantControlName.HRM_Evaluation_KPI_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Evaluation_KPI_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_KPI_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Evaluation_KPI_PopUp_Create_Title.TranslateString())';
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+      
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearchKPI").click(function () {
+            ReadGrid('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name');
+        });
+
+        var url = '@_hrm_Main_Web' + "Cat_NameEntity/EvalKPIInfo/";
+        EditGridPopUp('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name', popUpName, url, '@ConstantPermission.Eva_KPI', titleEditPopUp);
+    });
+
+    function doSave() {
+        
+        var result = false;
+        //if (CheckValidate(data)) {
+        
+        //var _NameEntityName = document.getElementById("NameEntityName");
+        //var _Description = document.getElementById("Description");
+
+
+        var dataReturn = onCreate($('#form_cat_NameEntity'), '@_hrm_Hr_Service', 'api/Cat_NameEntity/', "popupNotification");
+        if (dataReturn.ActionStatus != "Success") {
+            ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', dataReturn.ActionStatus, "k-block k-info-colored");
+            return;
+        }
+        return result;
+    }
+
+    function doSaveNew() {
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Cat_NameEntity/EvalKPIInfo/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+
+    function onSaveNew() {
+        
+        onSaveAndContinue($('#form_cat_NameEntity'), '@_hrm_Hr_Service', 'api/Cat_NameEntity/', '@ConstantControlName.HRM_Category_NameEntity_Grid_Name', '@ConstantControlName.HRM_Category_NameEntity_PopUp_Name'); return false;
+    }
+    function onSaveClose() {
+        onSaveAndClose($('#form_cat_NameEntity'), '@_hrm_Hr_Service', 'api/Cat_NameEntity/', '@ConstantControlName.HRM_Category_NameEntity_Grid_Name', '@ConstantControlName.HRM_Category_NameEntity_PopUp_Name'); return false;
+    }
+    function onSaveDataPopUp() {
+        
+        onlySave($('#form_cat_NameEntity'), '@_hrm_Hr_Service', 'api/Cat_NameEntity/', '@ConstantControlName.HRM_Category_NameEntity_Grid_Name'); return false;
+    }
+
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            ID: $('#Cat_NameEntityID').val(),
+            KPIName: ''
+        };
+    }
+
+    //Xử lý tạo mới
+    $("#btnCreateKPI").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Eva_KPI');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate('@ConstantControlName.HRM_Evaluation_KPI_PopUp_Name', titleCreatePopUp, '@ConstantPermission.Eva_KPI');
+    });
+    //Xử Lý grid
+    GridCheckbox('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name');
+
+    //Xử lý delete
+    $('#btnDeleteKPI').click(function (e) {
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name', '@_hrm_Main_Web' + "Eva_KPI/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_KPI');
+        return false;
+    });
+
+    // Add KPI
+    $("#btnAddKPI").click(function () {
+        
+        var kpiData = eventParaData(true);
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "api/Cat_NameEntity/",
+            data: kpiData,
+            dataType: 'json',
+            success: function (returnValue) {
+                ReadGrid('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name');
+                @*
+                if (returnValue == "Success") {
+                    alert("Success");
+                    ReadGrid('@ConstantControlName.HRM_Evaluation_KPI_Grid_Name');
+                }*@
+                //   else {
+                @*var url = '@_hrm_Hr_Service' + returnValue;
+                    window.location = url;*@
+                //alert(returnValue);
+                //  }
+            }
+        })
+    });
+    function eventParaData(isAddKPI) {
+        
+        var isAdding = isAddKPI;
+        //if (isAddKPI != undefined) {
+        //    isAdding =isAdding;
+        //}
+
+        var Eva_KPIID = $('#KPI_KPIName').val();
+        $('#@Html.FieldIdFor(model => model.Eva_KPIIds)').val(Eva_KPIID.join(','));
+        var param = {
+            ID: $('#Cat_NameEntityID').val(),
+            NameEntityName: $('#@Html.FieldIdFor(model => model.NameEntityName)').val(),
+            Description: $('#@Html.FieldIdFor(model => model.Description)').val(),
+            Eva_KPIIds: $('#@Html.FieldIdFor(model => model.Eva_KPIIds)').val(),
+            IsAddKPI: isAdding
+        };
+        return param;
+    }
+</script>
+@Html.Hidden("Cat_NameEntityID", Model != null ? Model.ID : Guid.Empty)
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_cat_NameEntity" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    @Html.HiddenFor(model => model.NameEntityID)
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.HreProfileIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Category_NameEntity_AddNew.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_Category_Back_To_NameEntity_List.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-new", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+
+                <div class="VnRMain">
+                    <table style="width: 100%;">
+                        <tbody>
+                            <tr>
+                                <td valign="top" style="background-color: #ffffff;">
+                                    <div style="display:block; padding-top:10px;">
+                                        <fieldset>
+                                            <legend>
+                                                @ConstantDisplay.HRM_Category_NameEntity_Title.TranslateString()
+                                            </legend>
+                                            <div style="float:left; width:100%">
+                                                <div style="float:left;">
+                                                    <div class="FieldTitle">
+                                                        @Html.VnrLabelFor(mode => mode.NameEntityName)
+                                                    </div>
+                                                    <div class="FieldValue">
+                                                        @Html.VnrTextBoxFor(mode => mode.NameEntityName)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div style="float:left; width:100%">
+                                                <div style="float:left;">
+                                                    <div class="FieldTitle">
+                                                        @Html.VnrLabelFor(mode => mode.Description)
+                                                    </div>
+                                                    <div class="FieldValue">
+                                                        @Html.VnrTextAreaFor(mode => mode.Description)
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </fieldset>
+                                    </div>
+
+                                </td>
+                                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                            </tr>
+                            @*<tr>
+                                <td>
+                                    <div>
+                                        <div class="FieldTitle"></div>
+                                        <div class="FieldValue">
+                                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-NameEntity", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveNew", Name = "save-New-catNameEntity", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                                            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-catNameEntity", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                            </tr>*@
+                            <tr>
+                                <td valign="top" style="background-color: #ffffff;">
+                                    <div style="display:block; padding-top:10px;">
+                                        <fieldset>
+                                            <legend>
+                                                @*@ConstantDisplay.HRM_Category_NameEntity_Title.TranslateString()*@
+                                                Tiêu Chí Đánh Giá
+                                            </legend>
+                                            <div style="float:left; width:100%">
+                                                <div style="float:left;">
+                                                    <div class="FieldTitle">
+                                                        @ConstantDisplay.HRM_Evaluation_Eva_KPI.TranslateString()
+                                                        @*Tiêu Chí Đánh Giá*@
+                                                    </div>
+                                                    <div class="FieldValue">
+                                                        @{
+                                                        var _KPI_KPIName = new MultiSelectBuilderInfo()
+                                                        {
+                                                            Name = "KPI_KPIName",
+                                                            DataTextField = "KPIName",
+                                                            DataValueField = "ID",
+                                                            Url = @_Hrm_Eva_Service + "Eva_GetData/GetMultiKPI",
+                                                            Placeholder = ConstantDisplay.HRM_Evaluation_KPI_SelectObject.TranslateString(),
+                                                            MaxSelectedItems = 5,
+                                                            Autobind = false,
+                                                            Width = 300
+                                                        };
+                                                        }
+                                                        @Html.VnrMultiSelectFor(model => model.Eva_KPIID, _KPI_KPIName)
+                                                        @(Html.HiddenFor(model => model.Eva_KPIIds))
+                                                        
+                                                        <span style="margin-left:5px;">
+                                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnAddKPI", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                                        </span>
+
+
+                                                    </div>
+                                                </div>
+                                            </div>
+                                          
+                                        </fieldset>
+                                    </div>
+                                </td>
+                                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                            </tr>
+                            <tr>
+                                <td valign="top" style="background-color: #ffffff;">
+                                    <div style="display:block; padding-top:10px;">
+                                        <fieldset>
+                                            <legend>
+                                                @ConstantDisplay.HRM_Evaluation_KPI_List.TranslateString()
+                                                @*DS Tiêu Chí Đánh Giá*@
+                                            </legend>
+                                            <div class="commandToolBarWidge" id="anchor">
+                                                <div style="float:left">
+                                                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateKPI", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearchKPI", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+                                                </div>
+                                                <div style="float:right">
+                                                    <div class="HideExportCate">
+                                                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportKPI", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                                                    </div>
+                                                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteKPI", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                                                </div>
+                                                <div class="clear"></div>
+                                            </div>
+                                            <div style="float:left">
+                                                @{
+    string[] valueFields = new string[]
+                        {
+                            Eva_KPIModel.FieldNames.NameEntityObject,
+                            Eva_KPIModel.FieldNames.Code,
+                            Eva_KPIModel.FieldNames.KPIName,
+                            Eva_KPIModel.FieldNames.Level,
+                            Eva_KPIModel.FieldNames.Rate,
+                            Eva_KPIModel.FieldNames.Comment,
+                        };
+
+    var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Eva_KPIModel.FieldNames.NameEntityObject, 130},
+                            {Eva_KPIModel.FieldNames.Code, 120},
+                            {Eva_KPIModel.FieldNames.KPIName, 200},
+                            {Eva_KPIModel.FieldNames.Level, 100},
+                            {Eva_KPIModel.FieldNames.Rate, 70},
+                            {Eva_KPIModel.FieldNames.Comment, 100},
+                        };
+
+    var displayFields = new Dictionary<string, string>()
+                        {
+                            {Eva_KPIModel.FieldNames.NameEntityObject, ConstantDisplay.HRM_Evaluation_NameEntityObject},
+                            {Eva_KPIModel.FieldNames.Code, ConstantDisplay.HRM_Evaluation_Code},
+                            {Eva_KPIModel.FieldNames.KPIName, ConstantDisplay.HRM_Evaluation_KPIName},
+                            {Eva_KPIModel.FieldNames.Level, ConstantDisplay.HRM_Evaluation_Level},
+                            {Eva_KPIModel.FieldNames.Rate, ConstantDisplay.HRM_Evaluation_Rate},
+                            {Eva_KPIModel.FieldNames.Comment, ConstantDisplay.HRM_Evaluation_Comment},
+                        };
+
+
+    var grid = new GridBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Evaluation_KPI_Grid_Name,
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        ReadActionUrl = _Hrm_Eva_Service + "Eva_GetData/GetKPIListByNameEntityID",
+        ReadData = "filterFieldInfo",
+        AutoBind = true,
+        ShowDeleteButton = true,
+        PageSize = 10,
+    };
+                                                }
+                                                @(Html.VnrGrid<Eva_KPIModel>(grid))
+                                            </div>
+                                        </fieldset>
+                                    </div>
+                                </td>
+                                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                            </tr>
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+}

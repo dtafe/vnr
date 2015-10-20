@@ -1,0 +1,309 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using System.Collections
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Recruitment.Models
+@model Rec_QuestionaireModel
+
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> lstStatus = Enum.GetValues(typeof(StatusQuestionaire))
+        .Cast<StatusQuestionaire>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+
+
+}
+@{
+    var windowQuestion = new WindowBuilderInfo
+    {
+        Name = "windowQuestion",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_Question/QuestionInfo/",
+    };
+}
+@(Html.VnrWindow(windowQuestion))
+<script>
+
+    $("#userupdate").val($("#UserLoginName").val());
+    var titleEditPopUpQuestion = '@Html.Raw(ConstantDisplay.HRM_Rec_Question_PopUp_Edit_Title.TranslateString())';
+    SetFieldRequired();
+    $(document).ready(function () {
+
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Rec_Question/QuestionInfo/";
+        EditGridPopUp("gridQuestion", "windowQuestion", url, '@ConstantPermission.Rec_Question', titleEditPopUpQuestion);
+    })
+
+    function filterFieldInfo() {
+
+        var ID = '';
+        if ($("#QuestionaireID").val() != '') {
+            ID = $("#QuestionaireID").val();
+        }
+        else {
+            ID = $("#ID").val();
+        }
+        return {
+            QuestionaireID: ID
+        };
+    }
+    var gridName = "gridQuestion";
+    //Xử Lý grid
+    GridCheckbox(gridName);
+    //Xử lý delete
+    $('#btnDeleteQuestion').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Rec_Question/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Rec_Question');
+        return false;
+    });
+    //Thêm
+    $('#btnCreateQuestion').click(function (e) {
+
+        var QuestionaireID = $("#ID").val();
+        var QuestionBankID = $("#QuestionBank1").val();
+        var Rate = $("#Rate1").val();
+        if (QuestionaireID == '') {
+            ShowNotificationProcessor("Vui lòng Lưu Trước Khi Thêm.");
+            return;
+        }
+
+        if (QuestionBankID == '') {
+            ShowNotificationProcessor("Vui Lòng Chọn Ngân Hàng Câu Hỏi");
+            return;
+        }
+        if (Rate == '' && Rate != null) {
+            ShowNotificationProcessor("Vui Lòng Chọn Hệ Số");
+            return;
+        }
+
+        var data = { QuestionaireID: QuestionaireID, QuestionBankID: QuestionBankID, Rate: Rate };
+        $.ajax({
+            url: '@_hrm_Main_Web' + 'Rec_Questionaire/CreateQuestion',
+            data: data,
+            type: 'POST',
+            success: function (data) {
+                var grid = $('#gridQuestion').data("kendoGrid");
+                grid.dataSource.read();
+                ShowNotificationProcessor("Lưu Thành Công");
+            }
+        });
+    });
+    function SetValue() {
+        $("#Status1").val($("#Questionaire_Status").val());
+    }
+    function onSave1() {
+
+        SetValue();
+        onSaveAndContinue($('#form_Rec_Questionaire'), '@_hrm_Hre_Service', 'api/Rec_Questionaire/', '@ConstantControlName.HRM_Rec_Questionaire_Grid_Name', '@ConstantControlName.HRM_Rec_Questionaire_PopUp_Name');
+    }
+
+    function onSaveClose1() {
+
+        SetValue();
+        onSaveAndClose($('#form_Rec_Questionaire'), '@_hrm_Hre_Service', 'api/Rec_Questionaire/', '@ConstantControlName.HRM_Rec_Questionaire_Grid_Name', '@ConstantControlName.HRM_Rec_Questionaire_PopUp_Name');
+    }
+
+    function onSaveDataPopUp1() {
+
+        SetValue();
+        onlySave($('#form_Rec_Questionaire'), '@_hrm_Hre_Service', 'api/Rec_Questionaire/', '@ConstantControlName.HRM_Rec_Questionaire_Grid_Name');
+    }
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Rec_Questionaire" }))
+{
+    <script>
+
+        @if(Model != null)
+             {
+                 Html.HiddenFor(model => model.UserUpdate, new { id = "userupdate" });
+            }
+            else
+            {
+
+            }
+    </script>
+
+    @Html.HiddenFor(model => model.ID)
+    @Html.HiddenFor(model => model.Status, new { id = "Status1" })
+    <table>
+        <tr>
+            <td>
+                <div style="display:block; padding-top:10px;">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.QuestionaireName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.QuestionaireName, "width: 300px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.Status)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                            var Status = new DropDownListBuilderInfo()
+                            {
+                                StyleCss = "width:300px",
+                                Name="Questionaire_Status",
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                BindTo=lstStatus,
+                                OptionLabel = ConstantDisplay.HRM_Category_SelectStatus.TranslateString(),
+
+                            };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.Status, Status).Value(Model!=null&&!string.IsNullOrEmpty(Model.Status)?Model.Status:null)
+                        </div>
+                        <div class="clear"></div>
+                    </div>
+                    <div style="width:100%;display: block">
+                        <fieldset>
+                            <legend>
+                                @ConstantDisplay.HRM_Rec_Question_List.TranslateString()
+                            </legend>
+                            <div class="commandToolBarWidge" id="anchor">
+                                <div style="float:left">
+                                    <div style="float:left;" id="dvPerformanceTypeID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.QuestionBankID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var QuestionBankID = new DropDownListBuilderInfo()
+    {
+        StyleCss = "width:300px",
+        Name = "QuestionBank1",
+        DataTextField = "QuestionBankName",
+        DataValueField = "ID",
+        Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiQuestionBank",
+        OptionLabel = ConstantDisplay.HRM_Recruitment_SelectQuestionBank.TranslateString(),
+    };
+                                            }
+                                            @Html.VnrDropDownListFor(mode => mode.QuestionBankID, QuestionBankID)
+                                        </div>
+                                    </div>
+
+                                    <div style="float:left;" id="dvPerformanceTypeID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.Rate)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var Rate = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:150px",
+        Name = "Rate1"
+
+    };
+                                            }
+                                            @Html.VnrNumericTextBoxFor(p => p.Rate, Rate)
+                                        </div>
+                                    </div>
+
+                                    <div style="float:left;padding-left:5px;" id="dvPerformanceTypeID">
+                                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateQuestion", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                    </div>
+
+                                </div>
+
+                                <div style="float:right">
+                                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteQuestion", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                                </div>
+                                <div class="clear"></div>
+                            </div>
+
+                            <div>
+                                <!--Khai báo các thông tin cho Grid-->
+                                @{
+    string[] valueFields = new[]
+                    {
+                        Rec_QuestionModel.FieldNames.QuestionBankName,
+                        Rec_QuestionModel.FieldNames.Rate,
+                        Rec_QuestionModel.FieldNames.UserUpdate,
+                        Rec_QuestionModel.FieldNames.DateUpdate,
+                    };
+
+    var sizeFields = new Dictionary<string, int>()
+                    {
+                        {Rec_QuestionModel.FieldNames.QuestionBankName,200},
+                        {Rec_QuestionModel.FieldNames.Rate,60},
+                        {Rec_QuestionModel.FieldNames.UserUpdate,110},
+                        {Rec_QuestionModel.FieldNames.DateUpdate,100},
+                    };
+
+    var filterable = new Dictionary<string, bool>()
+                    {
+                        {Rec_QuestionModel.FieldNames.QuestionBankName,true},
+                        {Rec_QuestionModel.FieldNames.Rate,true},
+                        {Rec_QuestionModel.FieldNames.UserUpdate,true},
+                        {Rec_QuestionModel.FieldNames.DateUpdate,true},
+                    };
+
+    var displayFields = new Dictionary<string, string>()
+                    {
+                        {Rec_QuestionModel.FieldNames.QuestionBankName,ConstantDisplay.HRM_Rec_QuestionBank_QuestionBankName},
+                        {Rec_QuestionModel.FieldNames.Rate,ConstantDisplay.HRM_Category_SalaryRank_Rate},
+                        {Rec_QuestionModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Common_UserUpdate},
+                        {Rec_QuestionModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Common_DateUpdate},
+                    };
+
+    var grid = new GridBuilderInfo
+    {
+        Name = "gridQuestion",
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        Filterable = filterable,
+        AutoBind = true,
+        ShowEditButton = true,
+        ShowEditIcon = true,
+        GridHeight = 350,
+        ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetQuestionByQuestionaireIdList/",
+        ReadData = "filterFieldInfo",
+    };
+                                }
+
+                                @(Html.VnrGrid<Rec_QuestionModel>(grid))
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp1", Name = "save-Questionaire", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave1", Name = "save-continue-Questionaire", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose1", Name = "save-close-Questionaire", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+

@@ -1,0 +1,346 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+
+@model HRM.Presentation.Attendance.Models.Att_ReportSumaryInOutModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        
+        var _ShiftIDs = $('#@Html.FieldIdFor(model => model.ShiftIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ShiftIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ShiftIDs)').val();
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ShiftIDs: _ShiftIDs,
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            isIncludeQuitEmp: $('#@Html.FieldIdFor(model => model.isIncludeQuitEmp)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportSumaryInOutValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var _isIncludeQuitEmp = document.getElementById("isIncludeQuitEmp");
+                        if (_isIncludeQuitEmp.checked) {
+
+                            $("isIncludeQuitEmp").val("true");
+                        } else {
+                            $("isIncludeQuitEmp").val("false");
+                        }
+                        var grid = $('#gridAtt_ReportSumaryInOut').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            return false;
+        });
+    });
+
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportSumaryInOut');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportSumaryInOut';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportSumaryInOut', filterFieldInfo(true));
+    });
+
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:410px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                            @{
+                                var DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp, "width:215px")
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ShiftIDs)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @{
+                                    var _shiftIDs = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ShiftName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                        Value = @Html.DisplayFor(mode => mode.ShiftID).ToString(),
+                                        Width = 215,
+                                        Placeholder = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ShiftIDs, _shiftIDs))
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="display: block; float: left; width: 600px">
+                    <div id="div3">
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                                    }
+
+                                    @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp) @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @using HRM.Presentation.UI.Controls.Kendo
+        @{
+            string[] valueFields = new string[]
+        {
+           Att_ReportSumaryInOutModel.FieldNames.CodeEmp,
+           Att_ReportSumaryInOutModel.FieldNames.ProfileName,
+           Att_ReportSumaryInOutModel.FieldNames.DepartmentCode,
+           Att_ReportSumaryInOutModel.FieldNames.Date,
+           Att_ReportSumaryInOutModel.FieldNames.ShiftName,
+           Att_ReportSumaryInOutModel.FieldNames.ApprovedShift,
+           Att_ReportSumaryInOutModel.FieldNames.udTimeIn,
+           Att_ReportSumaryInOutModel.FieldNames.udTimeOut,
+           Att_ReportSumaryInOutModel.FieldNames.Remark,
+           Att_ReportSumaryInOutModel.FieldNames.DateFrom,
+           Att_ReportSumaryInOutModel.FieldNames.DateTo,
+           Att_ReportSumaryInOutModel.FieldNames.UserExport,
+           Att_ReportSumaryInOutModel.FieldNames.DateExport
+
+
+        };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Att_ReportSumaryInOutModel.FieldNames.CodeEmp,80},
+            {Att_ReportSumaryInOutModel.FieldNames.ProfileName,140},
+            {Att_ReportSumaryInOutModel.FieldNames.DepartmentCode,100},
+            {Att_ReportSumaryInOutModel.FieldNames.Date,85},
+            {Att_ReportSumaryInOutModel.FieldNames.ShiftName,90},
+            {Att_ReportSumaryInOutModel.FieldNames.ApprovedShift,110},
+            {Att_ReportSumaryInOutModel.FieldNames.udTimeIn,65},
+            {Att_ReportSumaryInOutModel.FieldNames.udTimeOut,65},
+            {Att_ReportSumaryInOutModel.FieldNames.Remark,200},
+            {Att_ReportSumaryInOutModel.FieldNames.DateFrom,90},
+            {Att_ReportSumaryInOutModel.FieldNames.DateTo,65},
+            {Att_ReportSumaryInOutModel.FieldNames.UserExport,65},
+            {Att_ReportSumaryInOutModel.FieldNames.DateExport,200}
+    };
+
+            Dictionary<string, string>
+                displayFields = new Dictionary<string, string>
+                    ()
+            {
+            {Att_ReportSumaryInOutModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+            {Att_ReportSumaryInOutModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+            {Att_ReportSumaryInOutModel.FieldNames.DepartmentCode,ConstantDisplay.HRM_Attendance_DepartmentCode},
+            {Att_ReportSumaryInOutModel.FieldNames.Date,ConstantDisplay.HRM_Attendance_Date},
+            {Att_ReportSumaryInOutModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_ShiftId},
+            {Att_ReportSumaryInOutModel.FieldNames.ApprovedShift,ConstantDisplay.HRM_Attendance_ReportWrongShift_ApprovedShift},
+            {Att_ReportSumaryInOutModel.FieldNames.udTimeIn,ConstantDisplay.HRM_Attendance_InTime},
+            {Att_ReportSumaryInOutModel.FieldNames.udTimeOut,ConstantDisplay.HRM_Attendance_OutTime},
+            {Att_ReportSumaryInOutModel.FieldNames.Remark,ConstantDisplay.HRM_Attendance_Remark},
+            {Att_ReportSumaryInOutModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+            {Att_ReportSumaryInOutModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+            {Att_ReportSumaryInOutModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+            {Att_ReportSumaryInOutModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport},
+            };
+
+            Dictionary<string, string>
+                formatFields = new Dictionary<string, string>
+                    ()
+                    {
+                    {Att_ReportSumaryInOutModel.FieldNames.udTimeIn,"{0:hh:mm:ss}"},
+                    {Att_ReportSumaryInOutModel.FieldNames.udTimeOut, "{0:hh:mm:ss}" }
+                    };
+
+            var hiddenFields = new string[]
+        {
+                Att_ReportSumaryInOutModel.FieldNames.DateFrom,
+                Att_ReportSumaryInOutModel.FieldNames.DateTo,
+                Att_ReportSumaryInOutModel.FieldNames.UserExport,
+                Att_ReportSumaryInOutModel.FieldNames.DateExport
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_ReportSumaryInOut",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                FormatFields = formatFields,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportSumaryInOut",
+                ReadData = "filterFieldInfo",
+                ShowEditIcon = false,
+                ShowCheckbox = false,
+                HiddenFields = hiddenFields
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_ReportSumaryInOutModel>(grid))
+    </div>
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,222 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@model HRM.Presentation.Hr.Models.Hre_ReportCodeNotInSystemModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    string[] valueFields = null;
+}
+@Html.Hidden("Screen", screen)
+<script>
+
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            @*DateFrom: $('#@Html.FieldIdFor(model => model.DateFrom)').val(),
+            DateTo: $('#@Html.FieldIdFor(model => model.DateTo)').val()*@
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            dataParameter["ExportID"] = $('#ddlScreenName').val();
+           // elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+
+
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            var grid = $('#gridHre_ReportCodeNotInSystem').data("kendoGrid");
+            grid.dataSource.read();
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportCodeNotInSystem');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Hre_GetData/GetReportCodeNotInSystem";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+    $("#btnCreateTemplate").click(function () {
+        debugger
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hre_Service' + '/Hre_GetData/GetReportCodeNotInSystem', filterFieldInfo(true));
+    });
+    function onDataBoundGrid() {
+        CheckedGrid("gridHre_ReportCodeNotInSystem", selectedIds.join(","));
+    }
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div class="FieldTitle170">
+                        @Html.Label(@ConstantDisplay.HRM_Attendance_RosterGroup_DateFromTo.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                        @{
+                            var DateTo = new DatePickerBuilderInfo()
+                            {
+                                Value = @Html.DisplayFor(mode => mode.DateTo).ToString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                    </div>
+                </div>             
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new[]
+        {
+           Hre_ReportCodeNotInSystemModel.FieldNames.Code,
+           Hre_ReportCodeNotInSystemModel.FieldNames.Time,
+           Hre_ReportCodeNotInSystemModel.FieldNames.Type,
+           Hre_ReportCodeNotInSystemModel.FieldNames.Machine,
+           Hre_ReportCodeNotInSystemModel.FieldNames.DateCreate,
+           Hre_ReportCodeNotInSystemModel.FieldNames.UserCreate
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Code,120},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Time,120},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Type,120},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Machine,120},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.DateCreate,110},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.UserCreate,110}
+
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Code,ConstantDisplay.HRM_HR_ReportCodeNotInSystem_Code},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Time,ConstantDisplay.HRM_HR_ReportCodeNotInSystem_Time},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Type,ConstantDisplay.HRM_HR_ReportCodeNotInSystem_Type},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.Machine,ConstantDisplay.HRM_HR_ReportCodeNotInSystem_Machine},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.DateCreate,ConstantDisplay.HRM_Hr_CardHistory_DateCreate},
+            {Hre_ReportCodeNotInSystemModel.FieldNames.UserCreate,ConstantDisplay.HRM_Hr_CardHistory_UserCreate}
+            };
+        Dictionary<string, string>
+       formatField = new Dictionary<string, string>
+           ()
+       {{Hre_ReportCodeNotInSystemModel.FieldNames.Time,"{0:dd/MM/yyyy hh:mm}"}
+       };
+      
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "gridHre_ReportCodeNotInSystem",
+            FormatFields = formatField,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetReportCodeNotInSystem",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_ReportCodeNotInSystemModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,296 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Category.Models;
+@using HRM.Infrastructure.Security
+@model CatDayOffSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Category_DayOff.TranslateString();
+    Layout = null;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Cat_Web;
+    //string[] valueFields = null;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowCatDayOff",
+        Visible = false,
+        Width = 700,
+        Title = "Thông tin ngày nghỉ lễ",
+        LoadContentFrom = @_hrm_Main_Web + "Cat_DayOff/CatDayOffInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var checkedNodes = [];
+
+    var titleEditPopUpDayOff = '@Html.Raw(ConstantDisplay.HRM_Category_DayOff_Update_Title.TranslateString())';
+    var titleCreatePopUpDayOff = '@Html.Raw(ConstantDisplay.HRM_Category_DayOff_Create_Title.TranslateString())';
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodes = [];
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        return {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(","),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        //
+        $("#btnSearch").click(function () {
+            var grid = $('#'+ '@ConstantControlName.HRM_grid_DayOff_Grid_Name').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+
+        //Xử lý nút Edit
+        var url = '@_hrm_Main_Web' + "Cat_DayOff/CatDayOffInfo/";
+        EditGridPopUp('@ConstantControlName.HRM_grid_DayOff_Grid_Name', "windowCatDayOff", url, '@ConstantPermission.Cat_DayOff', titleEditPopUpDayOff);
+    });
+
+    $("#btnCreate").click(function () {
+        debugger;
+        PopUpCreate("windowCatDayOff", titleCreatePopUpDayOff, '@ConstantPermission.Cat_DayOff');
+    });
+    //Xử Lý grid
+    GridCheckbox("DayOff");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected('@ConstantControlName.HRM_grid_DayOff_Grid_Name', '@_hrm_Main_Web' + "Cat_DayOff/RemoveSelected/", selectedIds.join(','), '@ConstantPermission.Cat_DayOff');
+        return false;
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#DayOff').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllDayOfflList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_DayOff');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportDayoffSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_DayOff');
+    });
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <form action="#" method="POST" id="form-search">
+                <div class="contendSearchWidge">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.Label(@ConstantDisplay.HRM_Category_DayOff_DateOff.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, _DateFrom)
+                            @{
+                                var _DateTo = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, _DateTo)
+                        </div>
+                    </div>
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            @*Thay đổi control (7/8/2014)*@
+                            @*@{
+                                    var buildInfo = new VnrOrgStructureInfo()
+                                    {
+
+                                    };
+                                }
+                                @Html.VnrOrgStructure(buildInfo)*@
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeDayOff", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_DayOff_Grid_Name + "__Cat_DayOffIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_DayOff_Grid_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetDayOffList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            //EventDataBound = "changePageGird",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                CatDayOffModel.FieldNames.OrgStructureName,
+                CatDayOffModel.FieldNames.DateOff,
+                CatDayOffModel.FieldNames.IsLeaveDay,
+                CatDayOffModel.FieldNames.UserUpdate,
+                CatDayOffModel.FieldNames.DateUpdate,
+                CatDayOffModel.FieldNames.Comments,
+
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {CatDayOffModel.FieldNames.OrgStructureName, 100},
+                {CatDayOffModel.FieldNames.DateOff, 81},
+                {CatDayOffModel.FieldNames.IsLeaveDay, 120},
+
+                {CatDayOffModel.FieldNames.UserUpdate,104},
+                {CatDayOffModel.FieldNames.DateUpdate,99},
+                {CatDayOffModel.FieldNames.Comments, 150},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {CatDayOffModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_DayOff_OrgStructureID},
+                {CatDayOffModel.FieldNames.DateOff, ConstantDisplay.HRM_Category_DayOff_DateOff},
+                {CatDayOffModel.FieldNames.IsLeaveDay, ConstantDisplay.HRM_Category_DayOff_IsLeaveDay},
+                {CatDayOffModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Category_DayOff_UserUpdate},
+                {CatDayOffModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Category_DayOff_DateUpdate},
+                {CatDayOffModel.FieldNames.Comments, ConstantDisplay.HRM_Category_DayOff_Comments},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "DayOff",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    AutoBind = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetDayOffList",
+        //    ReadData = "filterFieldInfo"
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<CatDayOffModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeDayOff", "CatDayOffModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

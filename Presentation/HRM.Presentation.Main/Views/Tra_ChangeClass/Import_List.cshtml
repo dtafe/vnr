@@ -1,0 +1,320 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@model HRM.Presentation.Category.Models.CatImportModel
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> list = Enum.GetValues(typeof(EnumDropDown.DuplicateData))
+     .Cast<EnumDropDown.DuplicateData>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+
+    string preC = string.Empty;
+    if (TempData["PreController"] != null)
+    {
+        preC = TempData["PreController"].ToString();
+    }
+}
+<script>
+
+    function filterFieldInfo() {
+        debugger;
+        return {
+            FormatDate: $('#@Html.FieldIdFor(model => model.FormatDate)').val(),
+            TemplateFile: $('#@Html.FieldIdFor(model => model.TemplateFile)').val(),
+            ObjectName: $('#@Html.FieldIdFor(model => model.ObjectName)').val(),
+            ImportName: $('#ImportName').val(),
+            ID: $('#ExportID').val(),
+
+        };
+    }
+    var column = [], columnInvalid = [];
+
+    $("#btnImport").click(function () {
+        debugger;
+        ShowHre_ProgressBar();
+        var objectName = $('#@Html.FieldIdFor(model => model.ObjectName)').val();
+        if (objectName != '') {
+            var isAccess = checkPermission(PrivilegeType.Import, objectName);
+            if (!isAccess) {
+                CloseHre_ProgressBar();
+                return;
+            }
+        }
+        //ReadGrid('grid_DataError_ImportTraineeScore');
+        //ReadGrid('grid_Data_ImportTraineeScore');
+        CloseHre_ProgressBar();
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Tra_GetData/ImportValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                }
+                else {
+
+                    $.ajax({
+                        url: '@_hrm_Hre_Service' + "Tra_GetData/ChangeClass/",
+                        dataType: "json",
+                        crossDomain: true,
+                        type: "POST",
+                        data: filterFieldInfo(),
+                        success: function (result) {
+                            debugger;
+                            var gridImport = $("#grid_Data_ImportTrainee").data("kendoGrid");
+
+                            gridImport.dataSource.data(result.Data);
+                            CloseHre_ProgressBar();
+                        },
+                        error: function (result) {
+
+                            CloseHre_ProgressBar();
+                        }
+                    });
+                    return false;
+                }
+                CloseHre_ProgressBar();
+            }
+
+        });
+    });
+
+
+
+    function onChangeNew(e) {
+        debugger;
+        $("#ExportID").val(this._current[0].childNodes[0].childNodes[1].id);
+    }
+    $("#btnSave").click(function () {
+        debugger;
+        ShowHre_ProgressBar();
+        var objectName = $('#@Html.FieldIdFor(model => model.ObjectName)').val();
+        if (objectName != '') {
+            var isAccess = checkPermission(PrivilegeType.Import, objectName);
+            if (!isAccess) {
+                CloseHre_ProgressBar();
+                return;
+            }
+        }
+        var grid = $("#grid_Data_ImportTrainee").data("kendoGrid");
+        var row = $("#grid_Data_ImportTrainee").find(".k-grid-edit-row");
+        if (row.length == 1) {
+            $("#grid_Data_ImportTrainee").data("kendoGrid").saveRow(row);
+        }
+
+        var updatedData = grid.dataSource.data();
+        for (var i = 0; i < updatedData.length; i++) {
+            if (updatedData[i].TypeError != null)
+            {
+                ShowNotification('Thông Báo', '@ConstantMessages.WrongDataWhenImportTraineeScore.ToString().TranslateString()', "k-block k-info-colored");
+                CloseHre_ProgressBar();
+                return;
+            }
+        }
+
+      $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + 'Tra_GetData/ImportValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                }
+                else {
+                    $.ajax({
+                        url: '@_hrm_Hre_Service' + "Tra_GetData/SaveChangeClass/",
+                        dataType: "json",
+                        crossDomain: true,
+                        type: "POST",
+                        data: filterFieldInfo(),
+                        success: function (result) {
+                            debugger;
+                            ShowNotification('Thông Báo', '@ConstantDisplay.Hrm_Succeed.ToString().TranslateString()', "k-block k-info-colored");
+                            CloseHre_ProgressBar();
+                        },
+                        error: function (result) {
+
+                            CloseHre_ProgressBar();
+                        }
+                    });
+                    return false;
+                }
+                CloseHre_ProgressBar();
+            }
+
+        });
+    });
+
+    function EvenDataBoundObjectName() {
+        var combobox = $("#ObjectName").data("kendoComboBox");
+        combobox.select(combobox.ul.children().eq(0));
+    };
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div>
+                        <div style="float:left; width:550px">
+                            <div id="div2">
+                                <script>
+                                    function filterByObjectName() {
+                                        return {
+                                            text: $("#ImportName").val(),
+                                        };
+                                    }
+                                </script>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.ImportName)
+                                </div>
+                                <div class="FieldValue">
+                                    <script>
+                                        
+                                        function ImportData1() {
+                                            return {
+                                                text: $("#ImportName").data("kendoComboBox").text() + "|" + '@preC'
+                                            };
+                                        }
+                                    </script>
+                                    @{
+                                        var _ImportName = new ComboBoxBuilderInfo
+                                        {
+                                            DataTextField = "ImportName",
+                                            DataValueField = "ObjectName",
+                                            Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiImport",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectImport.TranslateString(),
+                                            StyleCss = "width:300px;",
+                                            Template = "<span class=\"k-state-default\">#: data.ImportName #" + @Html.Hidden("#: data.ID #", null, new { Id = "#: data.ID #" }) + "</span>",
+                                            EventChange = "onChangeNew",
+                                            Data = "ImportData1"
+                                        };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.ImportName, _ImportName)
+                                    @Html.Hidden("ExportID")
+                                </div>
+                            </div>
+                            <div id="div5">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.ObjectName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _ObjectName = new ComboBoxBuilderInfo()
+                                        {
+                                            DataTextField = "Name",
+                                            DataValueField = "Name",
+                                            Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiObjectNameByObjName",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectObjectName.TranslateString(),
+                                            StyleCss = "width:300px;",
+                                            Data = "filterByObjectName",
+                                            ServerFilter = true,
+                                            CascadeFrom = "ImportName",
+                                            EventDataBound = "EvenDataBoundObjectName",
+                                        };
+                                        //if (preC != null && preC != "") {
+                                        //    _ObjectName.Value = preC;
+                                        //}
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.ObjectName, _ObjectName)
+                                </div>
+
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.TemplateFile)
+                                </div>
+                                <div class="FieldValue" style="max-width: 300px!important">
+                                    <script>
+                                        function onSuccess(e) {
+                                            debugger;
+                                            var responseTxt = jQuery.parseJSON(e.XMLHttpRequest.responseText);
+                                            var status = responseTxt.Status;
+                                            if (status == true) {
+                                                //value null
+                                                $("#TemplateFile").val('');
+                                                //set value
+                                                $("#TemplateFile").val(responseTxt.FileName);
+                                            } else {
+                                                $("#TemplateFile").val('');
+                                            }
+                                        }
+                                    </script>
+                                    @Html.HiddenFor(model => model.TemplateFile)
+                                    <input type="file" name="files" id="UploadImportTemplateFile" />
+                                    <script>
+                                        var vnrUpload = VnrUploadBuilder;
+                                        vnrUpload.Id = "UploadImportTemplateFile";
+                                        vnrUpload.Host = '@_hrm_Main_Web';
+                                        vnrUpload.Files = '@Html.DisplayFor(model => model.TemplateFile)';
+                                        vnrUpload.Field = "TemplateFile";
+                                        vnrUpload.AutoUpload = true;
+                                        VnrUpload(vnrUpload);
+                                    </script>
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                        @*<div style="width:550px; display:block; float:left">
+                            <div id="div6">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Category_FormatDate.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.FormatDate)
+                                </div>
+                            </div>
+                            <div id="div7">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Category_DuplicateData.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _DuplicateData = new DropDownListBuilderInfo()
+                                         {
+                                             Name = "ProcessDuplicateData",
+                                             DataTextField = "Text",
+                                             DataValueField = "Value",
+                                             BindTo = list,
+                                             OptionLabel = @ConstantDisplay.HRM_Category_SelectProcess.TranslateString(),
+                                             StyleCss = "width:170px"
+                                         };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.ProcessDuplicateData, _DuplicateData))
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div>
+                            </div>
+                            <br />
+                        </div>*@
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImport", Content = ConstantAction.HRM_Common_Import.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSave", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+    </div>
+    <div style="float: right">
+        <div id="idDataInvalid"></div>
+    </div>
+
+    @Html.Partial("Tab_Import")
+</div>

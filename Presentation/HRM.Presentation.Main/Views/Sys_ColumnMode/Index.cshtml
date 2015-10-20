@@ -1,0 +1,286 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    var userId = Session[SessionObjects.UserId];
+    bool checkUser = true;
+    if (userId != null)
+    {
+        Guid guidUserId;
+        Guid.TryParse(userId.ToString(), out guidUserId);
+        if (guidUserId == Guid.Empty)
+        {
+            checkUser = false;
+        }
+    }
+    else
+    {
+        checkUser = false;
+    }
+}
+<link href="@Url.Content("~/Content/change-column.css")" rel="stylesheet" />
+@model GridBuilderModel
+@if (Model != null)
+{
+    <div class="container" id="Change-Colum-Control">
+        <div class="div-100">
+            <div class="div-50">
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSaveChange", Content = ConstantAction.HRM_Common_SaveChanges.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDefaultConfig", Content = ConstantAction.HRM_Common_DefaultConfig.TranslateString(), ImageUrl = ConstantPath.IconRefeshPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCancelChange", Content = ConstantAction.HRM_Common_Cancel.TranslateString(), ImageUrl = ConstantPath.IconClear })
+            </div>
+            <div class="div-50 text-right">
+                <span>@Constant.PageSize.TranslateString(): <input type="text" id="PageSize" class="k-textbox" value="@(Model.PageSize)" /></span>
+            </div>
+        </div>
+        <div class="clear"></div>
+        <div>
+            <div class="col-lg-3 col-md-3 box-style-hidden">
+                <div class="col-hidden-title">@ConstantDisplay.HRM_HideColum.TranslateString()</div>
+                <ul id="col-hidden-list" class="show-scroll-500">
+                    @{
+                        if (Model.Columns != null && Model.Columns.Any())
+                        {
+                            foreach (var colum in Model.Columns)
+                            {
+                                <li class="sortable" id="li-@colum.Key">
+                                    @colum.Value
+                                </li>
+                            }
+                        }
+                    }
+                </ul>
+            </div>
+            <div class="col-lg-8 col-md-8 box-style-show">
+                <div class="col-show-title">@ConstantDisplay.HRM_ShowColum.TranslateString()</div>
+                <div class="header-title">
+                    <div class="column-name">@ConstantDisplay.ColumnName.TranslateString()</div>
+                    <div class="column-filter">@ConstantDisplay.Filter.TranslateString()</div>
+                    <div class="column-group">@ConstantDisplay.Group.TranslateString()</div>
+                    <div class="column-locke">@ConstantDisplay.Lock.TranslateString()</div>
+                    <div class="column-width">@ConstantDisplay.Width.TranslateString()</div>
+                    <div class="clear"></div>
+                </div>
+                <ul id="col-show-list" class="show-scroll-500">
+                    @{
+                        var displayFields = Model.DisplayFields;
+                        if (displayFields != null && displayFields.Any())
+                        {
+                            foreach (var field in displayFields)
+                            {
+                                int width = 0;
+                                bool filter = false, locke = false, group = false;
+                                var sizeField = Model.SizeFields;
+                                var filterField = Model.FilterFields;
+                                var lockField = Model.LockedFields;
+                                var groupField = Model.GroupFields;
+                                var colName = field.Key;
+                                if (sizeField != null && sizeField.ContainsKey(colName))
+                                {
+                                    width = sizeField[colName];
+                                }
+                                if (filterField != null && filterField.ContainsKey(colName))
+                                {
+                                    filter = filterField[colName];
+                                }
+                                if (lockField != null)
+                                {
+                                    locke = lockField.Contains(colName);
+                                }
+                                if (groupField != null)
+                                {
+                                    group = groupField.Contains(colName);
+                                }
+                                <li class="sortable" id="li-@colName">
+                                    @field.Value
+                                    <span id="li-@colName-config">
+                                        <span class="filter"><input type="checkbox" checked="@filter" /></span>
+                                        <span class="group"><input type="checkbox" checked="@group" /></span>
+                                        <span class="locke"><input type="checkbox" checked="@locke" /></span>
+                                        <span class="width"><input type="text" class="k-textbox" value="@width"></span>
+                                    </span>
+                                </li>
+                            }
+                        }
+                    }
+                </ul>
+
+            </div>
+        </div>
+    </div>
+    <div id="div-temp-content-hidden-list" class="hidden"></div>
+    <div id="div-temp-content-show-list" class="hidden"></div>
+
+    <script>
+        var showListId = "col-show-list";
+        var hiddenListId = "col-hidden-list";
+        var tempShowListId = "div-temp-content-show-list";
+        var tempHiddenListId = "div-temp-content-hidden-list";
+        var gridControlName = $("#GridControlName").val();
+        var columMode = $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val();
+
+
+        //Lưu cấu hình vào database
+        $("#btnSaveChange").click(function (e) {
+            debugger;
+            if ('@checkUser' == 'True') {
+                var ul = document.getElementById("col-show-list");
+                //Danh sách các field qua thẻ li
+                var lis = ul.children;
+                if (lis != undefined && lis != "" && lis.length > 0) {
+                    var pageSize = $("#PageSize").val();
+                    var strJson = GetXMLTypeJson();
+                    $.ajax({
+                        url: '@_hrm_Main_Web' + "Sys_ColumnMode/SaveGridBuilderInfo",
+                        data: { userId: '@userId', gridColumnName: gridControlName, columnMode: strJson, pageSize: pageSize },
+                        type: 'POST',
+                        success: function(data) {
+                            var window = $("#popUpChangeColumn").data("kendoWindow");
+                            window.close();
+                            location.reload();
+                        }
+                    });
+                }
+            } else {
+                ShowNotificationProcessor("Người dùng phải tồn tại trong database mới sử dụng được chức năng này.");
+            }
+        });
+        $("#btnDefaultConfig").click(function (e) {
+            if (columMode != undefined && columMode != "") {
+                debugger;
+                $.ajax({
+                    url: '@_hrm_Main_Web' + "Sys_ColumnMode/DeleteGridBuilderInfo",
+                    data: { userId: '@userId', gridColumnName: gridControlName },
+                    type: 'POST',
+                    success: function(data) {
+                        debugger;
+                        if (data != null) {
+                            if (data.ActionStatus.indexOf('@NotificationType.Success') != -1) {
+                                var window = $("#popUpChangeColumn").data("kendoWindow");
+                                window.close();
+                                location.reload();
+                            } else {
+                                ShowNotificationProcessor(data.ActionStatus);
+                            }
+                        }
+                    }
+                });
+            } else {
+                ShowNotificationProcessor("Bạn đang sử dụng cấu hình mặc định.");
+            }
+            
+        });
+        $("#btnCancelChange").click(function (e) {
+            var tempShowList = document.getElementById(tempShowListId);
+            var tempHiddenList = document.getElementById(tempHiddenListId);
+            $('#' + showListId).html(tempShowList.innerHTML);
+            $('#' + hiddenListId).html(tempHiddenList.innerHTML);
+        });
+        function GetXMLTypeJson() {
+            debugger;
+            //Lấy tag htm chứa các field được hiển thị
+            var ul = document.getElementById("col-show-list");
+            //Danh sách các field qua thẻ li
+            var lis = ul.children;
+            //Tạo cấu trúc xml để lưu vào database theo dạng json
+            var str = "{\"GridColumnNames\": {\"GridColumnName\": [";
+            //Duyệt qua từng thẻ li và lấy các field
+            for (var i = 0; i < lis.length; i++) {
+                //Lấy tên field theo id : li-tên field
+                var li = lis[i], colName = li.id.substring(3, li.id.length);
+                str += "{\"ColumnName\":\"" + colName + "\",";
+                var spans = li.children[0].children;
+                //Lấy danh sách các thuộc tính
+                for (var j = 0; j < spans.length; j++) {
+                    var span = spans[j];
+                    var input = span.children[0];
+                    switch (span.className) {
+                    case "filter":
+                        str += "\"Filter\":" + input.checked + ",";
+                        break;
+                    case "width":
+                        str += "\"Width\":" + input.value + ",";
+                        break;
+                    case "locke":
+                        str += "\"Locke\":" + input.checked + ",";
+                        break;
+                    case "group":
+                        str += "\"Group\":" + input.checked + ",";
+                        break;
+                    }
+                }
+                //Cắt bỏ các dấu , dư sau khi kết thúc vòng lặp
+                str = str.substring(0, str.length - 1);
+                str += "},";
+            }
+            str = str.substring(0, str.length - 1);
+            str += "]}}";
+
+            return str;
+        }
+        var showList = document.getElementById(showListId);
+        var tempShowList = document.getElementById(tempShowListId);
+        var hiddenList = document.getElementById(hiddenListId);
+        var tempHiddenList = document.getElementById(tempHiddenListId);
+        tempHiddenList.innerHTML = hiddenList.innerHTML;
+        tempShowList.innerHTML = showList.innerHTML;
+
+        $(document).ready(function () {
+            function onChange(e) {
+                debugger;
+                var id = e.sender.element.attr("id"), text = e.item.text();
+                var liId = e.item.attr("id");
+                var idConfig = document.getElementById(liId + "-config");
+
+                var strInput = "<span id=\"" + liId + "-config\">" +
+                    "<span class=\"filter\"><input type=\"checkbox\" value=\"false\" /></span>" +
+                    "<span class=\"group\"><input type=\"checkbox\" value=\"false\" /></span>" +
+                    "<span class=\"locke\"><input type=\"checkbox\" value=\"false\" /></span>" +
+                    "<span class=\"width\"><input type=\"text\" class=\"k-textbox\" value=\"100\"></span></span>";
+                if (id == "col-show-list") {
+                    if (idConfig != null && idConfig != undefined) {
+                        document.getElementById(liId + "-config").style.display = "";
+                    }
+                    else {
+                        document.getElementById(liId).innerHTML += strInput;
+                    }
+                }
+                else
+                {
+                    if (idConfig != null && idConfig != undefined) {
+                        document.getElementById(liId + "-config").style.display = "none";
+                    }
+                    else {
+                        document.getElementById(liId).innerHTML = text;
+                    }
+                }
+            }
+
+            $("#col-hidden-list").kendoSortable({
+                hint: function (element) {
+                    return element.clone().addClass("hint");
+                },
+                change: onChange,
+                connectWith: "#col-show-list",
+                placeholder: function (element) {
+                    return element.clone().addClass("placeholder").text("vị trí này");
+                },
+                cursor: "url('/Content/cursor/grabbing.cur'), default"
+            });
+
+            $("#col-show-list").kendoSortable({
+                hint: function (element) {
+                    return element.clone().addClass("hint");
+                },
+                ignore: "input",
+                connectWith: "#col-hidden-list",
+                placeholder: function (element) {
+                    return element.clone().addClass("placeholder").text("vị trí này");
+                },
+                change: onChange,
+                cursor: "url('/Content/cursor/grabbing.cur'), default"
+            });
+        });
+    </script>
+}

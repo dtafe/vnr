@@ -1,0 +1,986 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+
+@using HRM.Presentation.Hr.Models
+@{
+    Layout = null;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+       .Cast<EnumDropDown.Gender>()
+       .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p => p.Text)
+       .ToList();
+
+    IList<SelectListItem> listMarriageStatus = Enum.GetValues(typeof(EnumDropDown.MarriageStatus))
+    .Cast<EnumDropDown.MarriageStatus>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p => p.Text)
+    .ToList();
+
+    IList<SelectListItem> lstDay = Common.Day();
+    IList<SelectListItem> lstMonth = Common.Month();
+    var userLoginName = Session[SessionObjects.LoginUserName];
+}
+
+@model Hre_ProfileModel
+
+@*<script>
+        SetCharacteFieldRequired()
+    </script>*@
+<script>
+    //SetFieldRequired();
+
+    $("#ProfileName").change(function () {
+        var fullName = $(this).val().trim();
+        var col_array = fullName.split(" ");
+        var part_num = 0;
+        var lastName = "";
+        var firstName = "";
+        for (var i = 0; i < col_array.length; i++) {
+            if (i == col_array.length - 1)
+                firstName = col_array[i];
+            else
+                lastName += col_array[i] + " ";
+        }
+        document.getElementById("FirstName").value = firstName;
+        document.getElementById("NameFamily").value = lastName;
+    });
+
+    $(document).ready(function () {
+
+        $("#ProfileBasic_DateHire").change(function () {
+
+            var _dateHire = $("#ProfileBasic_DateHire").data("kendoDatePicker");
+            var _dateApplyAttendanceCode = $("#ProfileBasic_DateApplyAttendanceCode").data("kendoDatePicker");
+
+            _dateApplyAttendanceCode.value(_dateHire.value());
+        });
+    });
+
+    // Kiểm tra trùng tên NV
+    $("#ProfileName").change(function () {
+
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _ProfileName = $("#ProfileName").val().trim();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Hre_GetData/CheckDuplicateProfileName',
+            type: 'POST',
+            data: { ID: _ID, profileName: _ProfileName },
+            success: function (profile) {
+                if (profile != '') {
+                    $("#idFailProfileName").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idSuccessProfileName").attr("style", "display: none");
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', '@ConstantDisplay.HRM_HR_Profile_DuplicateName.TranslateString()' + profile, "k-block k-info-colored");
+                    CloseHre_ProgressBar();
+                }
+                else {
+                    $("#idSuccessProfileName").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idFailProfileName").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                }
+            },
+        });
+    });
+
+
+    // Kiểm tra trùng mã NV
+    $("#CodeEmp").change(function () {
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _CodeEmp = $("#CodeEmp").val().trim();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Hre_GetData/CheckDuplicateCodeEmp',
+            type: 'POST',
+            data: { ID: _ID, codeEmp: _CodeEmp },
+            success: function (profile) {
+
+                if (profile != '') {
+                    $("#idFail").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idSuccess").attr("style", "display: none");
+                    @*//ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', "Mã Nhân viên đã trùng với nhân viên : " + profile, "k-block k-info-colored");*@
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', '@ConstantDisplay.HRM_HR_Profile_DuclicateCodeEmp.TranslateString()', "k-block k-info-colored");
+                    CloseHre_ProgressBar();
+                }
+                else {
+                    $("#idSuccess").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idFail").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                }
+            },
+        });
+    });
+
+    // Kiểm tra trùng mã Chấm Công
+    $("#CodeAttendance").change(function () {
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _CodeAttendance = $("#CodeAttendance").val().trim();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Hre_GetData/CheckDuplicateCodeAtt',
+            type: 'POST',
+            data: { ID: _ID, codeAtt: _CodeAttendance },
+            success: function (Status) {
+
+                if (Status != '') {
+                    $("#idDuplicateCodeEmp").attr("style", "display: inline-block; padding-top: 4px; padding-right: 5px");
+                    $("#idNotDuplicateCodeEmp").attr("style", "display: none");
+                    @*ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', "Mã chấm công đã trùng với nhân viên : " + Status, "k-block k-info-colored");*@
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', '@ConstantDisplay.HRM_HR_Profile_DuclicateCodeAtt.TranslateString()', "k-block k-info-colored");
+
+                    CloseHre_ProgressBar();
+                }
+                else {
+                    $("#idNotDuplicateCodeEmp").attr("style", "display: inline-block; padding-top: 4px; padding-right: 5px");
+                    $("#idDuplicateCodeEmp").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                }
+            },
+        });
+    });
+
+    // Kiểm tra trùng CMND
+    $("#IDNo").change(function () {
+        debugger;
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _IDNo = $("#IDNo").val().trim();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Hre_GetData/CheckDuplicateIDNo',
+            type: 'POST',
+            data: { ID: _ID, idNo: _IDNo },
+            success: function (profile) {
+                debugger;
+                if (profile != '' && profile != 'Black') {
+                    $("#idDuplicateIDNo").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idNotDuplicateIDNo").attr("style", "display: none");
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', "CMND đã trùng với nhân viên : " + profile, "k-block k-info-colored");
+                    CloseHre_ProgressBar();
+                    return;
+                }
+                else if (profile != '')
+                {
+                    $("#idDuplicateIDNo").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idNotDuplicateIDNo").attr("style", "display: none");
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', "NV Thuộc DS Đen", "k-block k-info-colored");
+                    CloseHre_ProgressBar();
+                    return;
+                }
+                else {
+                    $("#idNotDuplicateIDNo").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idDuplicateIDNo").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                    return;
+                }
+            },
+        });
+    });
+
+    // Kiểm tra trùng Tên + Ngày Sinh
+    $("#YearOfBirth").change(function () {
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _ProfileName = $("#ProfileName").val().trim();
+        var _DayOfBirth = $("#DayOfBirth").val().trim();
+        var _MonthOfBirth = $("#MonthOfBirth").val().trim();
+        var _YearOfBirth = $("#YearOfBirth").val().trim();
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Hre_GetData/CheckDuplicateProfileNameAndBirthDay',
+            type: 'POST',
+            data: { ID: _ID, profileName: _ProfileName, day: _DayOfBirth, month: _MonthOfBirth, year: _YearOfBirth },
+            success: function (profile) {
+
+                if (profile != '') {
+                    $("#idDuplicateProAndBirth").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idNotDuplicateProAndBirth").attr("style", "display: none");
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', '@ConstantDisplay.HRM_HR_Profile_DuplicateProfileNameAndBirthDay.TranslateString()', "k-block k-info-colored");
+                    @*ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', "Trùng Tên nhân viên và Ngày sinh", "k-block k-info-colored");*@
+                    CloseHre_ProgressBar();
+                }
+                else {
+                    $("#idNotDuplicateProAndBirth").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idDuplicateProAndBirth").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                }
+            },
+        });
+    });
+
+    function FilterDataContractType() {
+        debugger;
+        //var Combobox = new VnrCombobox('ContractTypeID');
+        var combobox = $("#ContractTypeID").data("kendoComboBox");
+        return {
+            text: combobox.text(),
+            UserID: '@userLoginName',
+        };
+    };
+
+    function downloadFileTemplate() {
+        window.Location = '@_hrm_Main_Web' + "/Downloads/" + '@Html.DisplayFor(model => model.FileAttach)';
+    }
+
+
+</script>
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px; float: left; width:100%">
+                        <div style="float:left">
+                            <fieldset>
+                                <legend>
+                                    @ConstantDisplay.HRM_HR_Profile_Basic.TranslateString()
+                                </legend>
+                                <div style="float: left; display: block;">
+                                    <div style="float:left; width: 420px">
+                                        @Html.HiddenFor(model => model.ID)
+                                        @Html.HiddenFor(model => model.CandidateID)
+                                        @Html.HiddenFor(model => model.ActionStatus)
+                                        @Html.HiddenFor(model => model.StatusSyn)
+                                        @Html.HiddenFor(model => model.ContractTypeID)
+                                        <div class="DivContentTitleValue" id="div13">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.ProfileName)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(model => model.ProfileName, "width: 200px")
+                                                <div id="idSuccessProfileName" style="display: none"><img src="Content\images\icons\accept.png" /></div>
+                                                <div id="idFailProfileName" style="display: none"><img src="Content\images\icons\reject.png" /></div>
+                                            </div>
+                                        </div>
+                                        
+                                        
+                                        
+                                        <div class="DivContentTitleValue" id="div13">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.CodeEmp)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                                            </div>
+                                            <div id="idSuccess" style="display: none"><img src="Content\images\icons\accept.png" /></div>
+                                            <div id="idFail" style="display: none"><img src="Content\images\icons\reject.png" /></div>
+                                        </div>
+
+
+                                        <div class="DivContentTitleValue" id="divCodeEmpClient">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.CodeEmpClient)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(model => model.CodeEmpClient)
+                                            </div>
+                                        </div>
+                                        <div class="DivContentTitleValue" id="div13">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.CodeAttendance)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(model => model.CodeAttendance)
+                                                <div id="idDuplicateCodeEmp" style="display: none"><img src="Content\images\icons\reject.png" /></div>
+                                                <div id="idNotDuplicateCodeEmp" style="display: none "><img src="Content\images\icons\accept.png" /></div>
+                                            </div>
+                                        </div>
+
+                                        <div class="DivContentTitleValue" id="div33">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.DateApplyAttendanceCode)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var dateApplyAttendanceCode = new DatePickerBuilderInfo()
+                                                    {
+                                                        Name = "ProfileBasic_DateApplyAttendanceCode",
+                                                        StyleCss = "Width: 100px"
+
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(model => model.DateApplyAttendanceCode, dateApplyAttendanceCode)
+                                            </div>
+                                        </div>
+                                        <div class="DivContentTitleValue" id="div33">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.DateHire)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var dateHire = new DatePickerBuilderInfo()
+                                                    {
+                                                        Name = "ProfileBasic_DateHire",
+                                                        StyleCss = "Width: 100px"
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(model => model.DateHire, dateHire)
+                                            </div>
+                                        </div>
+                                        <div class="DivContentTitleValue" id="div13">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.ProbationDays)
+                                            </div>
+                                            <div class="FieldValueView">
+                                                @Html.DisplayFor(model => model.ProbationDays)
+                                            </div>
+                                        </div>
+                                        <div class="DivContentTitleValue" id="div33">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.DateEndProbation)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var DateEndProbation = new DatePickerBuilderInfo()
+                                                    {
+                                                        Name = "ProfileBasic_DateEndProbation",
+                                                        StyleCss = "Width: 100px"
+
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(model => model.DateEndProbation, DateEndProbation)
+                                            </div>
+                                        </div>
+
+                                        <div class="DivContentTitleValue" id="div13">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.CodeTax)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(model => model.CodeTax, "Width: 150px")
+                                            </div>
+                                        </div>
+                                        <div class="DivContentTitleValue" id="div33">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.DateOfIssuedTaxCode)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var DateOfIssuedTaxCode = new DatePickerBuilderInfo()
+                                                    {
+                                                        Name = "ProfileBasic_DateOfIssuedTaxCode",
+                                                        StyleCss = "Width: 100px"
+
+                                                    };
+                                                }
+                                                @Html.VnrDatePickerFor(model => model.DateOfIssuedTaxCode, DateOfIssuedTaxCode)
+                                            </div>
+                                        </div>
+                                    </div>
+                                <div style="float: left; width: 380px">
+                                    <div class="DivContentTitleValue" id="div13" style="display: block; clear: both">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.FirstName)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.NameFamily, "width: 120px")
+                                        </div>
+                                        <div class="FieldValue" style="padding-left: 5px">
+                                            @Html.VnrTextBoxFor(model => model.FirstName, "width: 75px")
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.NameEnglish)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.NameEnglish)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13" style="display: block; clear: both">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.Gender)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var ddlGender = new DropDownListBuilderInfo()
+                                                {
+                                                    DataTextField = "Text",
+                                                    DataValueField = "Value",
+                                                    BindTo = listGender
+                                                };
+                                            }
+                                            @Html.VnrDropDownListFor(model => model.Gender, ddlGender)
+                                        </div>
+                                    </div>
+
+
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.IDNo)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.IDNo, "Width: 150px")
+                                            <div id="idDuplicateIDNo" style="display: none"><img src="Content\images\icons\reject.png"/>
+                                            </div>
+                                            <div id="idNotDuplicateIDNo" style="display: none"><img src="Content\images\icons\accept.png"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.IDDateOfIssue)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var iDDateOfIssue = new DatePickerBuilderInfo()
+                                                {
+                                                    Name = "Basic_IDDateOfIssue",
+                                                    StyleCss = "width:100px"
+                                                };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.IDDateOfIssue, iDDateOfIssue)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.IDPlaceOfIssue)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var iDPlaceOfIssue = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "ProvinceName",
+                                                    DataValueField = "ProvinceName",
+                                                    FilterType = FilterType.Contains,
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                                    Value = Model == null ? string.Empty : Model.IDPlaceOfIssue,
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @Html.VnrComboBoxFor(model => model.IDPlaceOfIssue, iDPlaceOfIssue).Text(Model == null ? string.Empty : Model.IDPlaceOfIssue)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div4">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PassportNo)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.PassportNo)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div2">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PassportPlaceOfIssue)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.PassportPlaceOfIssue)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div1">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PassportDateOfIssue)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var PassportDateOfIssue1 = new DatePickerBuilderInfo()
+                                                {
+                                                    StyleCss = "width:100px;",
+                                                };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.PassportDateOfIssue, PassportDateOfIssue1)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div3">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PassportDateOfExpiry)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var PassportDateOfExpiry1 = new DatePickerBuilderInfo()
+                                                {
+                                                    StyleCss = "width:100px;",
+                                                };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.PassportDateOfExpiry, PassportDateOfExpiry1)
+
+                                        </div>
+                                    </div>
+                                    @*<div class="DivContentTitleValue" id="div33">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelForNoneIcon(model => model.ContractTypeID)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var _ContractTypeID = new ComboBoxBuilderInfo()
+                                                     {
+                                                         DataTextField = "ContractTypeName",
+                                                         DataValueField = "ID",
+                                                         Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiContractType",
+                                                         Value = Model == null ? string.Empty : Model.ContractTypeID.ToString(),
+                                                         Data = "FilterDataContractType",
+                                                         ServerFilter=true,
+                                                     };
+                                                }
+                                                @(Html.VnrComboBoxFor(mode => mode.ContractTypeID, _ContractTypeID).Text(Model == null ? string.Empty : Model.ContractTypeName))
+                                            </div>
+                                        </div>*@
+
+                                </div>
+                                </div>
+                                <div class='hrm-image k-upload' style="vertical-align: top">
+                                    @{
+                                        var img = Html.DisplayFor(model => model.ImagePath).ToString();
+                                        var defaultImage = "no_avatar.jpg";
+                                        if (img == "")
+                                        {
+                                            img = defaultImage;
+                                        }
+                                        var imgUrl = _hrm_Main_Web + "Images/";
+                                    }
+                                    <div>
+                                        <div class="close" lang="@imgUrl@defaultImage" id="btn-delete-image" style="font-size: 15px; margin-bottom: -17px; margin-right: 2px;">
+                                            <span class="glyphicon glyphicon-remove"></span>
+                                        </div>
+                                    </div>
+                                    <div id="kendoUploadImage">
+                                        <img id="imgUploaded" src="@imgUrl@img" alt="Profile Image" style="padding-bottom:0px" />
+                                        @*<div style="font-style:italic;"><label id="fileLabel">@img</label></div>*@
+                                    </div>
+                                    <script>
+                                        $("#btn-delete-image").click(function () {
+                                            $("#imgUploaded").attr("src", this.lang);
+                                            $("#ImagePath").val('');
+                                        });
+                                        function onSuccess1(e) {
+                                            var responseTxt = jQuery.parseJSON(e.XMLHttpRequest.responseText);
+                                            var status = responseTxt.Status;
+                                            var srcValue = responseTxt.FileUrl;
+                                            if (status == true) {
+                                                $("#imgUploaded").attr('src', srcValue);
+                                                $("#ImagePath").val('');
+                                                $("#ImagePath").val(responseTxt.FileName);
+                                                $("#fileLabel").html(responseTxt.FileName);
+                                            } else {
+                                                $("#imgUploaded").attr('src', '@imgUrl');
+                                                $("#ImagePath").val('');
+                                            }
+                                        }
+                                    </script>
+                                    @{
+                                        var uploadTemplateFile = new UploadBuilderInfo
+                                        {
+                                            Name = "files",
+                                            SaveUrl = _hrm_Main_Web + "Home/SaveImageUpload",
+                                            EventSuccess = "onSuccess1",
+                                            Width = 85,
+                                        };
+                                    }
+                                    <style>
+                                        input[type="file"] {
+                                            display: none;
+                                        }
+
+                                        .custom-file-upload {
+                                            border: 1px solid #ccc;
+                                            display: inline-block;
+                                            padding: 2px 14px;
+                                            cursor: pointer;
+                                        }
+                                    </style>
+                                    <label class="custom-file-upload">
+                                        @Html.VnrUpload(uploadTemplateFile)
+                                        <span class="glyphicon glyphicon-cloud-upload"></span>@ConstantDisplay.ChooseFile.TranslateString()
+                                    </label>
+                                    @Html.HiddenFor(model => model.ImagePath)
+                                    <div class="clear"></div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+                    <div style="display: block; vertical-align: top; float: left; width:100%">
+                        <div style="float:left">
+                            <fieldset>
+                                <legend>
+                                    @ConstantDisplay.HRM_HR_Profile_PersonalInfo.TranslateString()
+                                </legend>
+                                <div style="float: left; width: 420px">
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.MarriageStatus)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var ddlxMarriageStatus = new DropDownListBuilderInfo()
+                                                {
+                                                    DataTextField = "Text",
+                                                    DataValueField = "Value",
+                                                    BindTo = listMarriageStatus,
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @Html.VnrDropDownListFor(model => model.MarriageStatus, ddlxMarriageStatus)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13" style="display: block; clear: both">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.DayOfBirth)
+                                        </div>
+                                        <div class="FieldValue">
+                                            <div style="float: left">
+                                                @{
+                                                    var ddlDay = new DropDownListBuilderInfo()
+                                                    {
+                                                        Name = "DayOfBirth",
+                                                        DataTextField = "Text",
+                                                        DataValueField = "Value",
+                                                        //  FilterType = FilterType.Contains,
+                                                        StyleCss = "width:55px",
+                                                        BindTo = lstDay,
+                                                        OptionLabel = string.Empty,
+                                                        Value = Model == null ? string.Empty : Model.DayOfBirth.ToString()
+                                                    };
+                                                }
+                                                @Html.VnrDropDownListFor(model => model.DayOfBirth, ddlDay)
+                                            </div>
+                                            <div style="float: left; padding-left: 5px">
+                                                @{
+                                                    var ddlMonth = new DropDownListBuilderInfo()
+                                                    {
+                                                        Name = "MonthOfBirth",
+                                                        DataTextField = "Text",
+                                                        DataValueField = "Value",
+                                                        // FilterType = FilterType.Contains,
+                                                        StyleCss = "width:55px",
+                                                        BindTo = lstMonth,
+                                                        OptionLabel = string.Empty,
+                                                        Value = Model == null ? string.Empty : Model.MonthOfBirth.ToString()
+                                                    };
+                                                }
+                                                @Html.VnrDropDownListFor(model => model.MonthOfBirth, ddlMonth)
+                                            </div>
+                                            <div style="float: left; padding-left: 5px">
+                                                @Html.Kendo().MaskedTextBoxFor(model => model.YearOfBirth).Mask("0000").HtmlAttributes(new { style = "width:50px" })
+                                            </div>
+                                            <div id="idDuplicateProAndBirth" style="display: none">
+                                                <img src="Content\images\icons\reject.png" />
+                                            </div>
+                                            <div id="idNotDuplicateProAndBirth" style="display: none">
+                                                <img src="Content\images\icons\accept.png" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PlaceOfBirth)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var comboboxPlaceOfBirth = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "ProvinceName",
+                                                    DataValueField = "ProvinceName",
+                                                    FilterType = FilterType.Contains,
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                                    Value = Model == null ? string.Empty : Model.PlaceOfBirth,
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @Html.VnrComboBoxFor(model => model.PlaceOfBirth, comboboxPlaceOfBirth).Text(Model == null ? string.Empty : Model.PlaceOfBirth)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.Origin)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.Origin, "width: 200px")
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.NationalityID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _NationalityName = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "CountryName",
+                                                    DataValueField = "ID",
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiCountry",
+                                                    Value = Model == null ? string.Empty : Model.NationalityID.ToString(),
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.NationalityID, _NationalityName).Text(Model == null ? string.Empty : Model.NationalityName))
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.EthnicID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _EthnicName = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "EthnicGroupName",
+                                                    DataValueField = "ID",
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiEthnicGroup",
+                                                    Value = Model == null ? string.Empty : Model.EthnicID.ToString(),
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.EthnicID, _EthnicName).Text(Model == null ? string.Empty : Model.EthnicGroupName))
+                                        </div>
+                                    </div>
+
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.ReligionID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _religionName = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "ReligionName",
+                                                    DataValueField = "ID",
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiReligion",
+                                                    Value = Model == null ? string.Empty : Model.ReligionID.ToString(),
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.ReligionID, _religionName).Text(Model == null ? string.Empty : Model.ReligionName))
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.GraduatedLevelID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _GraduatedLevelID = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "NameEntityName",
+                                                    DataValueField = "ID",
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiGraduatedLevel",
+                                                    Value = Model == null ? string.Empty : Model.GraduatedLevelID.ToString(),
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.GraduatedLevelID, _GraduatedLevelID).Text(Model == null ? string.Empty : Model.GraduatedLevelName))
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.EducationLevelID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _EducationLevelName = new ComboBoxBuilderInfo()
+                                                {
+                                                    DataTextField = "NameEntityName",
+                                                    DataValueField = "ID",
+                                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiEducationLevel",
+                                                    Value = Model == null ? string.Empty : Model.EducationLevelID.ToString(),
+                                                    StyleCss = "Width: 200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.EducationLevelID, _EducationLevelName).Text(Model == null ? string.Empty : Model.EducationLevelName))
+                                        </div>
+                                    </div>
+
+                                    <div id="div9">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.TemplateFile)
+                                        </div>
+                                        <div class="FieldValue">
+                                            <script>
+                                                function onSuccess(e) {
+                                                    var responseTxt = jQuery.parseJSON(e.XMLHttpRequest.responseText);
+                                                    var status = responseTxt.Status;
+                                                    var srcValue = responseTxt.FileUrl;
+                                                    if (status1 == true) {
+                                                        //value null
+                                                        $("#FileAttach").val('');
+                                                        //set value
+                                                        $("#FileAttach").val(responseTxt.FileName);
+                                                    } else {
+                                                        $("#FileAttach").val('');
+                                                    }
+                                                }
+                                            </script>
+                                           
+                                            @Html.HiddenFor(model => model.FileAttach)
+                                            <input type="file" name="files" id="UploadTemplateFile1" />
+                                            <script>
+                                                var vnrUpload = VnrUploadBuilder;
+                                                vnrUpload.Id = "UploadTemplateFile1";
+                                                vnrUpload.Host = '@_hrm_Main_Web';
+                                                vnrUpload.Files = '@Html.DisplayFor(model => model.FileAttach)';
+                                                vnrUpload.Field = "FileAttach";
+                                                vnrUpload.AutoUpload = true;
+                                                vnrUpload.Multiple = true;
+                                                vnrUpload.AutoReNameFile = true;
+                                                VnrUpload(vnrUpload);
+                                            </script>
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+
+                                </div>
+                                <div style="float:left; width: 415px">                               
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.Height)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _Height = new NumericTextBoxBuilderInfo<double>() { };
+                                            }
+                                            @Html.VnrNumericTextBoxFor(model => model.Height, _Height)@Html.VnrLabel("(Cm)")
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.Weight)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _Weight = new NumericTextBoxBuilderInfo<double>() { };
+                                            }
+                                            @Html.VnrNumericTextBoxFor(model => model.Weight, _Weight)@Html.VnrLabel("(Kg)")
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.BloodType)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.BloodType, "width: 200px")
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.CoatSize)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.CoatSize)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.PantSize)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.PantSize)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.ShoeSize)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(model => model.ShoeSize)
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.VehicleID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _VehicleID = new ComboBoxBuilderInfo()
+                                                 {
+                                                     DataTextField = "NameEntityName",
+                                                     DataValueField = "ID",
+                                                     Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiVehicle",
+                                                     StyleCss = "width:200px;",
+                                                     Value = (Model == null || Model.VehicleID == null) ? string.Empty : Model.VehicleID.ToString(),
+                                                 };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.VehicleID, _VehicleID).Text(Model == null ? string.Empty : Model.VehicleName))
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.StoredDocuments)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _StoredDocuments = new MultiSelectBuilderInfo()
+                                                {
+                                                    Name = "Cat_StoredDocumentCodes",
+                                                    DataTextField = "ReqDocumentName",
+                                                    DataValueField = "Code",
+                                                    Url = @_Hrm_Hre_Service + "Cat_GetData/GetMultiReqDocument",
+                                                    Value = (Model != null && Model.StoredDocuments != null) ? Model.StoredDocuments.Split(',').ToList() : new List<string>(),
+                                                };
+                                            }
+                                            @Html.VnrMultiSelectFor(mode => mode.StoredDocumentCodes, _StoredDocuments)
+                                            @Html.HiddenFor(model => model.StoredDocuments)
+
+                                        </div>
+                                    </div>
+                                    <div class="DivContentTitleValue" id="div13">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelForNoneIcon(model => model.Notes)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextAreaFor(model => model.Notes, "min-width: 200px")
+                                        </div>
+                                    </div>
+                                    
+                                </div>
+                            </fieldset>
+                        </div>
+
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+
+
+<!-- Gán giá trị cho cây phòng ban khi edit -->
+@if (Model != null)
+{
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $("#TreeViewDropDownInput").val('@Model.OrgStructureName');
+            $("#OrgStructureID").val('@Model.OrgStructureID');
+            if ('@Model.StoredDocuments' != '') {
+                var _stringStoredDocumentCodes = '@Model.StoredDocuments';
+                var _StoredDocumentCodes = _stringStoredDocumentCodes.split(',');
+                var _StoredDocumentList = $("#Cat_StoredDocumentCodes").data("kendoMultiSelect");
+                _StoredDocumentList.dataSource.filter({});
+                _StoredDocumentList.value(_StoredDocumentCodes);
+            }
+        });
+        $('#@ConstantDisplay.HRM_HR_GeneralProfile_H_IdProfile').val('@Model.ID');
+
+    </script>
+}
+
+
+<script>
+    $(document).ready(function () {
+        debugger;
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + "Hre_GetData/IsUseCodeEmpOfCustomer/",
+            dataType: 'json',
+            async: false,
+            success: function (returnValue) {
+                debugger;
+                if (returnValue == true) {
+                    $("#divCodeEmpClient").show();
+                }
+                else {
+                    $("#divCodeEmpClient").hide();
+                }
+            },
+        });
+    });
+</script>
+
+
+
+
+
+
+
+
+

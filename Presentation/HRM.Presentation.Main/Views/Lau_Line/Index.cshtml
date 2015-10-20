@@ -1,0 +1,215 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Laundry.Models;
+@using HRM.Infrastructure.Security;
+
+@model Lau_LineModel
+
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    { 
+        Name = "windowLauLine",
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Main_Web + "Lau_Line/LineInfo/00000000-0000-0000-0000-000000000000",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Laundry_Line_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Laundry_Line_Create_Title.TranslateString())';
+     
+
+    //Data khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        
+        return {
+            Code: $('#Code1').val(),
+            LineLMSName: $('#LineName1').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            
+            var grid = $('#grid_Lau_Line').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Lau_Line');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate("windowLauLine", titleCreatePopUp);
+    });
+
+    //Xử Lý grid
+    GridCheckbox("grid_Lau_Line");
+    //Xử lý Edit popup
+    var url = '@_hrm_Main_Web' + "Lau_Line/LineInfo/";
+    EditGridPopUp("grid_Lau_Line", "windowLauLine", url, '@ConstantPermission.Lau_Line', titleEditPopUp);
+    
+
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Lau_Line');
+        if (!isAccess) {
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("grid_Lau_Line", '@_hrm_Main_Web' + "Lau_Line/RemoveSelected/", selectedIds.join(","));
+        return false;
+    });
+
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportAll").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Lau_Line');
+        if (!isAccess) {
+            return;
+        }
+        var grid = $('#grid_Lau_Line').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/ExportLauLine/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        selectedIds = [];
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.LineLMSName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("LineName1", "width:300px;")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBox("Code1")
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new[]
+        {
+            Lau_LineModel.FieldNames.Code,
+            Lau_LineModel.FieldNames.LineLMSName,
+            Lau_LineModel.FieldNames.DateEffect,
+            Lau_LineModel.FieldNames.MarkerName,
+            Lau_LineModel.FieldNames.LockerLMSName,
+            Lau_LineModel.FieldNames.MachineCode,
+            Lau_LineModel.FieldNames.Amount,
+            Lau_LineModel.FieldNames.Note,
+
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+            {Lau_LineModel.FieldNames.Code,150},
+            {Lau_LineModel.FieldNames.LineLMSName,150},
+            {Lau_LineModel.FieldNames.DateEffect, 150},
+            {Lau_LineModel.FieldNames.MarkerName,150},
+            {Lau_LineModel.FieldNames.LockerLMSName,150},
+            {Lau_LineModel.FieldNames.MachineCode,150},
+            {Lau_LineModel.FieldNames.Amount,150},
+            {Lau_LineModel.FieldNames.Note,250},
+
+        };
+
+
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            {Lau_LineModel.FieldNames.Code,ConstantDisplay.HRM_Laundry_Line_Code},
+            {Lau_LineModel.FieldNames.LineLMSName,ConstantDisplay.HRM_Laundry_Line_LineName},
+            {Lau_LineModel.FieldNames.DateEffect, ConstantDisplay.HRM_Laundry_Line_DateEffect},
+            {Lau_LineModel.FieldNames.MarkerName,ConstantDisplay.HRM_Laundry_LaundryRecord_MarkerID},
+            {Lau_LineModel.FieldNames.LockerLMSName,ConstantDisplay.HRM_Laundry_LaundryRecord_LockerName},
+            {Lau_LineModel.FieldNames.MachineCode,ConstantDisplay.HRM_Canteen_MealRecord_MachineCode},
+            {Lau_LineModel.FieldNames.Amount,ConstantDisplay.HRM_Canteen_MealRecord_Amount},
+            {Lau_LineModel.FieldNames.Note,ConstantDisplay.HRM_Laundry_Line_Notes}
+        };
+        Dictionary<string, string> formatFields = new Dictionary<string, string> ()
+        {                    
+            {Lau_LineModel.FieldNames.Amount,ConstantFormat.HRM_Format_Int},
+        };
+        
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_Lau_Line",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hre_Service + "Lau_GetData/GetLineList/",
+            ReadData = "filterFieldInfo",
+            FormatFields = formatFields
+        };
+    }
+
+    @(Html.VnrGrid<Lau_LineModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

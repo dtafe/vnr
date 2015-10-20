@@ -1,0 +1,441 @@
+﻿@using HRM.Infrastructure.Utilities
+@using System.Collections
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.Hr.Models
+
+@model HRM.Presentation.Hr.Models.Hre_StopWorkingModel
+
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+}
+@{
+    IList<SelectListItem> listTypeOfStop = Enum.GetValues(typeof(EnumDropDown.TypeOfStop))
+   .Cast<EnumDropDown.TypeOfStop>()
+   .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p=>p.Text)
+   .ToList();
+
+    IList<SelectListItem> listStopWorkStatus = Enum.GetValues(typeof(EnumDropDown.StopWorkStatus))
+   .Cast<EnumDropDown.StopWorkStatus>()
+   .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p=>p.Text)
+   .ToList();
+    var userId = Session[SessionObjects.UserId];
+}
+<script>
+    SetFieldRequired();
+    function ProfileSelect(e) {
+        var _DateHire = $("#StopWorking_DateHire").data("kendoDatePicker");
+        var dataItem = this.dataSource.view()[e.item.index()];
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataViewStop",
+            data: { ProfileID: dataItem.ID },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                if (data != null) {
+                    _DateHire.value(data.DateHire);
+                    $("#StopWorking_DeptPath").val(data.OrgStructureName);
+                }
+            }
+        });
+    }
+
+    function onSave() {
+        $("#UserID").val('@userId');
+        $("#StopWorkingInfo_StopWorkType").val("E_STOP");
+        var result = false;
+        var IsHoldSal = document.getElementById("IsHoldSal");
+
+        if (IsHoldSal != null && IsHoldSal.checked) {
+            $("#IsHoldSal").val("true");
+        } else {
+            $("#IsHoldSal").val("false");
+        }
+        onSaveAndContinue($('#form_StopWorkingInfo'), '@_hrm_Hr_Service', 'api/Hre_StopWorking/', '@ConstantControlName.HRM_gridHre_StopWorking_Grid_Name', '@ConstantControlName.HRM_gridHre_StopWorking_PopUp_Name');
+        return false;
+    }
+
+    function onSaveClose() {
+        $("#UserID").val('@userId');
+        $("#StopWorkingInfo_StopWorkType").val("E_STOP");
+        var result = false;
+        var IsHoldSal = document.getElementById("IsHoldSal");
+
+        if (IsHoldSal != null && IsHoldSal.checked) {
+            $("#IsHoldSal").val("true");
+        } else {
+            $("#IsHoldSal").val("false");
+        }
+        onSaveAndClose($('#form_StopWorkingInfo'), '@_hrm_Hr_Service', 'api/Hre_StopWorking/', '@ConstantControlName.HRM_gridHre_StopWorking_Grid_Name', '@ConstantControlName.HRM_gridHre_StopWorking_PopUp_Name');
+        return false;
+    }
+
+    function onSaveDataPopUp() {
+        $("#UserID").val('@userId');
+        $("#StopWorkingInfo_StopWorkType").val("E_STOP");
+        var result = false;
+        var IsHoldSal = document.getElementById("IsHoldSal");
+
+        if (IsHoldSal != null && IsHoldSal.checked) {
+            $("#IsHoldSal").val("true");
+        } else {
+            $("#IsHoldSal").val("false");
+        }
+        onlySave($('#form_StopWorkingInfo'), '@_hrm_Hr_Service', 'api/Hre_StopWorking/', '@ConstantControlName.HRM_gridHre_StopWorking_Grid_Name');
+        return false;
+    }
+
+    function OnchangeResignReason(e) {
+        var _ID = $("#StopWorking_ResignReasonID").val();
+        debugger;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Cat_GetData/GetReqDocumentByResignReasonID",
+            data: { ID: _ID },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                debugger;
+                if (data.length > 0)
+                {
+                var comboType = $("#StopWorking_ReqDocumentID").data("kendoComboBox");
+                comboType.value(data[0].Value);
+                comboType.text(data[0].Text);
+                comboType.refresh();
+                }
+                
+            }
+        });
+    }
+</script>
+<style>
+    label {
+        min-width: 100px;
+    }
+</style>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_StopWorkingInfo" }))
+{
+        @Html.HiddenFor(mode => mode.UserID)
+        @Html.Hidden("StopWorkingInfo_StopWorkType")
+
+            <table style="width:100%">
+                <tr>
+                    <td valign="top">
+                        <div>
+                            <div style="float: left">
+                                <div id="div1">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        @Html.HiddenFor(mode => mode.ID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    IEnumerable valueProfile = new string[] { };
+    if (Model != null)
+    {
+        valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+    }
+                                        }
+                                        @{
+    var Profile = new MultiSelectBuilderInfo()
+     {
+         Name = "StopWorking_ProfileID",
+         DataTextField = Hre_ProfileModel.FieldNames.ProfileName,
+         DataValueField = Hre_ProfileModel.FieldNames.ID,
+         Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+         Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+         MaxSelectedItems = 1,
+         EventSelect = "ProfileSelect",
+         Width = 250,
+         Value = valueProfile
+     };
+                                        }
+                                        @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(model => model.TypeOfStopID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                        var _TypeOfStopID = new ComboBoxBuilderInfo()
+                                        {
+                                            DataTextField = "NameEntityName",
+                                            DataValueField = "ID",
+                                            Placeholder = @ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiTypeOfStop",
+                                            Value = Model == null ? string.Empty : Model.TypeOfStopID.ToString(),
+                                            StyleCss="width:200px"
+                                        };
+                                        }
+                                        @Html.VnrComboBoxFor(model => model.TypeOfStopID, _TypeOfStopID).Text(Model != null ? Model.TypeOfStopName != null ? Model.TypeOfStopName.ToString() : string.Empty : string.Empty)
+                                    </div>
+                                </div>
+                                <div id="div4">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.ResignReasonID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _resignReasonID = new ComboBoxBuilderInfo()
+    {
+        Name = "StopWorking_ResignReasonID",
+        DataTextField = "ResignReasonName",
+        DataValueField = "ID",
+        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiResignReason",
+        Value = Model == null ? string.Empty : Model.ResignReasonID.ToString(),
+        StyleCss = "width:200px",
+        ServerFilter = true,
+        FilterType = FilterType.Contains,
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.ResignReasonID, _resignReasonID).Text(Model == null ? string.Empty : Model.ResignReasonName)
+                                    </div>
+                                </div>
+                                @*<div id="div4">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.ReqDocumentID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        <script>
+                                            function filterReqDocument() {
+                                                return {
+                                                    ReqDocumentID: $("#StopWorking_ResignReasonID").val(),
+                                                    ReqDocumentFilter: $("#StopWorking_ReqDocumentID").data("kendoComboBox").input.val()
+                                                };
+                                            }
+                                        </script>
+                                        @{
+    var _ReqDocumentID = new ComboBoxBuilderInfo()
+    {
+        Name = "StopWorking_ReqDocumentID",
+        DataTextField = "ReqDocumentName",
+        DataValueField = "ID",
+        ServerFilter = true,
+        FilterType = FilterType.Contains,
+        Url = _hrm_Hr_Service + "Cat_GetData/GetReqDocumentCascading/",
+        CascadeFrom = "StopWorking_ResignReasonID",
+        Data = "filterReqDocument",
+        Value = Model == null ? string.Empty : Model.ReqDocumentID.ToString(),
+        StyleCss = "width:200px",
+        Autobind = true,
+    };
+                                        }
+                                        @Html.VnrComboBoxFor(mode => mode.ReqDocumentID, _ReqDocumentID).Text(Model == null ? string.Empty : Model.ReqDocumentName)
+                                    </div>
+                                </div>*@
+
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.StoredDocuments)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var _StoredDocuments = new MultiSelectBuilderInfo()
+                                            {
+                                                Name = "Cat_StoredDocumentCodes",
+                                                DataTextField = "ReqDocumentName",
+                                                DataValueField = "Code",
+                                                Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiReqDocument",
+                                                Value = (Model != null && Model.StoredDocuments != null) ? Model.StoredDocuments.Split(',').ToList() : new List<string>(),
+                                                Autobind=true
+                                            };
+                                        }
+                                        @Html.VnrMultiSelectFor(mode => mode.StoredDocumentCodes, _StoredDocuments)
+                                        @Html.HiddenFor(model => model.StoredDocuments)
+
+                                    </div>
+                                </div>
+                                <div id="div42">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.DateStop)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _DateStop = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+    };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.DateStop, _DateStop)
+                                    </div>
+                                </div>
+                                <div id="div41">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.RequestDate)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _RequestDate = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+    };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.RequestDate, _RequestDate)
+                                    </div>
+                                </div>
+                                <div id="div7">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.Status)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _Status = new DropDownListBuilderInfo()
+    {
+        Name = "StopWorking_Status",
+        DataTextField = "Text",
+        DataValueField = "Value",
+        BindTo = listStopWorkStatus,
+        Value = (Model == null || Model.Status == null) ? EnumDropDown.StopWorkStatus.E_WAITAPPROVE.ToString() : Model.Status
+    };
+                                        }
+                                        @Html.VnrDropDownListFor(model => model.Status, _Status)
+                                    </div>
+                                </div>
+                                <div id="div8">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.Note)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextAreaFor(mode => mode.Note)
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="float: left">
+                                <div id="div8">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.DateHire)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var DateHire = new DatePickerBuilderInfo()
+    {
+        Name = "StopWorking_DateHire",
+        StyleCss = "width:100px;"
+    };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.DateHire, DateHire)
+                                    </div>
+                                </div>
+                                <div id="div8">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.DeptPath)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _DeptPath = new TextBoxBuilderInfo()
+     {
+         Name = "StopWorking_DeptPath",
+         Readonly = true,
+     };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.DeptPath, _DeptPath)
+                                    </div>
+                                </div>
+                                <div id="div8">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.DecisionNo)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+    var _DecisionNo = new TextBoxBuilderInfo()
+     {
+         Name="StopWorking_DecisionNo",
+         Readonly = true,
+         Value = Model != null ? Model.DecisionNo : null
+     };
+                                        }
+                                        @Html.VnrTextBoxFor(mode => mode.DecisionNo, _DecisionNo)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </td>
+
+
+
+                </tr>
+                <tr>
+                    <td style="padding-top:2px; padding-bottom:10px;">
+                        <div class="LineFooterCommandEdit">
+                        </div>
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <div>
+                            <div class="FieldTitle150">
+
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-StopWorking", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-StopWorking", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-StopWorking", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                            </div>
+
+                        </div>
+                    </td>
+                </tr>
+
+            </table>
+        }
+
+
+<script>
+    var datehire = $('#StopWorking_DateHire').data("kendoDatePicker");
+    datehire.readonly();
+</script>
+<div>
+    @{
+        if (Model != null && Model.ProfileID != null)
+        {
+            <script>
+                $(document).ready(function () {
+                    debugger;
+                    var _DateHire = $("#StopWorking_DateHire").data("kendoDatePicker");
+                    $.ajax({
+                        url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataViewStop",
+                        data: { ProfileID: '@Model.ProfileID' },
+                        type: 'POST',
+                        datatype: 'json',
+                        success: function (data) {
+                            if (data != null) {
+                                _DateHire.value(data.DateHire);
+                                $("#StopWorking_DeptPath").val(data.OrgStructureName);
+                            }
+                        }
+                    });
+                });
+            </script>
+        }
+    }
+</div>
+
+
+<script>
+    var _Status = $('#StopWorking_Status').data("kendoDropDownList");
+    _Status.readonly();
+</script>
+<!-- Gán giá trị cho cây phòng ban khi edit -->
+@if (Model != null)
+{
+    <script type="text/javascript">
+        $(document).ready(function () {
+            if ('@Model.StoredDocuments' != '') {
+                var _stringStoredDocumentCodes = '@Model.StoredDocuments';
+                var _StoredDocumentCodes = _stringStoredDocumentCodes.split(',');
+                var _StoredDocumentList = $("#Cat_StoredDocumentCodes").data("kendoMultiSelect");
+                _StoredDocumentList.dataSource.filter({});
+                _StoredDocumentList.value(_StoredDocumentCodes);
+            }
+        });
+        $('#@ConstantDisplay.HRM_HR_GeneralProfile_H_IdProfile').val('@Model.ID');
+
+    </script>
+}

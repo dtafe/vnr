@@ -1,0 +1,188 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.UI.Controls.Kendo;
+
+@model HRM.Presentation.Recruitment.Models.Rec_InterviewCampaignSearchModel
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+@{
+    var windowInterview = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Rec_InterviewCampaign_PopUp_Name,
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_InterviewCampaign/InterviewCampaignInfo/",
+    };
+}
+@(Html.VnrWindow(windowInterview))
+<script type="text/javascript">
+
+    var titleEditPopUpInterviewCampaign = '@Html.Raw(ConstantDisplay.HRM_Rec_InterviewCampaign_Update_Title.TranslateString())';
+    var titleCreatePopInterviewCampaign = '@Html.Raw(ConstantDisplay.HRM_Rec_InterviewCampaign_Create_Title.TranslateString())';
+    var gridName = '@ConstantControlName.HRM_Rec_InterviewCampaign_Grid_Name';
+    var windowName = '@ConstantControlName.HRM_Rec_InterviewCampaign_PopUp_Name';
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            InterviewCampaignName: $('#SInterviewCampaignName').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        //Jump anchor
+        jumpAnchor("anchor");
+
+        $("#btnSearch").click(function () {
+            ReadGrid("gridRec_InterviewCampaign");
+            ShowHidePanel();
+            var url = '@_hrm_Main_Web' + "Rec_InterviewCampaign/InterviewCampaignInfo/";
+            EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Rec_InterviewCampaign', titleEditPopUpInterviewCampaign);
+        });
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+    //Xử lý tạo mới
+    $("#btnCreateInterviewCampaign").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_InterviewCampaign');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(windowName, titleCreatePopInterviewCampaign, '@ConstantPermission.Rec_InterviewCampaign');
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridRec_InterviewCampaign').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportAllInterviewCampaignList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_InterviewCampaign');
+    });
+
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Rec_InterviewCampaign/RemoveSelected/", selectedIds, '@ConstantPermission.Rec_InterviewCampaign');
+        return false;
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div class="hrm_box">
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.InterviewCampaignName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var InterviewCampaignName = new TextBoxBuilderInfo()
+                                        {
+                                            Name = "SInterviewCampaignName",
+                                            CssStyle = "width:200px",
+                                        };
+                                    }
+                                    @Html.VnrTextBoxFor(mode => mode.InterviewCampaignName, InterviewCampaignName)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateInterviewCampaign", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Recruitment.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+
+        string[] valueFields = new string[]
+        {
+            Rec_InterviewCampaignModel.FieldNames.Code,
+            Rec_InterviewCampaignModel.FieldNames.InterviewCampaignName,
+            Rec_InterviewCampaignModel.FieldNames.HoldDate,
+            Rec_InterviewCampaignModel.FieldNames.DateInterviewFrom,
+            Rec_InterviewCampaignModel.FieldNames.DateInterviewTo
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Rec_InterviewCampaignModel.FieldNames.Code,100},
+            {Rec_InterviewCampaignModel.FieldNames.InterviewCampaignName,140},
+            {Rec_InterviewCampaignModel.FieldNames.HoldDate,110},
+            {Rec_InterviewCampaignModel.FieldNames.DateInterviewFrom,110},
+            {Rec_InterviewCampaignModel.FieldNames.DateInterviewTo,110}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Rec_InterviewCampaignModel.FieldNames.Code, ConstantDisplay.HRM_Recruitment_InterviewCampaign_Code},
+            {Rec_InterviewCampaignModel.FieldNames.InterviewCampaignName, ConstantDisplay.HRM_Recruitment_InterviewCampaign_InterviewCampaignName},
+            {Rec_InterviewCampaignModel.FieldNames.HoldDate, ConstantDisplay.HRM_Recruitment_InterviewCampaign_HoldDate},
+            {Rec_InterviewCampaignModel.FieldNames.DateInterviewFrom, ConstantDisplay.HRM_Recruitment_InterviewCampaign_DateFrom},
+            {Rec_InterviewCampaignModel.FieldNames.DateInterviewTo, ConstantDisplay.HRM_Recruitment_InterviewCampaign_DateTo},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridRec_InterviewCampaign",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetInterviewCampaignList/",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Recruitment.Models.Rec_InterviewCampaignModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

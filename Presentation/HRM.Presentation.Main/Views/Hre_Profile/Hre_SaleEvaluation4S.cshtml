@@ -1,0 +1,309 @@
+﻿@using HRM.Presentation.Evaluation.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+@using Newtonsoft.Json
+@using HRM.Infrastructure.Security;
+
+@model Eva_SaleEvaluationByProfileSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Hre_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Eva_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Eva_Web = ConstantPathWeb.Hrm_Eva_Web;
+    var gridName = "gridSaleEvaluation4S";
+    var windowName = "windowSaleEvaluation4S";
+    var profileId = Guid.Empty;
+    if (ViewBag.profileId != null)
+    {
+        profileId = ViewBag.profileId;
+    }
+    //chỉ tiêu
+    var tagetNumber = new int[12] { 1000, 800, 600, 700, 500, 300, 400, 200, 100, 150, 300, 180 };
+   var jsTargetNumber = JsonConvert.SerializeObject(tagetNumber);
+}
+
+@{
+    var window1 = new WindowBuilderInfo
+    {
+        Name = "windowSaleEvaluation4S",
+        Visible = false,
+        Width=700,
+        Title = "Thông tin Doanh Số",
+        LoadContentFrom = hrm_Hre_Web + "Hre_Profile/Hre_SaleEvaluation4SInfo?profileId=" + profileId,
+    };
+}
+@(Html.VnrWindow(window1))
+
+<script type="text/javascript">
+    var tagetNumber = '@jsTargetNumber';
+    var titleEditPopUp = 'Chỉnh Sửa Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Update_Title.TranslateString())';*@
+    var titleCreatePopUp = 'Tạo Mới Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Create_Title.TranslateString())';*@
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var checkedNodes = [];
+    var a = new Array();
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        return {
+            ProfileID: '@profileId',
+            SaleType :'4S'
+        };
+    }
+    function LoadArray()
+    {
+        for (var i = 1; i <= 12; i++)
+        {
+            a.push("S1-"+i+" ");
+            a.push("S2-" + i + " ");
+            a.push("S3-" + i + " ");
+            a.push("S4-" + i + " ");
+        }
+    }
+
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //var widthgrid = $(".td_general_table").width();
+        //alert(widthgrid);
+        $(".abc").width(1200);
+        LoadArray();
+        //Show Hide Panel
+        ShowHidePanel();
+        //tim kiem
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //setTimeout(function () { create4SChart(); }, 3000);
+        //Xử lý Edit popup
+        var url = '@hrm_Hre_Web' + "Hre_Profile/Hre_SaleEvaluation4SInfo?profileId=@profileId";
+        EditGridPopUp('gridSaleEvaluation4S', 'windowSaleEvaluation4S', url, '@ConstantPermission.Eva_SaleEvaluation', titleEditPopUp);
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    $("#btnCreate4S").click(function () {
+        PopUpEdit("windowSaleEvaluation4S", '@hrm_Hre_Web' + "Hre_Profile/Hre_SaleEvaluation4SInfo?profileId=" + SelectID, "", titleCreatePopUp);
+   });
+
+    //Xử Lý button delete
+    $('#btnDelete4S').click(function (e) {
+        e.preventDefault();
+        DeleteSelected(gridName, '@hrm_Hre_Web' + "Hre_Profile/RemoveSaleEvaluation/", selectedIds.join(","), '@ConstantPermission.Eva_SaleEvaluation');
+    });
+    
+    function create4SChart() {
+        var grid = $('#gridSaleEvaluation4S').data("kendoGrid");
+         //alert(grid);
+        
+        var targetNumbers = Array(48);
+        var resultNumbers = Array(48);
+        var resultPercents = Array(48);
+        for (var i = 0; i < 48; i++)
+        {
+            targetNumbers[i] = 0;
+            resultNumbers[i] = 0;
+            resultPercents[i] = 0;
+        }
+        var max = 0;
+        for (var i = 0; i < grid._data.length; i++) {
+            var date = new Date(grid._data[i].Year);
+            var month = date.getMonth();
+            //month = month -1;
+            var num =parseInt(grid._data[i].SalesTypeName.substring(1, 2));
+
+            targetNumbers[(month * 4) + num-1] = grid._data[i].TagetNumber;
+            resultNumbers[(month * 4) + num-1] = grid._data[i].ResultNumber;
+            resultPercents[(month * 4) + num - 1] = Math.round(grid._data[i].ResultPercent * 1000) / 1000;
+
+            // take number max of TagetNumber
+            max = grid._data[0].TagetNumber;
+            if (grid._data[i].TagetNumber > max)
+                max = grid._data[i].TagetNumber;
+            //   TagetNumber  ResultNumber ResultPercent
+        }
+        
+
+        $("#chart4S").kendoChart({
+            //chartArea: {
+            //    width: 1600,
+            //},
+            title: {
+                text: "@ConstantDisplay.HRM_Evaluation_SaleEvaluation_4S.TranslateString()"
+            },
+            legend: {
+                visible: true,
+                position: "bottom"
+            },
+            series: [{
+                name: "Chỉ Tiêu",
+                // data: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32],
+                data: targetNumbers,
+                color: "#0094ff",
+                type: "column",
+                axis: "a"
+            }, {
+                type: "column",
+                name: "Thực Đạt",
+                //  data: [8, 9, 10, 11, 12, 13, 14, 15, 12, 17, 18, 19],
+                data: resultNumbers,
+                color: "#ad0e0e",
+                axis: "b"
+            }, {
+                name: "% Thực Đạt",
+                // data: [80, 75, 71, 69, 67, 65, 64, 63, 62, 61, 60, 59],
+                data: resultPercents,
+                // color: "#f16a2b",
+                color: "green",
+                type: "line",
+                dashType: "dot",
+                //line: {
+                //    color: "green",
+                //    opacity: 0.5,
+                //    width: 5,
+                //    style: "dot"
+                //},
+                axis: "c",
+            }],
+            valueAxes: [{
+                name: "a",
+                color: "#0094ff",
+                minorGridLines: {
+                    visible: true
+                },
+                min: 0,
+                max: max,
+            }, {
+                name: "b",
+                color: "#ad0e0e",
+                minorGridLines: {
+                    visible: true
+                },
+                min: 0,
+                max: max,
+            }, {
+                name: "c",
+                color: "green",
+                minorGridLines: {
+                    visible: true
+                },
+                labels: {
+                    format: "{0}%"
+                }
+            }],
+            valueAxis: {
+                visible: false,
+            },
+            categoryAxis: {
+                categories: a,
+                majorGridLines: {
+                    visible: false
+                },
+                axisCrossingValues: [0, 0, 100],
+            },
+            tooltip: {
+                visible: true,
+                format: "{0}",
+                template: "#= series.name #: #= value #"
+            }
+        });
+
+    }
+    
+    function onDataBoundGrid() {
+
+        create4SChart();
+    }
+
+</script>
+
+<div class="commandToolBarWidge" style="margin-top:3px">
+    <div class="GridTitle">
+        @Html.VnrLabel(ConstantDisplay.HRM_Evaluation_SaleEvaluation_4S.TranslateString())
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate4S", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete4S", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+
+<div>
+    @*grid*@
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new string[]
+            {
+                Eva_SaleEvaluationModel.FieldNames.Year,
+                Eva_SaleEvaluationModel.FieldNames.SalesTypeName,
+                Eva_SaleEvaluationModel.FieldNames.TagetNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultPercent
+            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, 100},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, 120},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, 80},
+            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantDisplay.HRM_Evaluation_SaleEvaluation_Year},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, ConstantDisplay.HRM_Evaluation_SaleEvaluation_SalesTypeID},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_TagetNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultPercent},
+            };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantFormat.HRM_Format_MonthYear}
+            };
+
+            var grid = new GridBuilderInfo
+            {
+                Name = gridName,
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                ReadActionUrl = hrm_Eva_Service + "Eva_GetData/GetSaleEvaluationByProfileList",
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadData = "filterFieldInfo",
+                GridWidth = Common.ScreenWidth - 260,
+                ShowCheckbox = false,
+                Scrollable = false,
+                GridHeight = 400,
+                AutoBind = true,
+                EventDataBound = "onDataBoundGrid"
+            };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Eva_SaleEvaluationModel>(grid))
+    </div>
+</div>
+
+    <div style="overflow-x: scroll; width: 1200px">
+        <div class="abc" style="width:1600px">
+            <div id="evaluationChart">
+                <div class="demo-section k-content">
+
+                    <div id="chart4S" style="width:2000px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+
+
+
+

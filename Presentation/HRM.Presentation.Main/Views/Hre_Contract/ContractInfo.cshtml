@@ -1,0 +1,1155 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using System.Collections;
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model Hre_ContractModel
+
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var lineId = Model == null ? Guid.Empty : Model.ID;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var ContractID = Guid.Empty;
+    Guid ProfileID = Guid.Empty;
+
+    var ProfileName = string.Empty;
+    var ContractNo = string.Empty;
+    string aaa = ViewBag.profileID;
+    if (!string.IsNullOrEmpty(aaa))
+    {
+        ProfileID = Common.ConvertToGuid(aaa.ToString());
+    }
+
+    if (Model != null)
+    {
+        ContractID = Model.ID;
+    }
+}
+
+<script>
+    SetFieldRequiredByScreenName('Hre_Contract_Tab');
+    var grid = document.getElementById("girdAppendContract");
+    if ($("#windowContract_wnd_title").text() == '@Html.Raw(ConstantDisplay.HRM_HR_Contract_Update.TranslateString())') {
+        grid.hidden = false;
+    }
+
+    function onSaveClose() {
+        $("#ContractNo").val($("#ContractInfo1_ContractNo").val());
+        onSaveAndClose($('#form_hreProfile_contract'), '@_hrm_Hre_Service', 'api/Hre_Contract/', 'gridHre_Contract', 'windowContract'); return false;
+    }
+
+    function onSaveDataPopUp() {
+        $("#ContractNo").val($("#ContractInfo1_ContractNo").val());
+        var grid = document.getElementById("girdAppendContract");
+        var rs = onlySave($('#form_hreProfile_contract'), '@_hrm_Hre_Service', 'api/Hre_Contract/', 'gridHre_Contract');
+        if (rs == true) {
+            grid.hidden = false;
+        }
+    }
+
+
+    // tự động load lương cơ bản + lương BHXH khi chọn Bậc lương chi tiết
+    function ChangeSalaryRank() {
+        debugger;
+        showAjaxLoading();
+        var ID = $("#ContractInfo1_RankRateID").val();
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + "Cat_GetData/GetDataOfSalaryRank/",
+            data: { ID: ID },
+            dataType: 'json',
+            success: function (data) {
+                debugger;
+                var Salary = $("#contractinfo11_Salary").data("kendoNumericTextBox");
+                Salary.value(data.BasicSalary);
+                var InsuranceAmount = $("#ContractInfo1_InsuranceAmount").data("kendoNumericTextBox");
+                InsuranceAmount.value(data.BasicSalary);
+                hideAjaxLoading();
+            }
+        });
+    };
+</script>
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowProfileAppendixContract",
+        Visible = false,
+        Width = 1000,
+        Title = @ConstantDisplay.HRM_Category_ExportItem.TranslateString(),
+        LoadContentFrom = _hrm_Main_Web + "Hre_Contract/ProfileAppendixContractInfo?ContractD=" + ContractID,
+
+    };
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = ConstantDisplay.MessageError.TranslateString(),
+        Content = ConstantDisplay.YouMustSaveContractFirst.TranslateString()
+    };
+}
+@(Html.VnrWindow(windowError))
+
+
+
+<script type="text/javascript">
+    var gridName = '@ConstantControlName.HRM_HR_AppendixContract_Grid_Name.TranslateString()';
+    var popUpName = '@ConstantControlName.HRM_HR_AppendixContract_PopUp_Name.TranslateString()';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_HR_AppendixContract_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_HR_AppendixContract_PopUp_Create_Title.TranslateString())';
+    $(document).ready(function () {
+
+
+        $("#ContractInfo1_ProfileName").val($("#ProfileName").val());
+
+    });
+    function filterFieldInfo() {
+        return {
+            ContractID: $("#Contract_ID").val()
+        };
+    }
+    $("#btnCreateProfileAppendixContract").click(function () {
+
+
+        var x = $('#@Html.FieldIdFor(model => model.ID)').val();
+        // gán contractID vào hidden field khi edit PLHD
+        var z = $('#@Html.FieldIdFor(model => model.Contract_ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+
+
+            setTimeout(function () {
+                PopUpCreate("windowProfileAppendixContract", titleCreatePopUp, '@ConstantPermission.Hre_Contract');
+            }, 1000);
+            // Xử Lý gán contract_ID khi tạo mới và edit
+            if (z != '') {
+                $("#Contract_ID").val($('#@Html.FieldIdFor(model => model.Contract_ID)').val());
+            } else {
+                $("#Contract_ID").val($('#@Html.FieldIdFor(model => model.ID)').val());
+            }
+
+
+
+        }
+    });
+    //$(document).ready(function () {
+    //    debugger;
+    //    $("#ProfileID").val(SelectID);
+
+    //});
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Hre_Contract/ProfileAppendixContractInfo/";
+        EditGridPopUp("grid_ProfieAppendixContract", "windowProfileAppendixContract", url, '@ConstantPermission.Hre_Contract', titleEditPopUp);
+    });
+
+
+    GridCheckbox("grid_ProfieAppendixContract");
+
+    //Xóa PLHĐ
+    $('#btnDeleteProfileAppendixContract').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_ProfieAppendixContract", '@_hrm_Main_Web' + "Hre_AppendixContract/RemoveSelected/", selectedIds.join(","));
+    });
+
+    $("#btnGetBasicSalary").click(function () {
+
+
+        var _profileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Hre_GetData/GetBasicSalaryByProfileID",
+            data: { ProfileID: _profileID },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+
+                if (data == "Error") {
+                    WarningMessages('@ConstantDisplay.YouHaveNotInputProfile.TranslateString()');
+                } else if (data == "NoBasicSalary") {
+                    WarningMessages('@ConstantDisplay.ProfileNotHaveBasicSalary.TranslateString()');
+                }
+                if (data != null) {
+                    var Salary = $("#Salary").data("kendoNumericTextBox");
+                    Salary.value(data.GrossAmount);
+                }
+
+            }
+
+        });
+    });
+
+    function ContractTypeSelect(e) {
+
+        var _dateStart = $("#ContractInfo1_DateStart").data("kendoDatePicker");
+        var _dateSigned = $("#ContractInfo1_DateSigned").data("kendoDatePicker");
+        var _dateEnd = $("#ContractInfo1_DateEnd").data("kendoDatePicker");
+        var _profileID = $("#ProfileID").val();
+
+        var currentDate = new Date();
+        var day = currentDate.getDate();
+        var month = currentDate.getMonth() + 1;
+        var year = currentDate.getFullYear();
+        var date = day + "/" + month + "/" + year;
+
+        var dataItem = this.dataSource.view()[e.item.index()];
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Hre_GetData/GetContractTypeByID",
+            data: { ContractTypeID: dataItem.ID, ProfileID: _profileID.toString() },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+
+                _dateStart.value(date);
+                _dateSigned.value(date);
+                if (data.DateStart != null && data.DateEnd != null) {
+                    var dHire = new Date(parseInt(data.DateStart.slice(6, -2)));
+                    var _monthHire = 1 + dHire.getMonth();
+                    var _dayHire = dHire.getDate();
+                    var _yearHire = dHire.getFullYear();
+                    var fullDateHire = _dayHire + "/" + _monthHire + "/" + _yearHire;
+                    _dateStart.value(fullDateHire);
+
+                    var dEndProbation = new Date(parseInt(data.DateEnd.slice(6, -2)));
+                    var _monthEndProbation = 1 + dEndProbation.getMonth();
+                    var _dayEndProbation = dEndProbation.getDate();
+                    var _yearEndProbation = dEndProbation.getFullYear();
+                    var fullDateEndProbation = _dayEndProbation + "/" + _monthEndProbation + "/" + _yearEndProbation;
+                    _dateEnd.value(fullDateEndProbation);
+
+                }
+                if (data.DateSigned != null) {
+
+                    var d = new Date(parseInt(data.DateSigned.slice(6, -2)));
+                    var _month = 1 + d.getMonth();
+                    var _day = d.getDate();
+                    var _year = d.getFullYear();
+                    var fullDate = _day + "/" + _month + "/" + _year;
+                    _dateSigned.value(fullDate);
+                } else {
+                    _dateEnd.value("");
+                }
+            }
+
+        });
+    }
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_hreProfile_contract" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    @Html.Hidden("Contract_ID", ContractID)
+
+    <div>
+        @{
+    if (Model != null)
+    {
+        @Html.HiddenFor(m => m.ProfileID)
+            @Html.HiddenFor(m => m.ProfileName)
+            @Html.HiddenFor(m => m.ContractNo)
+    }
+    else
+    {
+        @Html.Hidden("ProfileID", ProfileID)
+            @Html.Hidden("ProfileName", ProfileName)
+            @Html.Hidden("ContractNo", ContractNo)
+    }
+
+        }
+    </div>
+    <table style="width:100%;">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="overflow: hidden; width: 1000px">
+                        <div style="display: block;float: left; width:100%">
+                            <div style="display: block">
+                                <fieldset>
+                                    <legend>
+                                        @ConstantDisplay.HRM_HR_ContractCondition.TranslateString()
+                                    </legend>
+                                    <div style="float:left; width:100%">
+                                        <div style="float: left; width: 50%">
+                                            <div id="div4" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.ProfileName)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var _ProfileName = new TextBoxBuilderInfo()
+    {
+        Name = "ContractInfo1_ProfileName",
+        CssStyle = "width:300px",
+        Disabled = true
+    };
+    if (Model != null)
+    {
+        _ProfileName.Value = Model == null ? string.Empty : Model.ProfileName;
+    }
+                                                    }
+                                                    @Html.VnrTextBoxFor(model => model.ProfileName, _ProfileName)
+                                                </div>
+
+                                            </div>
+                                            <div id="div4" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.ContractNo)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var _ContractNo = new TextBoxBuilderInfo()
+    {
+        Name = "ContractInfo1_ContractNo",
+        CssStyle = "width:300px"
+
+    };
+    if (Model != null)
+    {
+        _ContractNo.Value = Model == null ? string.Empty : Model.ContractNo;
+    }
+                                                    }
+                                                    @Html.VnrTextBoxFor(model => model.ContractNo, _ContractNo)
+                                                </div>
+
+                                            </div>
+                                            <div id="div6" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.ContractTypeID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <!--Xử lý gán trực tiếp dữ liệu cho Multi, không cần load dữ liệu từ database lên, giảm kết nối đến database khi edit-->
+                                                    @{
+    IEnumerable valueContractType = new string[] { };
+    if (Model != null)
+    {
+        valueContractType = new[] { new { ContractTypeName = Model.ContractTypeName, ID = Model.ContractTypeID } };
+    }
+                                                    }
+                                                    @{
+    var contractTypeID = new MultiSelectBuilderInfo
+    {
+        Name = "ContractInfo1_ContractTypeID",
+        DataTextField = "ContractTypeName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiContractType",
+        MaxSelectedItems = 1,
+        Placeholder = ConstantDisplay.HRM_Category_SelectContractType.TranslateString(),
+        Value = valueContractType,
+        EventSelect = "ContractTypeSelect",
+        Width = 300
+    };
+                                                    }
+                                                    @Html.VnrMultiSelectFor(mode => mode.ContractTypeID, contractTypeID)
+                                                </div>
+                                            </div>
+                                            <div id="div9" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.DateStart)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var dateStart = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:120px",
+        Name = "ContractInfo1_DateStart"
+    };
+                                                    }
+                                                    @Html.VnrDatePickerFor(model => model.DateStart, dateStart)
+                                                </div>
+                                            </div>
+                                            <div id="div10" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.DateEnd)
+                                                </div>
+
+                                                <div class="FieldValue">
+                                                    @{
+    var dateEnd = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:120px",
+        Name = "ContractInfo1_DateEnd"
+    };
+                                                    }
+                                                    @Html.VnrDatePickerFor(model => model.DateEnd, dateEnd)
+                                                </div>
+                                            </div>
+                                            <div id="div8" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.DateSigned)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var dateSigned = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:120px",
+        Name = "ContractInfo1_DateSigned"
+    };
+                                                    }
+                                                    @Html.VnrDatePickerFor(model => model.DateSigned, dateSigned)
+                                                </div>
+                                            </div>
+
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.HourWorkInMonth)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var HourWorkInMonth = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_HourWorkInMonth",
+        StyleCss = "width:150px",
+        Format = ConstantFormat.HRM_Format_Number_Double
+    };
+                                                    }
+                                                    @Html.VnrNumericTextBoxFor(model => model.HourWorkInMonth, HourWorkInMonth)
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="float: left; width: 50%;">
+                                            <div id="div5" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.JobTitleID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <!--Xử lý gán trực tiếp dữ liệu cho Multi, không cần load dữ liệu từ database lên, giảm kết nối đến database khi edit-->
+                                                    @{
+    IEnumerable valuejobTitle = new string[] { };
+    if (Model != null)
+    {
+        valuejobTitle = new[] { new { JobTitleName = Model.JobTitleName, ID = Model.JobTitleID } };
+    }
+                                                    }
+                                                    @{
+    var jobTitleID = new MultiSelectBuilderInfo
+    {
+        Name = "ContractInfo1_JobTitleID",
+        DataTextField = "JobTitleName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiJobTitle",
+        MaxSelectedItems = 1,
+        Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+        Value = valuejobTitle,
+        Width = 300
+    };
+                                                    }
+                                                    @Html.VnrMultiSelectFor(mode => mode.JobTitleID, jobTitleID)
+                                                </div>
+                                            </div>
+                                            <div id="div11" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.PositionID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    IEnumerable valuePosition = new string[] { };
+    if (Model != null)
+    {
+        valuePosition = new[] { new { PositionName = Model.PositionName, ID = Model.PositionID } };
+    }
+                                                    }
+                                                    @{
+    var positionID = new MultiSelectBuilderInfo()
+    {
+        Name = "ContractInfo1_PositionID",
+        DataTextField = "PositionName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiPosition",
+        Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+        Value = valuePosition,
+        MaxSelectedItems = 1,
+        Width = 300
+    };
+                                                    }
+                                                    @(Html.VnrMultiSelectFor(mode => mode.PositionID, positionID))
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.QualificationID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var QualificationName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_QualificationID",
+         DataTextField = "QualificationName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiQualification",
+         StyleCss = "width:300px;",
+         //   Value = Model == null ? string.Empty : Model.QualificationName,
+
+     };
+    if (Model != null)
+    {
+        QualificationName.Value = Model == null ? string.Empty : Model.QualificationID.ToString();
+    }
+                                                    }
+                                                    @(Html.VnrComboBoxFor(mode => mode.QualificationID, QualificationName).Text(Model == null ? string.Empty : Model.QualificationName))
+                                                </div>
+                                            </div>
+                                            <div id="div10" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.ProfileSingID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var displayprofilename = Hre_ContractModel.FieldNames.ProfileName;
+    IEnumerable valueProfileSing = new string[] { };
+    if (Model != null)
+    {
+        valueProfileSing = new[] { new { ProfileSingName = Model.ProfileSingName, ID = Model.ProfileSingID } };
+    }
+
+    if (Model != null && Model.ProfileSingName != null)
+    {
+        displayprofilename = Hre_ContractModel.FieldNames.ProfileSingName;
+    }
+
+    var ProfileSing = new MultiSelectBuilderInfo()
+    {
+        Name = "ContractInfo1_ProfileSingID",
+        DataTextField = displayprofilename,
+        DataValueField = Hre_ContractModel.FieldNames.ID,
+        Url = @_hrm_Hre_Service + "Hre_GetData/GetMultiProfile",
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+        MaxSelectedItems = 1,
+        Value = valueProfileSing,
+        Width = 300
+    };
+                                                    }
+                                                    @(Html.VnrMultiSelectFor(mode => mode.ProfileSingID, ProfileSing))
+                                                </div>
+                                            </div>
+                                            <div id="div10" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.DateAuthorize)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var DateAuthorize = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:150px;",
+        Name = "ContractInfo1_DateAuthorize"
+    };
+                                                    }
+                                                    @Html.VnrDatePickerFor(model => model.DateAuthorize, DateAuthorize)
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.FollowNo)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @Html.VnrTextBoxFor(model => model.FollowNo, "Width: 300px")
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var _workplaceName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_WorkPlaceID",
+         DataTextField = "WorkPlaceName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+         StyleCss = "width:300px;",
+         Value = Model == null ? string.Empty : Model.WorkPlaceID.ToString(),
+     };
+                                                    }
+                                                    @(Html.VnrComboBoxFor(mode => mode.WorkPlaceID, _workplaceName).Text(Model == null ? string.Empty : Model.WorkPlaceName))
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </div>
+                            <div style="display: block">
+                                <fieldset>
+                                    <legend>
+                                        @ConstantDisplay.HRM_HR_SalaryContractInformation.TranslateString()
+                                    </legend>
+                                    <div style="float:left; width:100%">
+                                        <div style="float:left; width:50%">
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Salary)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var Salary = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "contractinfo11_Salary",
+        StyleCss = "width:150px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                    }
+                                                    @Html.VnrNumericTextBoxFor(model => model.Salary, Salary)
+                                                    @{
+    var CurrencyName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID.ToString(),
+     };
+                                                    }
+                                                    @(Html.VnrComboBoxFor(mode => mode.CurenncyID, CurrencyName).Text(Model == null ? string.Empty : Model.CurrencySalName))
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var CreateBasicSalary = new CheckBoxBuilderInfo()
+    {
+    };
+    if (Model != null)
+    {
+        if (Model.CreateBasicSalary == true)
+        {
+            CreateBasicSalary.Value = true;
+        }
+        else
+        {
+            CreateBasicSalary.Value = false;
+        }
+    }
+                                                    }
+                                                    @Html.VnrCheckBoxFor(model => model.CreateBasicSalary, CreateBasicSalary)
+                                                    <div style="float: right; padding-top: 5px">
+                                                        @Html.VnrLabel(ConstantDisplay.HRM_HR_Contract_CreateBasicSalary.TranslateString())
+                                                        <a id="btnGetBasicSalary" style="cursor:pointer">@ConstantDisplay.HRM_HR_Profile_ReferBasicSalary.TranslateString()</a>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var BasicSalaryForPerson = new CheckBoxBuilderInfo()
+    {
+    };
+    if (Model != null)
+    {
+        if (Model.BasicSalaryForPerson == true)
+        {
+            BasicSalaryForPerson.Value = true;
+        }
+        else
+        {
+            BasicSalaryForPerson.Value = false;
+        }
+    }
+                                                    }
+                                                    @Html.VnrCheckBoxFor(model => model.BasicSalaryForPerson, BasicSalaryForPerson)
+                                                    <div style="float: right; padding-top: 5px">
+                                                        @Html.VnrLabel(ConstantDisplay.HRM_HR_Contract_BasicSalaryForPerson.TranslateString())
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.InsuranceAmount)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div style="float:left">
+                                                        @{
+    var InsuranceAmount = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_InsuranceAmount",
+        StyleCss = "width:150px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                        }
+                                                        @Html.VnrNumericTextBoxFor(model => model.InsuranceAmount, InsuranceAmount)
+                                                    </div>
+                                                    <div style="float: left; padding-left: 2px">
+                                                        @{
+    var CurenncyInsName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID1",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID1.ToString(),
+     };
+                                                        }
+                                                        @(Html.VnrComboBoxFor(mode => mode.CurenncyID1, CurenncyInsName).Text(Model == null ? string.Empty : Model.CurenncyInsName))
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div10" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.PersonalRate)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var PersonalRate = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_PersonalRate",
+        StyleCss = "width:150px",
+        Format = ConstantFormat.HRM_Format_Number_Double
+    };
+                                                    }
+                                                    @Html.VnrNumericTextBoxFor(model => model.PersonalRate, PersonalRate)
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.SalaryClassTypeID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @{
+    var SalaryClassTypeName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_SalaryClassTypeID",
+         DataTextField = "SalaryClassTypeName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiSalaryClassType",
+         StyleCss = "width:300px;",
+         Value = Model == null ? string.Empty : Model.SalaryClassTypeID.ToString(),
+     };
+                                                    }
+                                                    @(Html.VnrComboBoxFor(mode => mode.SalaryClassTypeID, SalaryClassTypeName).Text(Model == null ? string.Empty : Model.SalaryClassTypeName))
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.FormPaySalary)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    @Html.VnrTextBoxFor(mode => mode.FormPaySalary, "Width: 300px")
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div style="float: left; width: 50%;">
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Allowance1)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div style="float:left">
+                                                        @{
+    var AllowanceID1Name = new ComboBoxBuilderInfo()
+            {
+                Name = "ContractInfo1_AllowanceID1",
+                DataTextField = "UsualAllowanceName",
+                DataValueField = "ID",
+                Url = _hrm_Hre_Service + "Cat_GetData/GetMultiUsualAllowance",
+                StyleCss = "width:140px;",
+                Value = Model == null ? string.Empty : Model.AllowanceID1.ToString(),
+            };
+                                                        }
+                                                        @(Html.VnrComboBoxFor(mode => mode.AllowanceID1, AllowanceID1Name).Text(Model == null ? string.Empty : Model.AllowanceID1Name))
+
+                                                    </div>
+                                                    <div style="float: left; padding-left: 2px">
+                                                        @{
+    var Allowance1 = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_Allowance1",
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                        }
+                                                        @Html.VnrNumericTextBoxFor(model => model.Allowance1, Allowance1)
+                                                    </div>
+                                                    <div style="float: left; padding-left: 2px">
+                                                        @{
+    var CurenncyID2Name = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID2",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID2.ToString(),
+     };
+                                                        }
+                                                        @(Html.VnrComboBoxFor(mode => mode.CurenncyID2, CurenncyID2Name).Text(Model == null ? string.Empty : Model.CurenncyAllowance1Name))
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Allowance2)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+                                                        <div style="float:left">
+                                                            @{
+    var AllowanceID2Name = new ComboBoxBuilderInfo()
+            {
+                Name = "ContractInfo1_AllowanceID2",
+                DataTextField = "UsualAllowanceName",
+                DataValueField = "ID",
+                Url = _hrm_Hre_Service + "Cat_GetData/GetMultiUsualAllowance",
+                StyleCss = "width:140px;",
+                Value = Model == null ? string.Empty : Model.AllowanceID2.ToString(),
+            };
+                                                            }
+                                                            @(Html.VnrComboBoxFor(mode => mode.AllowanceID2, AllowanceID2Name).Text(Model == null ? string.Empty : Model.AllowanceID2Name))
+                                                        </div>
+                                                        <div style="float: left; padding-left: 2px">
+                                                            @{
+    var Allowance2 = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_Allowance2",
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                            }
+                                                            @Html.VnrNumericTextBoxFor(model => model.Allowance2, Allowance2)
+                                                        </div>
+                                                        <div style="float: left; padding-left: 2px">
+                                                            @{
+    var CurenncyAllowance2Name = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID3",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID3.ToString(),
+     };
+                                                            }
+                                                            @(Html.VnrComboBoxFor(mode => mode.CurenncyID3, CurenncyAllowance2Name).Text(Model == null ? string.Empty : Model.CurenncyAllowance2Name))
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Allowance3)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+                                                        <div>
+                                                            <div style="float:left">
+                                                                @{
+    var AllowanceID3Name = new ComboBoxBuilderInfo()
+            {
+                Name = "ContractInfo1_AllowanceID3",
+                DataTextField = "UsualAllowanceName",
+                DataValueField = "ID",
+                Url = _hrm_Hre_Service + "Cat_GetData/GetMultiUsualAllowance",
+                StyleCss = "width:140px;",
+                Value = Model == null ? string.Empty : Model.AllowanceID3.ToString(),
+            };
+                                                                }
+                                                                @(Html.VnrComboBoxFor(mode => mode.AllowanceID3, AllowanceID3Name).Text(Model == null ? string.Empty : Model.AllowanceID3Name))
+
+                                                            </div>
+                                                            <div style="float: left; padding-left: 2px">
+                                                                @{
+    var Allowance3 = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_Allowance3",
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                                }
+                                                                @Html.VnrNumericTextBoxFor(model => model.Allowance3, Allowance3)
+                                                            </div>
+                                                            <div style="float: left; padding-left: 2px">
+                                                                @{
+    var CurenncyAllowance3Name = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyIDSalary",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyIDSalary.ToString(),
+     };
+                                                                }
+                                                                @(Html.VnrComboBoxFor(mode => mode.CurenncyIDSalary, CurenncyAllowance3Name).Text(Model == null ? string.Empty : Model.CurenncyAllowance3Name))
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Allowance4)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+                                                        <div style="float:left">
+                                                            @{
+    var AllowanceID4Name = new ComboBoxBuilderInfo()
+            {
+                Name = "ContractInfo1_AllowanceID4",
+                DataTextField = "UsualAllowanceName",
+                DataValueField = "ID",
+                Url = _hrm_Hre_Service + "Cat_GetData/GetMultiUsualAllowance",
+                StyleCss = "width:140px;",
+                Value = Model == null ? string.Empty : Model.AllowanceID4.ToString(),
+            };
+                                                            }
+                                                            @(Html.VnrComboBoxFor(mode => mode.AllowanceID4, AllowanceID4Name).Text(Model == null ? string.Empty : Model.AllowanceID4Name))
+                                                        </div>
+                                                        <div style="float: left; padding-left: 2px">
+                                                            @{
+    var Allowance4 = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_Allowance4",
+        StyleCss = "width:100px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                            }
+                                                            @Html.VnrNumericTextBoxFor(model => model.Allowance4, Allowance4)
+                                                        </div>
+                                                        <div style="float: left; padding-left: 2px">
+                                                            @{
+    var CurenncyAllowance4Name = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID4",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:60px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID4.ToString(),
+     };
+                                                            }
+                                                            @(Html.VnrComboBoxFor(mode => mode.CurenncyID4, CurenncyAllowance4Name).Text(Model == null ? string.Empty : Model.CurenncyAllowance4Name))
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.Allowance)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+
+                                                        <div style="float:left">
+                                                            @{
+    var Allowance = new NumericTextBoxBuilderInfo<double>()
+    {
+        Name = "ContractInfo1_Allowance",
+        StyleCss = "width:150px",
+        Format = ConstantFormat.HRM_Format_Money
+    };
+                                                            }
+                                                            @Html.VnrNumericTextBoxFor(model => model.Allowance, Allowance)
+                                                        </div>
+                                                        <div style="float: left; padding-left: 2px">
+                                                            @{
+    var CurenncyOAllowanceName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_CurenncyID5",
+         DataTextField = "CurrencyName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiCurrency",
+         StyleCss = "width:150px;",
+         Value = Model == null ? string.Empty : Model.CurenncyID5.ToString(),
+     };
+                                                            }
+                                                            @(Html.VnrComboBoxFor(mode => mode.CurenncyID5, CurenncyOAllowanceName).Text(Model == null ? string.Empty : Model.CurenncyOAllowanceName))
+
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.ClassRateID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+                                                        @{
+    var ClassRateName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_ClassRateID",
+         DataTextField = "SalaryClassName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiSalaryClass",
+         StyleCss = "width:300px;",
+         Value = Model == null ? string.Empty : Model.ClassRateID.ToString(),
+     };
+                                                        }
+                                                        @(Html.VnrComboBoxFor(mode => mode.ClassRateID, ClassRateName).Text(Model == null ? string.Empty : Model.ClassRateName))
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div id="div3" class="DivContentTitleValue">
+                                                <div class="FieldTitle150">
+                                                    @Html.VnrLabelFor(mode => mode.RankRateID)
+                                                </div>
+                                                <div class="FieldValue">
+                                                    <div>
+                                                        @{
+    var RankRateName = new ComboBoxBuilderInfo()
+     {
+         Name = "ContractInfo1_RankRateID",
+         DataTextField = "SalaryRankName",
+         DataValueField = "ID",
+         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiSalaryRank",
+         StyleCss = "width:300px;",
+         Value = Model == null ? string.Empty : Model.RankRateID.ToString(),
+     };
+                                                        }
+                                                        @(Html.VnrComboBoxFor(mode => mode.RankRateID, RankRateName).Text(Model == null ? string.Empty : Model.SalaryRankName))
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </fieldset>
+                            </div>
+
+                        </div>
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr id="girdAppendContract" hidden="hidden">
+                <td colspan="3">
+                    <div class="commandToolBarWidge" style="height:28px">
+                        <div style="float:left; padding-top:7px">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Hr_AppendixContract_Title.TranslateString())
+
+                        </div>
+
+                        <div style="float:right">
+                            <div class="HideExportCate">
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                            </div>
+                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateProfileAppendixContract", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteProfileAppendixContract", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                        </div>
+                    </div>
+                    <div>
+                        <!--Khai báo các thông tin cho Grid-->
+                        @*@using HRM.Presentation.Category.Models*@
+                        @using HRM.Presentation.UI.Controls.Kendo
+                        @{
+    //Thông tin hiển column hiển thị
+    string[] valueFields = new string[]
+                            {
+                                Hre_AppendixContractModel.FieldNames.Code,
+                                Hre_AppendixContractModel.FieldNames.AppendixContractType,
+                                Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract,
+                                Hre_AppendixContractModel.FieldNames.DateofEffect,
+                                Hre_AppendixContractModel.FieldNames.DateEndAppendixContract,
+                                Hre_AppendixContractModel.FieldNames.Amount
+                            };
+
+    //Set độ rộng cho từng column
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {HRM.Presentation.Hr.Models.Hre_AppendixContractModel.FieldNames.Code, 150},
+                                {Hre_AppendixContractModel.FieldNames.AppendixContractType, 150},
+                                {Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract, 100},
+                                {Hre_AppendixContractModel.FieldNames.DateofEffect, 130},
+                                {Hre_AppendixContractModel.FieldNames.DateEndAppendixContract, 150},
+                                {Hre_AppendixContractModel.FieldNames.Amount, 120}
+                            };
+
+    //Thông tin hiển thị được dịch
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Hre_AppendixContractModel.FieldNames.Code, ConstantDisplay.HRM_HR_AppendixContract_Code},
+                                {Hre_AppendixContractModel.FieldNames.AppendixContractType, ConstantDisplay.HRM_HR_AppendixContract_AppendixContractType},
+                                {Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract, ConstantDisplay.HRM_HR_AppendixContract_DateSignedAppendixContract},
+                                {Hre_AppendixContractModel.FieldNames.DateofEffect, ConstantDisplay.HRM_HR_AppendixContract_DateofEffect},
+                                {Hre_AppendixContractModel.FieldNames.DateEndAppendixContract, ConstantDisplay.HRM_HR_AppendixContract_DateEndAppendixContract},
+                                {Hre_AppendixContractModel.FieldNames.Amount, ConstantDisplay.HRM_HR_AppendixContract_Amount}
+                            };
+
+    var grid = new GridBuilderInfo
+    {
+        Name = "grid_ProfieAppendixContract",
+        ValueFields = valueFields,
+        SizeFields = sizeFields,
+        DisplayFields = displayFields,
+        ShowCommand = false,
+        GridHeight = 150,
+        AutoBind = true,
+        ReadActionUrl = _hrm_Hre_Service + "Hre_GetData/GetAppendixContractByContractList?ContractID=" + ContractID,
+        ReadData = "filterFieldInfo",
+    };
+                        }
+                        <!--Khởi tạo Grid-->
+                        @(Html.VnrGrid<Hre_AppendixContractModel>(grid)
+                               .DataSource(dataSource => dataSource
+                                   .Ajax()
+                                           .Model(model => model.Field(o => o.ContractNo).Editable(false))
+                                  )
+                        )
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td style="padding-top:2px; padding-bottom:10px;">
+                    <div class="LineFooterCommandEdit">
+                    </div>
+                </td>
+            </tr>
+            <tr>
+                <td class="">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div class="FieldTitle150"></div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-Contractinfo1", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @*@Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveNew", Name = "save-New-Contract", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-Contractinfo1", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+
+        </tbody>
+    </table>
+}
+<script>
+    $("#gridAppendixContract .k-grid-pager").css('display', 'none');
+</script>
+
+<script>
+    $(document).ready(function () {
+
+        var _jobtitleID = $("#ContractInfo1_JobTitleID").data("kendoMultiSelect");
+        _jobtitleID.value($("#JobTitleID").val());
+        var _positionID = $("#ContractInfo1_PositionID").data("kendoMultiSelect");
+        _positionID.value($("#PositionID").val());
+    });
+</script>

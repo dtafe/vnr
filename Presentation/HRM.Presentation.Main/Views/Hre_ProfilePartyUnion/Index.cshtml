@@ -1,0 +1,341 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model Hre_ProfilePartyUnionModel
+@{
+    ViewBag.Title = "Profile Party And Union Index";
+    var profileID = Guid.Empty;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    //string[] valueFields = null;
+}
+@{
+    var windowDisc = new WindowBuilderInfo
+    {
+        Name = "windowPartyAndUnion",
+        Visible = false,
+        Width = 1000,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_ProfilePartyUnion/CreateOrUpDate/",
+    };
+}
+@(Html.VnrWindow(windowDisc))
+<script>
+    var titleEditPopUpProfilePartyUnion = '@Html.Raw(ConstantDisplay.HRM_HR_ProfilePartyUnion_Edit.TranslateString())';
+    var titleCreatePopUpProfilePartyUnion = '@Html.Raw(ConstantDisplay.HRM_HR_ProfilePartyUnion_AddNew.TranslateString())';
+     
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        var jobTitleID = $('#@Html.FieldIdFor(model => model.JobTitleID)').val();
+        var positionID = $('#@Html.FieldIdFor(model => model.PositionID)').val();
+        return {
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            JobTitleID: $('#@Html.FieldIdFor(model => model.JobTitleID)').val() ? $('#@Html.FieldIdFor(model => model.JobTitleID)').val()[0] : null,
+            PositionID: $('#@Html.FieldIdFor(model => model.PositionID)').val() ? $('#@Html.FieldIdFor(model => model.PositionID)').val()[0] : null,
+            OrgStructureID: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#gridPartyAndUnion').data("kendoGrid");
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Hre_ProfilePartyUnion/CreateOrUpDate/";
+        EditGridPopUp("gridPartyAndUnion", "windowPartyAndUnion", url, '@ConstantPermission.Hre_ProfilePartyUnion', titleEditPopUpProfilePartyUnion);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfilePartyUnion');
+        if (!isAccess)
+        {
+            return;
+        }
+        PopUpCreate("windowPartyAndUnion", titleCreatePopUpProfilePartyUnion, '@ConstantPermission.Hre_ProfilePartyUnion');
+    });
+    //Xử Lý grid
+    GridCheckbox("gridPartyAndUnion");
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridPartyAndUnion", '@_hrm_Main_Web' + "Hre_ProfilePartyUnion/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_ProfilePartyUnion');
+        return false;
+    });
+    //Expoprt
+   $("#btnExportAll").click(function () {
+       @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_Contract');
+        if (!isAccess) {
+            return;
+        }*@
+       
+        var grid = $('#gridPartyAndUnion').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportProfilePartyUnionList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_ProfilePartyUnion');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportPartyUnionSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_ProfilePartyUnion');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                    <div id="div14">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.ProfileName, "width:200px;")
+                        </div>
+                    </div>    
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_HR_ProfilePartyUnion_CommunistPartyReserveDate.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dateFrom = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                            @{
+                                var dateTo = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                        </div>
+                    </div>              
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.JobTitleID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var JobTitleName = new MultiSelectBuilderInfo
+                                {
+                                    DataTextField = "JobTitleName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiJobTitle",
+                                    MaxSelectedItems = 1,
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.PositionID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var PositionName = new MultiSelectBuilderInfo
+                                {
+                                    DataTextField = "PositionName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPosition",
+                                    MaxSelectedItems = 1,
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeProfilePartyUnion", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridPartyAndUnion_Grid_Name + "__Hre_ProfilePartyUnion_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridPartyAndUnion_Grid_Name,
+            ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetProfilePartyUnionList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            DisabledCheckbox = true,
+            ShowDeleteButton = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+                            {
+                                Hre_ProfilePartyUnionModel.FieldNames.ProfileName,
+                                Hre_ProfilePartyUnionModel.FieldNames.IsRelationWithMartyr,
+                                Hre_ProfilePartyUnionModel.FieldNames.RelationWithMartyr,
+                                Hre_ProfilePartyUnionModel.FieldNames.IsCommunistPartyMember,
+                                Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyReserveDate,
+                                Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyEnrolledDate,
+                                Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyPositionName,
+                                Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyCardNo
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Hre_ProfilePartyUnionModel.FieldNames.ProfileName, 140},
+                                {Hre_ProfilePartyUnionModel.FieldNames.IsRelationWithMartyr, 115},
+                                {Hre_ProfilePartyUnionModel.FieldNames.RelationWithMartyr, 130},
+                                {Hre_ProfilePartyUnionModel.FieldNames.IsCommunistPartyMember, 90},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyReserveDate, 100},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyEnrolledDate, 85},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyPositionName, 100},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyCardNo, 120}
+                            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Hre_ProfilePartyUnionModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Reward_ProfileName},
+                                {Hre_ProfilePartyUnionModel.FieldNames.IsRelationWithMartyr, ConstantDisplay.HRM_HR_ProfilePartyUnion_IsRelationWithMartyr},
+                                {Hre_ProfilePartyUnionModel.FieldNames.RelationWithMartyr, ConstantDisplay.HRM_HR_ProfilePartyUnion_RelationWithMartyr},
+                                {Hre_ProfilePartyUnionModel.FieldNames.IsCommunistPartyMember, ConstantDisplay.HRM_HR_ProfilePartyUnion_IsCommunistPartyMember},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyReserveDate, ConstantDisplay.HRM_HR_ProfilePartyUnion_CommunistPartyReserveDate},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyEnrolledDate, ConstantDisplay.HRM_HR_ProfilePartyUnion_CommunistPartyEnrolledDate},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyPositionName, ConstantDisplay.HRM_HR_ProfilePartyUnion_CommunistPartyPositionName},
+                                {Hre_ProfilePartyUnionModel.FieldNames.CommunistPartyCardNo, ConstantDisplay.HRM_HR_ProfilePartyUnion_CommunistPartyCardNo}
+                            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+
+        }
+        //var grid = new GridBuilderInfo
+        //{
+
+        //    Name = "gridPartyAndUnion",
+        //    ValueFields = valueFields,   
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetProfilePartyUnionList",
+        //    ReadData = "filterFieldInfo",
+        //    AutoBind = false,
+        //    DisabledCheckbox = true,
+        //    ShowDeleteButton = true,
+        //};
+    }
+    @(Html.VnrGrid<Hre_ProfilePartyUnionModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeProfilePartyUnion", "Hre_ProfilePartyUnionModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

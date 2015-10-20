@@ -1,0 +1,910 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Category.Models
+@using HRM.Infrastructure.Security;
+
+@model HRM.Presentation.Category.Models.CatShiftModel
+@{
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Cat_Service;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Cat_Web;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Att_Web;
+
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+
+    var shiftID = Guid.Empty;
+
+
+    IList<SelectListItem> listShitBreakType = Enum.GetValues(typeof(EnumDropDown.ShiftBreakType))
+      .Cast<EnumDropDown.ShiftBreakType>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+      .ToList();
+
+
+    if (Model != null)
+    {
+        shiftID = Model.ID;
+    }
+}
+<script>
+
+    function filterFieldInfo() {
+        return {
+            ShiftID: $('#Shift_ID').val()
+        };
+    }
+
+    $(document).ready(function () {
+
+        $("#IsNightShift").click(function () {
+            
+            var _isNightShift = document.getElementById("IsNightShift");
+            var _isTimeNightShift = document.getElementById("timeNightShift");
+            if (_isNightShift.checked) {
+                _isTimeNightShift.hidden = false;
+            } else {
+
+                _isTimeNightShift.hidden = true;
+            }
+        });
+
+        $("#IsDoubleShift").click(function () {
+            
+            var _isDoubleShift = document.getElementById("IsDoubleShift");
+            var _isTimeDoubleShift = document.getElementById("TimeDoubleShift");
+            if (_isDoubleShift.checked) {
+                _isTimeDoubleShift.hidden = false;
+            } else {
+
+                _isTimeDoubleShift.hidden = true;
+            }
+        });
+
+        $("#MinIn").change(function () {
+            
+            var date = $("#InTime").data("kendoTimePicker").value();
+            var TimeMinIn = $("#TimeMinIn").data("kendoTimePicker");
+            //var _InTime = document.getElementById("InTime").val();
+            var _Hours = $("#MinIn").val();
+            if (_Hours != "") {
+                _Hours = parseFloat(_Hours);
+                var datetime = new Date(date);
+                datetime = new Date(datetime.getTime() - 60 * 60 * 1000 * _Hours);
+                //datetime.setHours(datetime.getHours() - _Hours);
+                TimeMinIn.value(datetime);
+            } else {
+                TimeMinIn.value(_Hours);
+            }
+
+        });
+
+        $("#MaxOut").change(function () {
+            
+            var date = $("#TimeCoOut").data("kendoTimePicker").value();
+            var TimeMaxOut = $("#TimeMaxOut").data("kendoTimePicker");
+            //var _InTime = document.getElementById("InTime").val();
+            var _Hours = $("#MaxOut").val();
+            if (_Hours != "") {
+                _Hours = parseFloat(_Hours);
+                var datetime = new Date(date);
+                datetime = new Date(datetime.getTime() + 60 * 60 * 1000 * _Hours);
+                TimeMaxOut.value(datetime);
+            } else {
+                TimeMaxOut.value(_Hours);
+            }
+
+            //datetime.setHours(datetime.getHours() + _Hours);
+
+        });
+    });
+</script>
+
+@*Xử lý tạo mới nghỉ giữa ca*@
+
+@{
+    var windowShiftItem = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Cat_shiftItem_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = _hrm_Main_Web + "Cat_Shift/ShiftItemInfo?id=" + shiftID,
+    };
+}
+
+@(Html.VnrWindow(windowShiftItem))
+@{
+    var windowError_ShiftItem = new WindowBuilderInfo
+    {
+        Name = "windowError_ShiftItem",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>" + ConstantDisplay.Shift_MessageError.TranslateString() + " </b></center>"
+    };
+}
+@(Html.VnrWindow(windowError_ShiftItem))
+<script>
+
+    var gridShiftItemName = '@ConstantControlName.HRM_Cat_shiftItem_Grid_Name';
+    var popUpShiftItemName = '@ConstantControlName.HRM_Cat_shiftItem_PopUp_Name';
+    var titleEditPopUpShiftItem = '@Html.Raw(ConstantDisplay.HRM_Cat_shiftItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpShiftItem = '@Html.Raw(ConstantDisplay.HRM_Cat_shiftItem_PopUp_Create_Title.TranslateString())';
+    $(document).ready(function () {
+        ShowHidePanel();
+        EditGridPopUp('grid_Cat_ShiftItemCoBreakInTime', popUpShiftItemName, '@_hrm_Main_Web' + "Cat_Shift/ShiftItemInfo/", '@ConstantPermission.Cat_Shift', titleEditPopUpShiftItem);
+    });
+
+    //Tạo mới Quá Trình Công Tác
+    $("#btnCreate_ShiftItem").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Shift');
+        if (!isAccess) {
+            return;
+        }
+        var x = $('#@Html.FieldIdFor(model => model.ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError_ShiftItem");
+        }
+        else {
+            //[Hien.Nguyen] Do control windown bị Cache ko lấy url mới, chưa có cách giải quyết nên làm cách củ chuối này
+            PopUpCreate('@ConstantControlName.HRM_Cat_shiftItem_PopUp_Name', titleCreatePopUpShiftItem, '@ConstantPermission.Cat_Shift');
+        }
+    });
+
+    $('#btnDelete_ShiftItem').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        DeleteSelected("grid_Cat_ShiftItemCoBreakInTime", '@_hrm_Main_Web' + "Cat_Shift/RemoveSelectedShiftItem/", selectedIds.join(","), '@ConstantPermission.Cat_Shift');
+        return false;
+    });
+</script>
+
+
+@*Xử lý tạo mới giờ tăng ca*@
+
+@{
+    var windowShiftovertime = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Cat_shiftovertime_PopUp_Name,
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = _hrm_Main_Web + "Cat_Shift/ShiftovertimeInfo?id=" + shiftID,
+    };
+}
+
+@(Html.VnrWindow(windowShiftovertime))
+@{
+    var windowError_Shiftovertime = new WindowBuilderInfo
+    {
+        Name = "windowError_Shiftovertime",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Chưa có ca làm việc</b></center>"
+    };
+}
+@(Html.VnrWindow(windowError_Shiftovertime))
+<script>
+
+    var gridShiftOvertimeName = '@ConstantControlName.HRM_Cat_shiftovertime_Grid_Name';
+    var popUpShiftOvertimeName = '@ConstantControlName.HRM_Cat_shiftovertime_PopUp_Name';
+    var titleEditPopUpShiftovertime = '@Html.Raw(ConstantDisplay.HRM_Cat_shiftovertime_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpShiftovertime = '@Html.Raw(ConstantDisplay.HRM_Cat_shiftovertime_PopUp_Create_Title.TranslateString())';
+    $(document).ready(function () {
+        ShowHidePanel();
+        EditGridPopUp('grid_Cat_ShiftItemOvertime', popUpShiftOvertimeName, '@_hrm_Main_Web' + "Cat_Shift/ShiftovertimeInfo/", '@ConstantPermission.Cat_Shift', titleEditPopUpShiftovertime);
+    });
+
+
+
+    $("#btnCreate_ShiftOvertime").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Shift');
+        if (!isAccess) {
+            return;
+        }
+        var x = $('#@Html.FieldIdFor(model => model.ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError_Shiftovertime");
+        }
+        else {
+            //[Hien.Nguyen] Do control windown bị Cache ko lấy url mới, chưa có cách giải quyết nên làm cách củ chuối này
+            PopUpCreate('@ConstantControlName.HRM_Cat_shiftovertime_PopUp_Name', titleCreatePopUpShiftovertime, '@ConstantPermission.Cat_Shift');
+        }
+    });
+
+    $('#btnDelete_ShiftOvertime').click(function (e) {
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        DeleteSelected("grid_Cat_ShiftItemOvertime", '@_hrm_Main_Web' + "Cat_Shift/RemoveSelectedShiftItem/", selectedIds.join(","), '@ConstantPermission.Cat_Shift');
+        return false;
+    });
+</script>
+
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr>
+                <td class="Box_Top_Left"></td>
+                <td valign="middle" class="Box_Top_Mid"></td>
+                <td class="Box_Top_Right"></td>
+            </tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    @Html.HiddenFor(model => model.ID)
+                    @Html.HiddenFor(model => model.Shift_ID)
+                    <div style="float:left;display:block">
+                        <div id="div2">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.Code)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ShiftCode = new TextBoxBuilderInfo()
+                                    {
+                                        //  Name = "Shift_Code",
+                                        CssStyle = "width:217px"
+                                    };
+                                    if (Model != null)
+                                    {
+                                        _ShiftCode.Value = Model.Code == null ? string.Empty : Model.Code;
+                                    }
+                                }
+                                @(Html.VnrTextBoxFor(model => model.Code, _ShiftCode))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.ShiftName)
+                            </div>
+                            <div class="FieldValue">
+                                @(Html.VnrTextBoxFor(model => model.ShiftName, "width:217px"))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.WorkHours)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PaidRate = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.WorkHours, PaidRate))
+
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.StdWorkHours)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _StdWorkHours = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.StdWorkHours, _StdWorkHours))
+
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.InTime)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerDateStart = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.InTime).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.InTime, datepickerDateStart)
+
+                                @{
+                                    var datepickerTimeCoOut = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.TimeCoOut).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.TimeCoOut, datepickerTimeCoOut)
+                            </div>
+                            <br />
+
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.MinIn)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+
+                                    var MinIn = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Format = ConstantFormat.HRM_Format_Number_Double.ToString()
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.MinIn, MinIn))
+                                @{
+                                    var datepickerMinIn = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.TimeMinIn).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.TimeMinIn, datepickerMinIn)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.MaxOut)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var MaxOut = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px",
+                                        Format = ConstantFormat.HRM_Format_Number_Double.ToString()
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.MaxOut, MaxOut))
+                                @{
+                                    var datepickerMaxOut = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.TimeMaxOut).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.TimeMaxOut, datepickerMaxOut)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle170">
+                                @Html.VnrLabelFor(mode => mode.InOutDynamic)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _InOutDynamic = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @(Html.VnrNumericTextBoxFor(model => model.InOutDynamic, _InOutDynamic))
+
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+
+                    </div>
+                    <div style="float:left;margin-left:70px">
+
+                        <div class="FieldTitle" style="width:250px">
+                            @Html.VnrLabelFor(mode => mode.IsNightShift)
+                        </div>
+                        <div class="FieldValue">
+                            @(Html.EditorFor(model => model.IsNightShift))
+                            <div id="timeNightShift" hidden="hidden">
+                                <div id="div3" style="border: thin solid; border-color: rgba(13, 13, 13, 0.23);padding-top:6px;height:45px">
+                                    <div class="FieldTitle" style="width:375px;margin-left:0px">
+                                        @Html.VnrLabelFor(mode => mode.NightTimeStart)
+                                        @{
+                                            var datepickerNightTimeStart = new TimePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.NightTimeStart).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = @ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                                Format = "HH:mm:ss"
+                                            };
+                                        }
+                                        @Html.VnrTimePickerFor(model => model.NightTimeStart, datepickerNightTimeStart)
+                                        @{
+                                            var datepickerNightTimeEnd = new TimePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.NightTimeEnd).ToString(),
+                                                StyleCss = "width:100px;",
+                                                Placeholder = @ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                                Format = "HH:mm:ss"
+                                            };
+                                        }
+                                        @Html.VnrTimePickerFor(model => model.NightTimeEnd, datepickerNightTimeEnd)
+                                    </div>
+
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle170" style="width:250px">
+                                @Html.VnrLabelFor(mode => mode.CoStartOTNightWithOutShift)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerCoStartOTNightWithOutShift = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.CoStartOTNightWithOutShift).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.CoStartOTNightWithOutShift, datepickerCoStartOTNightWithOutShift)
+                                @{
+                                    var datepickerCoEndOTNightWithOutShift = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.CoEndOTNightWithOutShift).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.CoEndOTNightWithOutShift, datepickerCoEndOTNightWithOutShift)
+                            </div>
+                            <br />
+                        </div>                       
+
+
+                        <div id="div7">
+                            <div class="FieldTitle170" style="width:250px">
+                                @Html.VnrLabelFor(mode => mode.ShiftBreakType)
+                            </div>
+                            <div class="FieldValue">
+                                <div>
+                                    <div>
+                                        @{
+                                            var ddlShiftBreakType = new DropDownListBuilderInfo()
+                                            {
+                                                DataTextField = "Text",
+                                                DataValueField = "Value",
+                                                BindTo = listShitBreakType
+                                            };
+                                        }
+                                        @Html.VnrDropDownListFor(model => model.ShiftBreakType, ddlShiftBreakType)
+                                    </div>
+
+                                    <div>
+                                        <div class="FieldValue">
+                                            @(Html.EditorFor(model => model.IsBreakAsWork))
+
+                                            @Html.VnrLabelFor(mode => mode.IsBreakAsWork)
+
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+                        <script>
+                            $(document).ready(function () {
+                                var ddlBreakType = $("#ShiftBreakType").data("kendoDropDownList");
+                                var coBreakInTime = document.getElementById("CoBreakInTime");
+                                ddlBreakType.bind("select", function (e) {
+                                    
+                                    var dataItem = ddlBreakType.dataItem(e.item.index());
+                                    if (dataItem.Value == "E_FLEXIBLE" || dataItem.Text == "Linh Hoạt") {
+                                        coBreakInTime.hidden = false;
+                                    } else if (dataItem.Value == "E_FIX" || dataItem.Text == "Cố Định") {
+                                        coBreakInTime.hidden = true;
+                                    }
+                                });
+
+                            });
+                        </script>
+
+
+                        <div id="div4">
+                            <div class="FieldTitle" style="width:250px">
+                                @Html.VnrLabelFor(mode => mode.CoBreakIn)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerCoBreakIn = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.TimeCoBreakIn).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.TimeCoBreakIn, datepickerCoBreakIn)
+                                @{
+                                    var datepickerCoBreakOut = new TimePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.TimeCoBreakOut).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = @ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                        Format = "HH:mm:ss"
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.TimeCoBreakOut, datepickerCoBreakOut)
+
+                            </div>
+
+                            <div id="div7">
+                                <div class="FieldTitle170" style="width:250px">
+                                    @Html.VnrLabelFor(mode => mode.IsNotApplyWorkHoursReal)
+                                </div>
+                                <div class="FieldValue">
+                                    @(Html.EditorFor(model => model.IsNotApplyWorkHoursReal))
+                                </div>
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <br />
+                        <div id="div7">
+                            <div class="FieldTitle" style="width:0px">
+                            </div>
+                            <div class="FieldValue">
+
+                                <div id="TimeDoubleShift">
+                                    <div id="div7" style="border: thin solid; border-color: rgba(13, 13, 13, 0.23);padding-top:6px;height:160px">
+
+                                        <div style="margin-left:0px;width:450px">
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px; width:100%">
+                                                <div class="FieldTitle" style="width:400px; height: 30px">
+                                                    @Html.VnrLabel(ConstantDisplay.HRM_Category_Shift_GroupTAM.TranslateString())
+                                                </div>
+                                                <div class="FieldValue">
+                                                </div>
+                                            </div>                                            
+                                        </div>
+
+                                        <div style="margin-left:0px;width:450px">
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:80px">
+                                                    @Html.VnrLabelFor(mode => mode.FirstIn1)
+                                                </div>
+                                                   @{
+                                                       var _FirstIn1 = new TimePickerBuilderInfo()
+                                                        {
+                                                            Value = @Html.DisplayFor(mode => mode.FirstIn1).ToString(),
+                                                            StyleCss = "width:100px;",
+                                                            Placeholder = ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                                            Format = "HH:mm:ss"
+                                                        };
+                                                    }
+                                                    @Html.VnrTimePickerFor(model => model.FirstIn1, _FirstIn1)
+
+
+                                            </div>
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:82px; padding-right:2px;">
+                                                    @Html.VnrLabelFor(mode => mode.FirstOut1)
+                                                </div>
+                                                @{
+                                                    var _FirstOut1 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.FirstOut1).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.FirstOut1, _FirstOut1)
+                                            </div>
+
+
+                                        </div>
+
+                                        <div style="margin-left:0px;width:450px">
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:80px">
+                                                    @Html.VnrLabelFor(mode => mode.FirstIn2)
+                                                </div>
+                                                @{
+                                                    var _FirstIn2 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.FirstIn2).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.FirstIn2, _FirstIn2)
+                                            </div>
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:82px; padding-right:2px;">
+                                                    @Html.VnrLabelFor(mode => mode.FirstOut2)
+                                                </div>
+                                                @{
+                                                    var _FirstOut2 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.FirstOut2).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.FirstOut2, _FirstOut2)
+                                            </div>
+                                        </div>                                        
+
+                                        <div style="margin-left:0px;width:450px">
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:80px">
+                                                    @Html.VnrLabelFor(mode => mode.LastIn1)
+                                                </div>
+                                                @{
+                                                    var _LastIn1 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.LastIn1).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.LastIn1, _LastIn1)
+                                            </div>
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:82px; padding-right:2px;">
+                                                    @Html.VnrLabelFor(mode => mode.LastOut1)
+                                                </div>
+                                                @{
+                                                    var _LastOut1 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.LastOut1).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.LastOut1, _LastOut1)
+                                            </div>
+                                        </div>
+
+                                        <div style="margin-left:0px;width:450px">
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:80px">
+                                                    @Html.VnrLabelFor(mode => mode.LastIn2)
+                                                </div>
+                                                @{
+                                                    var _LastIn2 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.LastIn2).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeFrom.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.LastIn2, _LastIn2)
+                                            </div>
+                                            <div class="col-lg-6 col-md-6" style="padding-left:0; padding-right:0;padding-top:2px">
+                                                <div class="FieldTitle" style="max-width:82px; padding-right:2px;">
+                                                    @Html.VnrLabelFor(mode => mode.LastOut2)
+                                                </div>
+                                                @{
+                                                    var _LastOut2 = new TimePickerBuilderInfo()
+                                                     {
+                                                         Value = @Html.DisplayFor(mode => mode.LastOut2).ToString(),
+                                                         StyleCss = "width:100px;",
+                                                         Placeholder = ConstantDisplay.HRM_General_TimeTo.TranslateString(),
+                                                         Format = "HH:mm:ss"
+                                                     };
+                                                }
+                                                @Html.VnrTimePickerFor(model => model.LastOut2, _LastOut2)
+                                            </div>
+                                        </div>
+
+                                    </div>
+                                    <br />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="float:left;display:block">
+                        <div style="display: block; padding-top: 10px; float: left; width:100%">
+                            <fieldset>
+                                <legend>
+                                </legend>
+                                <div id="CoBreakInTime">
+                                    <div class="commandToolBarWidge">
+                                        <div class="GridTitle">
+                                            @ConstantDisplay.HRM_Category_Shift_ShiftBreak.TranslateString()
+                                        </div>
+                                        <div style="float:right">
+                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_ShiftItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_ShiftItem", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                                        </div>
+                                        <div class="clear"></div>
+                                    </div>
+                                    <div>
+                                        <!--Khai báo các thông tin cho Grid-->
+                                        @using HRM.Presentation.Category.Models
+                                        @using HRM.Presentation.UI.Controls.Kendo
+                                        @{
+                                            //Thông tin hiển column hiển thị
+                                            string[] valueFields = new string[]
+                                {
+                                    CatShiftItemModel.FieldNames.From,
+                                    CatShiftItemModel.FieldNames.To,
+                                    CatShiftItemModel.FieldNames.OrgStructureName,
+                                };
+
+                                            //Set độ rộng cho từng column
+                                            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                                {
+                                    {CatShiftItemModel.FieldNames.From, 100},
+                                    {CatShiftItemModel.FieldNames.To, 100},
+                                    {CatShiftItemModel.FieldNames.OrgStructureName , 150},
+                                };
+                                            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {CatShiftItemModel.FieldNames.From, ConstantFormat.HRM_Format_HourMinSecond},
+            {CatShiftItemModel.FieldNames.To, ConstantFormat.HRM_Format_HourMinSecond},
+        };
+                                            //Thông tin hiển thị được dịch
+                                            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                                {
+                                    {CatShiftItemModel.FieldNames.From, ConstantDisplay.HRM_Category_ShiftItem_CoFrom},
+                                    {CatShiftItemModel.FieldNames.To , ConstantDisplay.HRM_Category_ShiftItem_CoTo },
+                                    {CatShiftItemModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_ShiftItem_OrgStructureID },
+                                };
+
+
+                                            var grid = new GridBuilderInfo
+                                            {
+                                                Name = "grid_Cat_ShiftItemCoBreakInTime",
+                                                ValueFields = valueFields,
+                                                DisplayFields = displayFields,
+                                                SizeFields = sizeFields,
+                                                ShowCommand = true,
+                                                FormatFields = formatFields,
+                                                EditActionUrl = _hrm_Main_Web + "/Cat_ShiftItem/Create/",
+                                                DeleteActionUrl = _hrm_Main_Web + "/Cat_ShiftItem/Delete/",
+                                                AutoBind = true,
+                                                ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetShiftItemByShiftIDList",
+                                                ReadData = "filterFieldInfo",
+
+                                            };
+                                        }
+                                        <!--Khởi tạo Grid-->
+                                        @(Html.VnrGrid<CatShiftItemModel>(grid)
+                                  .HtmlAttributes(new { style = "height:200px" })
+                                  .DataSource(dataSource => dataSource
+                                      .Ajax()
+                                                //   .Model(model => model.Field(o => o.ImportName).Editable(false))
+                                  )
+                                        )
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                        <div style="display: block; padding-top: 10px; float: left; width:100%">
+                            <fieldset>
+                                <div id="Overtime">
+                                    @*<div class="commandToolBarWidge">
+                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateItemOvetime", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                        </div>*@
+                                    <div class="commandToolBarWidge">
+                                        <div class="GridTitle">
+                                            @ConstantDisplay.HRM_Category_Shift_Overtime.TranslateString()
+                                        </div>
+                                        <div style="float:right">
+                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_ShiftOvertime", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                                            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_ShiftOvertime", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                                        </div>
+                                        <div class="clear"></div>
+                                    </div>
+                                    <div>
+                                        <!--Khai báo các thông tin cho Grid-->
+                                        @using HRM.Presentation.Category.Models
+                                        @using HRM.Presentation.UI.Controls.Kendo
+                                        @{
+                                            //Thông tin hiển column hiển thị
+                                            string[] valueFields1 = new string[]
+                                {
+                                    CatShiftItemModel.FieldNames.From,
+                                    CatShiftItemModel.FieldNames.To,
+                                    CatShiftItemModel.FieldNames.OrgStructureName,
+                                    CatShiftItemModel.FieldNames.OvertimeTypeName,
+
+                                };
+
+                                            //Set độ rộng cho từng column
+                                            Dictionary<string, int> sizeFields1 = new Dictionary<string, int>()
+                                {
+                                    {CatShiftItemModel.FieldNames.From, 100},
+                                    {CatShiftItemModel.FieldNames.To, 100},
+                                    {CatShiftItemModel.FieldNames.OrgStructureName , 150},
+                                    { CatShiftItemModel.FieldNames.OvertimeTypeName,100}
+
+
+                                };
+                                            Dictionary<string, string> formatField1s = new Dictionary<string, string>()
+        {
+            {CatShiftItemModel.FieldNames.From, ConstantFormat.HRM_Format_HourMinSecond},
+            {CatShiftItemModel.FieldNames.To, ConstantFormat.HRM_Format_HourMinSecond},
+        };
+
+                                            //Thông tin hiển thị được dịch
+                                            Dictionary<string, string> displayFields1 = new Dictionary<string, string>()
+                                {
+                                    {CatShiftItemModel.FieldNames.From, ConstantDisplay.HRM_Category_ShiftItem_CoFrom},
+                                    {CatShiftItemModel.FieldNames.To , ConstantDisplay.HRM_Category_ShiftItem_CoTo },
+                                    {CatShiftItemModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Category_ShiftItem_OrgStructureID},
+                                    { CatShiftItemModel.FieldNames.OvertimeTypeName,ConstantDisplay.HRM_Category_ShiftItem_OvertimeTypeID}
+
+                                };
+                                            var grid1 = new GridBuilderInfo
+                                            {
+                                                Name = "grid_Cat_ShiftItemOvertime",
+                                                ValueFields = valueFields1,
+                                                DisplayFields = displayFields1,
+                                                SizeFields = sizeFields1,
+                                                ShowCommand = true,
+                                                FormatFields = formatField1s,
+                                                EditActionUrl = _hrm_Main_Web + "/Cat_ShiftItem/Create/",
+                                                DeleteActionUrl = _hrm_Main_Web + "/Cat_ShiftItem/Delete/",
+                                                AutoBind = true,
+                                                ReadActionUrl = _hrm_Hr_Service + "Cat_GetData/GetShiftOvertimeItemByShiftIDList",
+                                                ReadData = "filterFieldInfo",
+                                            };
+                                        }
+                                        <!--Khởi tạo Grid-->
+                                        @(Html.VnrGrid<CatShiftItemModel>(grid1)
+                                  .HtmlAttributes(new { style = "height:200px" })
+                                  .DataSource(dataSource => dataSource
+                                      .Ajax()
+                                                //   .Model(model => model.Field(o => o.ImportName).Editable(false))
+                                  )
+                                        )
+                                    </div>
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+
+
+
+
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+

@@ -1,0 +1,370 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ReportWarringOvertimeModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    DateTime d1 = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1);
+    DateTime d31 = DateTime.MaxValue;
+    if (DateTime.Now.Month == 12)
+    {
+        d31 = new DateTime(DateTime.Now.Year + 1, 1, 1).AddMilliseconds(-1);
+    }
+    else
+    {
+        d31 = new DateTime(DateTime.Now.Year, DateTime.Now.Month + 1, 1).AddMilliseconds(-1);
+    }
+
+    DateTime y1 = new DateTime(DateTime.Now.Year, 1, 1);
+    DateTime y12 = new DateTime(DateTime.Now.Year + 1, 1, 1).AddMilliseconds(-1);
+
+    DateTime w1 = DateTime.Today.AddDays((-1 * (int)(DateTime.Today.DayOfWeek)) + 1);
+    DateTime w7 = DateTime.Today.AddDays(-1 * (int)(DateTime.Today.DayOfWeek)).AddDays(7);
+
+
+}
+
+@Html.Hidden("Screen", screen)
+
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL, isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        
+        var elementPara = {
+            OnWeek: $('#@Html.FieldIdFor(model => model.OnWeek)').val(),
+            OnMonth: $('#@Html.FieldIdFor(model => model.OnMonth)').val(),
+            OnYear: $('#@Html.FieldIdFor(model => model.OnYear)').val(),
+            OrgStructureIDs: checkedNodes.join(','),
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+
+        return elementPara;
+    }
+
+
+    $("#btnSearch").click(function () {
+        ShowHre_ProgressBar();
+        
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportWarringOvertimeListValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                }
+                else {
+                    var grid = $('#gridAtt_ReportWarringOvertime').data("kendoGrid");
+                    grid.dataSource.read();
+                    checkedNodes = [];
+                }
+            }
+        });
+        CloseHre_ProgressBar();
+    });
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        document.getElementById('OnMonth').checked = true;
+        $('#@Html.FieldIdFor(model => model.OnMonth)').val(true);
+
+        //Show Hide Panel
+        ShowHidePanel();
+        var radioItem = $("input[type=radio]");
+        radioItem.change(function () {
+            for (var i = 0; i < radioItem.length; i++) {
+                if (radioItem[i].checked) {
+                    radioItem[i].value = true;
+                }
+                else {
+                    radioItem[i].value = false;
+                }
+            }
+        });
+
+        $("#btnExport").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportWarringOvertime');
+            if (!isAccess) {
+                return;
+            }
+            if ($('#ddlScreenName').val() == "") {
+                ExportFail();
+                return;
+            }
+            var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportWarringOvertimeList/";
+            var urlDownload = '@_hrm_Main_Web';
+            var dataParameter = filterFieldInfo(true, true);
+            ExportAll(urlGetData, dataParameter, urlDownload);
+        });
+
+        
+        var para1 = $('#@Html.FieldIdFor(model => model.OnWeek)');
+        var para2 = $('#@Html.FieldIdFor(model => model.OnMonth)');
+        var para3 = $('#@Html.FieldIdFor(model => model.OnYear)');
+
+        para1.click(function () {
+            
+            var df = new Date('@w1');
+            var dt = new Date('@w7');
+            $("#DateStart").data("kendoDatePicker").value(df);
+            $("#DateEnd").data("kendoDatePicker").value(dt);
+        });
+
+        para2.click(function () {
+            
+            var df = new Date('@d1');
+            var dt = new Date('@d31');
+            $("#DateStart").data("kendoDatePicker").value(df);
+            $("#DateEnd").data("kendoDatePicker").value(dt);
+        });
+
+        para3.click(function () {
+            
+            var df = new Date('@y1');
+            var dt = new Date('@y12');
+            $("#DateStart").data("kendoDatePicker").value(df);
+            $("#DateEnd").data("kendoDatePicker").value(dt);
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportWarringOvertimeList', filterFieldInfo(true));
+    });
+
+    function changePageGird() {
+        // Lấy mã màu khi vượt mức
+        
+        var field1 = ["Color", "Yellow", 'yellow', 'red', "="];
+        var field2 = ["Color", "DarkYellow", 'DarkYellow', 'red', "="];
+        var field3 = ["Color", "Red", 'red', 'yellow', "="];
+        var field = [field1, field2, field3];
+        SetRowColor('gridAtt_ReportWarringOvertime', field);
+        
+        $('#mastercheckbox').prop('checked', false);
+        var result = $("input[type=checkbox][id!=mastercheckbox][class=checkboxGroups]");
+        for (var i = 0; i < result.length; i++) {
+            if (SelectedGuid.indexOf(result[i].parentNode.parentNode.attributes["data-uid"].value) != -1) {
+                result[i].checked = true;
+            }
+        }
+    };
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.OnWeek, "groupType")
+                            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_ReportWarringOvertime_OnWeek.TranslateString())
+
+                            @Html.VnrRadioButtonFor(mode => mode.OnMonth, "groupType")
+                            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_ReportWarringOvertime_OnMonth.TranslateString())
+
+                            @Html.VnrRadioButtonFor(mode => mode.OnYear, "groupType")
+                            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_ReportWarringOvertime_OnYear.TranslateString())
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    Value = new DateTime(d1.Year, d1.Month, d1.Day).ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateStart, DateStart)
+
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Value = new DateTime(d31.Year, d31.Month, d31.Day).ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateEnd, DateEnd)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float: left">@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantDisplay.HRM_Common_Search_Button.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })</div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>
+<div style="overflow:hidden">
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+        {
+            Att_ReportWarringOvertimeModel.FieldNames.CodeEmp,
+            Att_ReportWarringOvertimeModel.FieldNames.ProfileName,
+
+            Att_ReportWarringOvertimeModel.FieldNames.OrgStructureName,
+            Att_ReportWarringOvertimeModel.FieldNames.JobTitleName,
+            Att_ReportWarringOvertimeModel.FieldNames.PositionName,
+            Att_ReportWarringOvertimeModel.FieldNames.DateStart,
+            Att_ReportWarringOvertimeModel.FieldNames.DateEnd,
+            Att_ReportWarringOvertimeModel.FieldNames.HourOverTime,
+            Att_ReportWarringOvertimeModel.FieldNames.Color,
+            Att_ReportWarringOvertimeModel.FieldNames.UserExport,
+            Att_ReportWarringOvertimeModel.FieldNames.DateExport
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+                {Att_ReportWarringOvertimeModel.FieldNames.CodeEmp,70},
+            {Att_ReportWarringOvertimeModel.FieldNames.ProfileName, 135},
+
+            {Att_ReportWarringOvertimeModel.FieldNames.OrgStructureName,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.JobTitleName,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.PositionName,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateStart,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateEnd,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.HourOverTime,110},
+            {Att_ReportWarringOvertimeModel.FieldNames.UserExport,100},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateExport,110},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+                {Att_ReportWarringOvertimeModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+            {Att_ReportWarringOvertimeModel.FieldNames.ProfileName, ConstantDisplay.HRM_Att_Report_ProfileName},
+
+            {Att_ReportWarringOvertimeModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Att_Report_DepartmentName},
+            {Att_ReportWarringOvertimeModel.FieldNames.JobTitleName,ConstantDisplay.HRM_Att_Report_JobTitleName},
+            {Att_ReportWarringOvertimeModel.FieldNames.PositionName,ConstantDisplay.HRM_Att_Report_PositionName},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateStart,ConstantDisplay.HRM_Att_Report_DateFrom},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateEnd,ConstantDisplay.HRM_Att_Report_DateTo},
+            {Att_ReportWarringOvertimeModel.FieldNames.HourOverTime,ConstantDisplay.HRM_Attendance_OvertimeHours},
+             {Att_ReportWarringOvertimeModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+            {Att_ReportWarringOvertimeModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport}
+        };
+
+        string[] hiddenFields = new string[]
+        {
+            Att_ReportWarringOvertimeModel.FieldNames.Color,
+            Att_ReportWarringOvertimeModel.FieldNames.UserExport,
+            Att_ReportWarringOvertimeModel.FieldNames.DateExport
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportWarringOvertime",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            HiddenFields = hiddenFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportWarringOvertimeList",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            EventDataBound = "changePageGird"
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportWarringOvertimeModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+

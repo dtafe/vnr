@@ -1,0 +1,167 @@
+﻿@using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Evaluation.Models.Eva_PerformanceModel
+@{
+    ViewBag.Title = "Index  Performance";
+    Layout = null;
+    var _hrm_System_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string gridName = "gridEva_Performance";
+    var id = Guid.Empty;
+    var performanceTypeID = Guid.Empty;
+    if (Model!= null )
+    {
+        id = Model.ID;
+        performanceTypeID = Model.PerformanceTypeID??Guid.Empty;
+    }
+    
+}
+<script>
+    var gridName = '@gridName';
+    SetFieldRequired();
+
+    function getData() {
+       
+        // var performancePlanMultiSelect = $("#PerformancePlanID").data("kendoDropdownlist");
+        //var performancePlanId = performancePlanMultiSelect.value();
+       var performancePlanId = $("#PerformancePlanID").val();
+        var performanceTypeId = "@performanceTypeID";
+        var performanceTemplateId = $("#PerformanceTemplateID1").val();
+        var proportion = $("#Proportion").val();
+        var strengths = $("#Strengths").val();
+        var weaknesses = $("#Weaknesses").val();
+        var resultNote = $("#ResultNote").val();
+        var levelId = $("#LevelID").val();
+        var evaluatorMultiSelect = $("#EvaluatorID").data("kendoMultiSelect");
+        var evaluatorIds = null;
+        var evaluatorId = null;
+        if (evaluatorMultiSelect != undefined) {
+            if (evaluatorMultiSelect.value().length >0) {
+                evaluatorId = evaluatorMultiSelect.value()[0];
+            }
+            evaluatorIds = evaluatorMultiSelect.value().join(',');
+        }
+        
+        var attachFiles = $("#AttachFile").val().split(",");
+        var profileMultiSelect = $("#ProfileID").data("kendoMultiSelect");
+        var profileId = profileMultiSelect.value();
+        var dueDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#DueDate").val());
+        var periodFromDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodFromDate").val());
+        var periodToDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodToDate").val());
+        var attachFile = $("#AttachFile").val();
+
+        return {
+            ID:'@id',
+            ProfileID: profileId.join(','),
+            EvaluatorID: evaluatorId,
+            EvaluatorIDList: evaluatorIds,
+            //   AttachFile : attachFile,
+            AttachFiles: attachFiles,
+            PerformancePlanID: performancePlanId,
+            PerformanceTypeID: performanceTypeId,
+            PerformanceTemplateID: performanceTemplateId,
+            Proportion: proportion,
+            Strengths : strengths,
+            Weaknesses :weaknesses,
+            ResultNote: resultNote,
+            DueDate: dueDate,
+            PeriodFromDate: periodFromDate,
+            PeriodToDate :periodToDate,
+            LevelID: levelId
+        };
+    }
+
+
+    var doSave = function () {
+         
+         var result = false;
+        //save
+        @*onCreate($('#form-create'), '@_hrm_Eva_Service', 'api/Eva_Performance/');*@
+
+        var performamceData = getData();
+
+        //lay data cua luoi post len
+        var grid = $("#" + gridName).data("kendoGrid");
+        parameterMap = grid.dataSource.transport.parameterMap;
+        var currentData = grid.dataSource.view();
+        var kpiData = [];
+        for (var i = 0; i < currentData.length; i++) {
+            kpiData.push(currentData[i].toJSON());
+        }
+        var lstModel = {};
+        $.extend(lstModel, parameterMap({ models: kpiData, performanceModel: performamceData }));
+
+        //save
+        $.ajax({
+            traditional: true,
+            url: '@_hrm_Main_Web' + 'Eva_Performance/Create',
+            data: lstModel,
+            type: 'POST',
+            success: function (data) {
+                ReadGrid(gridName);
+                if (data.ActionStatus != undefined) {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    return;
+                }
+                result = true;
+                ShowNotificationProcessor("Cập Nhật Thành Công");
+                $('#ID').val(data.ID);
+                $("#PerformanceID").val($("#ID").val());
+            },
+            error: function (data) { }
+        });
+        return result;
+    }
+    function doSaveNew() {
+        
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Eva_Performance/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+</script>
+
+<div>
+    @ViewBag.MsgUpdate
+</div>
+
+<form action="#" method="POST" id="form-create">
+    @*@Html.Hidden("PerformanceTemplateID")
+    @Html.Hidden("EvaluatorIDList")*@
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Evaluation_Performance_Edit_Title.TranslateString()
+                        @*@Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_Back_To_Performance_List.TranslateString() + ")", "/Index")*@
+                        <a class="link-back" onclick="clickBackProfile()" style="padding-left: 3px">(@ConstantDisplay.HRM_Evaluation_Back_To_Performance_List.TranslateString())</a>
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-new", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("CreateOrUpdate", Model)
+            </div>
+        </div>
+    </div>
+</form>
+<script>
+    function clickBackProfile() {
+        var link = $("#CurrentLinkForClickBack").val();
+        if (link == "") {
+            KendoRouteMapping("#Hrm_Main_Web/Eva_PerformanceGeneral/Index#NewTab", "Hrm_Main_Web", '@_hrm_Main_Web');
+        }
+        else
+        {
+            clickBack();
+        }
+    }
+</script>

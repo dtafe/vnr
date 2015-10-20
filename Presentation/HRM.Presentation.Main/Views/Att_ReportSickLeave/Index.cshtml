@@ -1,0 +1,287 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ReportSickLeaveModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+<script>
+    var checkedNodes = [];
+    SetFieldRequired();
+    function filterFieldInfo(isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            FromDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#FromDate").val()),
+            ToDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ToDate").val()),
+            ValueFields: $('#valueFieldsGrid').val(),
+        };
+        
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportSickLeaveListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridAtt_ReportSickLeave').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            return false;
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportSickLeave');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportSickLeaveList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+
+    });
+
+
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(m => m.FromDate)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateFrom = new DatePickerBuilderInfo()
+                            {
+                                Value = DateTime.Today.ToShortDateString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.FromDate, DateFrom)
+                    </div>
+                </div>
+                <div id="div3">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(m => m.ToDate)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var DateTo = new DatePickerBuilderInfo()
+                            {
+                                Value = DateTime.Today.ToShortDateString(),
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                            };
+
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.ToDate, DateTo)
+                    </div>
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                        <div style="clear: both;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                        Data = "GetScreenName",
+
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+
+            string[] valueFields = new string[]
+                            {
+                                 Att_ReportSickLeaveModel.FieldNames.CodeEmp,
+                                 Att_ReportSickLeaveModel.FieldNames.ProfileName,
+
+
+                                  Att_ReportSickLeaveModel.FieldNames.JobtitleName,
+                                Att_ReportSickLeaveModel.FieldNames.PositionName,
+                                Att_ReportSickLeaveModel.FieldNames.BranchCode,
+                                Att_ReportSickLeaveModel.FieldNames.DivisionCode,
+                                Att_ReportSickLeaveModel.FieldNames.DepartmentCode,
+                                Att_ReportSickLeaveModel.FieldNames.TeamCode,
+                                Att_ReportSickLeaveModel.FieldNames.SectionCode,
+                                Att_ReportSickLeaveModel.FieldNames.ShiftName,
+                                Att_ReportSickLeaveModel.FieldNames.FromDate,
+                                Att_ReportSickLeaveModel.FieldNames.ToDate,
+                                Att_ReportSickLeaveModel.FieldNames.BugetYearP,
+                                Att_ReportSickLeaveModel.FieldNames.BugetYearSC,
+                                Att_ReportSickLeaveModel.FieldNames.TotalP,
+                                Att_ReportSickLeaveModel.FieldNames.TotalSC,
+                                Att_ReportSickLeaveModel.FieldNames.BalanceP,
+                                Att_ReportSickLeaveModel.FieldNames.BalanceSC,
+                                 Att_ReportSickLeaveModel.FieldNames.Remark,
+
+                            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                  {Att_ReportSickLeaveModel.FieldNames.CodeEmp,70},
+                                   {Att_ReportSickLeaveModel.FieldNames.ProfileName,135},
+
+
+                                {Att_ReportSickLeaveModel.FieldNames.JobtitleName,110},
+                                {Att_ReportSickLeaveModel.FieldNames.PositionName,110},
+                                {Att_ReportSickLeaveModel.FieldNames.BranchCode,110},
+                                {Att_ReportSickLeaveModel.FieldNames.DivisionCode,80},
+                                {Att_ReportSickLeaveModel.FieldNames.DepartmentCode,100},
+                                {Att_ReportSickLeaveModel.FieldNames.TeamCode,80},
+                                {Att_ReportSickLeaveModel.FieldNames.SectionCode,80},
+
+                                {Att_ReportSickLeaveModel.FieldNames.ShiftName,88},
+
+
+
+                                {Att_ReportSickLeaveModel.FieldNames.BugetYearP,77},
+                                {Att_ReportSickLeaveModel.FieldNames.BugetYearSC,70},
+                                 {Att_ReportSickLeaveModel.FieldNames.MonthP,80},
+                                {Att_ReportSickLeaveModel.FieldNames.MonthSC,80},
+                                {Att_ReportSickLeaveModel.FieldNames.TotalP,155},
+                                {Att_ReportSickLeaveModel.FieldNames.TotalSC,147},
+                                {Att_ReportSickLeaveModel.FieldNames.BalanceP,203},
+                                {Att_ReportSickLeaveModel.FieldNames.BalanceSC,197},
+                                {Att_ReportSickLeaveModel.FieldNames.Remark,200},
+                            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                 {Att_ReportSickLeaveModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+                                  {Att_ReportSickLeaveModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+
+
+                              {Att_ReportSickLeaveModel.FieldNames.JobtitleName,ConstantDisplay.HRM_Category_JobTitle_JobTitleName},
+                                {Att_ReportSickLeaveModel.FieldNames.PositionName,ConstantDisplay.HRM_Category_Position_PositionName},
+                                {Att_ReportSickLeaveModel.FieldNames.BranchCode,ConstantDisplay.HRM_Attendance_BranchCode},
+                                {Att_ReportSickLeaveModel.FieldNames.DivisionCode,ConstantDisplay.HRM_Attendance_Leaveday_DivisionCode},
+                                {Att_ReportSickLeaveModel.FieldNames.DepartmentCode,ConstantDisplay.HRM_Attendance_DepartmentCode},
+                                {Att_ReportSickLeaveModel.FieldNames.TeamCode,ConstantDisplay.HRM_Attendance_TeamCode},
+                                {Att_ReportSickLeaveModel.FieldNames.SectionCode,ConstantDisplay.HRM_Attendance_SectionCode},
+
+                                {Att_ReportSickLeaveModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_ShiftId},
+
+
+
+                                {Att_ReportSickLeaveModel.FieldNames.BugetYearP,ConstantDisplay.HRM_Attendance_ReportSickLeave_BugetYearP},
+                                {Att_ReportSickLeaveModel.FieldNames.BugetYearSC,ConstantDisplay.HRM_Attendance_ReportSickLeave_BugetYearSC},
+                                  {Att_ReportSickLeaveModel.FieldNames.MonthP,ConstantDisplay.HRM_Attendance_ReportLeaveYear_P},
+                                {Att_ReportSickLeaveModel.FieldNames.MonthSC,ConstantDisplay.HRM_Attendance_Leaveday_SC},
+                                {Att_ReportSickLeaveModel.FieldNames.TotalP,ConstantDisplay.HRM_Attendance_ReportSickLeave_TotalP},
+                                {Att_ReportSickLeaveModel.FieldNames.TotalSC,ConstantDisplay.HRM_Attendance_ReportSickLeave_TotalSC},
+                                {Att_ReportSickLeaveModel.FieldNames.BalanceP,ConstantDisplay.HRM_Attendance_ReportSickLeave_BalanceP},
+                                {Att_ReportSickLeaveModel.FieldNames.BalanceSC,ConstantDisplay.HRM_Attendance_ReportSickLeave_BalanceSC},
+                                {Att_ReportSickLeaveModel.FieldNames.Remark,ConstantDisplay.HRM_Attendance_Remark},
+
+
+                            };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_ReportSickLeave",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportSickLeaveList",
+                ShowNextPrevious = true,
+                PageSize = 5,
+                ShowPageNumber = true,
+                ReadData = "filterFieldInfo",
+                ShowEditIcon = false,
+                ShowCheckbox = false,
+            };
+
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_ReportSickLeaveModel>(grid))
+    </div>
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

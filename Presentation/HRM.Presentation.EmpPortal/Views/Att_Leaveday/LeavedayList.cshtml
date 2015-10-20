@@ -1,0 +1,310 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+
+@using HRM.Presentation.Attendance.Models
+@model HRM.Presentation.Attendance.Models.Att_LeavedaySearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_LeaveDay.TranslateString();
+    Layout = "~/Views/Shared/_Layout.cshtml"; ;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_EmpPortal_Web = ConstantPathWeb.Hrm_EmpPortal_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(AttendanceDataStatus))
+        .Cast<AttendanceDataStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+    var userId = Session["ProfileID"];
+}
+<script>
+    var checkedNodes = [];
+    var grid_attLeaveday = "gridAtt_Leaveday";
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var x = isExport;
+        var elementPara = {
+            SysUserID: '@userId',
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    $(document).ready(function () {
+        $("#toolbarLeaveday").kendoToolBar({
+            items: [
+                { type: "button", id: "btnDelete", text: "Xóa", imageUrl: "/Content/images/icons/delete.png" },
+                { type: "separator" },
+                 {
+                     type: "splitButton",
+                     imageUrl: "/Content/images/icons/excel.png",
+                     text: "Xuất excel",
+                     menuButtons: [
+                         { text: "Xuất tất cả", id: "btnExportAll", imageUrl: "/Content/images/icons/excel.png" },
+                         { text: "Xuất đã chọn", id: "btnExportSelected", imageUrl: "/Content/images/icons/excel.png" },
+                     ]
+                 },
+
+
+            ],
+            click: function (e) {
+                var id = e.id;
+                switch (id) {
+                    case "btnSearch":
+                        $('#box-search').toggle();
+                        break;                   
+                    
+                    case "btnExportSelected":
+                        if (selectedIds.length == 0) {
+                            ExportSelectedFail();
+                            return;
+                        }
+                        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportLeaveDaySelectedPortal/";
+                        var urlDownload = '@_hrm_EmpPortal_Web';
+                        var listIds = selectedIds.join(',');
+                        var listFields = $('#valueFieldsGrid').val();
+                        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_Leaveday_LeavedayList_Portal');
+                        break;
+                    case "btnExportAll":
+                        debugger;
+                        var grid = $('#gridAtt_Leaveday').data("kendoGrid");
+                        if (grid._data.length == 0) {
+                            ExportAllFail();
+                            return;
+                        }
+                        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportLeavedayListPortalByProfile/";
+                        var urlDownload = '@_hrm_EmpPortal_Web';
+                        var dataParameter = filterFieldInfo(true);
+                        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Leaveday_LeavedayList_Portal');
+                        break;
+                    case "btnDelete":
+
+                        if (selectedIds.length == 0) {
+                            DeleteFail();
+                            return;
+                        }
+                        debugger;
+                        
+                        var recordids = [];
+                        for (var i = 0; i < selectedIds.length; i++) {
+                            recordids.push(selectedIds[i]);
+                        }
+                        var IsActive = true;
+                        var grid = $('#gridAtt_Leaveday').data("kendoGrid");
+                        
+                        var currentSource = grid.dataSource.data();
+                        $.ajax({
+                            type: 'POST',
+                            url: '@_hrm_Hre_Service' + 'Att_GetData/GetConfig_Allow',
+                            dataType: 'json',
+                            async: false,
+                            success: function (data) {
+                                for (var i = 0; i < currentSource.length; i++) {
+                                    if (selectedIds.indexOf(currentSource[i].id) != -1) {
+                                        if (currentSource[i].Status == "Duyệt" || currentSource[i].Status == "E_APPROVED") {
+                                            if (data == true) {
+                                                ErrorMessages("Dữ Liệu Có Trạng Thái Duyệt Không Được Xóa");
+                                                IsActive = false;
+                                                return IsActive;
+                                            }
+                                            else {
+                                                selectedIds.splice(selectedIds.indexOf(currentSource[i].id), 1);
+
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        if (!IsActive) {
+                            return;
+                        }
+                        //}
+                        e.preventDefault();
+                        if (recordids.length == selectedIds.length) {
+                            DeleteSelectedConfirm("gridAtt_Leaveday", '@_hrm_Main_Web' + "Att_Leaveday/RemoveSelected/", selectedIds, '@ConstantPermission.Att_Leaveday_LeavedayList_Portal');
+                            return;
+                        }
+
+                        DeleteSelecteds("gridAtt_Leaveday", '@_hrm_Main_Web' + "Att_Leaveday/RemoveSelected/", selectedIds, recordids, '@ConstantPermission.Att_Leaveday_LeavedayList_Portal');
+                        return false;
+                        
+                        break;
+                }
+            }
+
+        });
+
+        $("#btnActionSearch").click(function () {
+            status = $('#@Html.FieldIdFor(model => model.Status)').val();
+            var grid = $('#gridAtt_Leaveday').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+            selectedIds = [];
+        });
+
+        $("#gridAtt_Leaveday").on("click", ".gridEditImgButton", function (e) {
+            var grid = $('#gridAtt_Leaveday').data("kendoGrid");
+            var selectedItem = grid.dataItem(grid.select());
+            if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+                location.href = "/Att_Leaveday/Edit/" + selectedItem.ID;
+            }
+            else {
+                ErrorMessages("Ngày Nghỉ Đã Duyệt Không Được Phép Chỉnh Sửa!");
+            }
+        });
+
+        
+
+    });
+
+
+    function onDataBoundGrid() {
+
+        var grid = $('#gridAtt_Leaveday').data("kendoGrid");
+
+        grid.tbody.find('>tr').each(function () {
+            debugger;
+            var dataItem = grid.dataItem(this);
+
+            var valueField = dataItem['Status'];
+
+            //Xử Lý đổi màu cột
+            if (valueField != '' && valueField != undefined) {
+                debugger;
+
+
+                if (valueField == "Yêu Cầu" || valueField == "E_SUBMIT") {
+                    $(this.cells[10]).attr('style', 'color:#FF9900');
+                }
+                if (valueField == "Yêu Cầu" || valueField == "E_APPROVED") {
+                    $(this.cells[10]).attr('style', 'color:#00CC00');
+                } if (valueField == "Yêu Cầu" || valueField == "E_REJECTED") {
+                    $(this.cells[10]).attr('style', 'color:#FF0000');
+                }
+            }
+
+        });
+
+    }
+</script>
+<div class="container">
+    <div class="row">
+        <ul class="breadcrumb hidden-xs" style="margin-bottom:auto">
+            <li><a href="/Portal/Home">Trang Chủ</a></li>
+            <li><a href="/Att_Leaveday/LeavedayList">DS Ngày Nghỉ</a></li>
+        </ul>
+    </div>
+</div>
+<div class="form-tile">@*Duyệt Ngày Nghỉ*@</div>
+<div class="container">
+    <div class="row">
+        <div id="example">
+            <div class="demo-section k-header">
+                <div id="toolbarLeaveday"></div>
+            </div>
+        </div>        
+    </div>
+    <div class="row">
+        <div>
+            <!--Khai báo các thông tin cho Grid-->
+            @using HRM.Presentation.UI.Controls.Kendo
+            @{
+                Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_LeaveDayModel.FieldNames.Status,new object[]
+               { "Value", "Text", listStatus, ConstantDisplay.HRM_Attendance_Overtime_Status,""}}
+
+        };
+                var valueFields = new string[]
+        {
+            Att_LeaveDayModel.FieldNames.CodeEmp,
+            Att_LeaveDayModel.FieldNames.ProfileName,
+
+            Att_LeaveDayModel.FieldNames.LeaveDayTypeName,
+            Att_LeaveDayModel.FieldNames.DeclineReason,
+            Att_LeaveDayModel.FieldNames.DateStart,
+            Att_LeaveDayModel.FieldNames.DateEnd,
+            Att_LeaveDayModel.FieldNames.LeaveDays,
+            Att_LeaveDayModel.FieldNames.LeaveHours,
+            Att_LeaveDayModel.FieldNames.Status,
+            Att_LeaveDayModel.FieldNames.UserApproveName,
+            Att_LeaveDayModel.FieldNames.UserApproveName2,
+        };
+
+                //Set độ rộng cho từng column
+                Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+             {Att_LeaveDayModel.FieldNames.CodeEmp, 115},
+            {Att_LeaveDayModel.FieldNames.ProfileName, 180},
+
+            {Att_LeaveDayModel.FieldNames.LeaveDayTypeName, 120},        
+            {Att_LeaveDayModel.FieldNames.DeclineReason, 120},
+
+            {Att_LeaveDayModel.FieldNames.DateStart, 110},
+            {Att_LeaveDayModel.FieldNames.DateEnd, 115},
+            {Att_LeaveDayModel.FieldNames.LeaveDays, 125},
+            {Att_LeaveDayModel.FieldNames.LeaveHours, 110},
+            {Att_LeaveDayModel.FieldNames.Status, 135},
+            {Att_LeaveDayModel.FieldNames.UserApproveName, 150},
+            {Att_LeaveDayModel.FieldNames.UserApproveName2, 135},
+        };
+
+                //Thông tin hiển thị được dịch
+                Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+             {Att_LeaveDayModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Att_LeaveDayModel.FieldNames.ProfileName, ConstantDisplay.HRM_Attendance_Leaveday_ProfileID},
+
+            {Att_LeaveDayModel.FieldNames.LeaveDayTypeName, ConstantDisplay.HRM_Attendance_Leaveday_LeaveDayTypeID},
+            {Att_LeaveDayModel.FieldNames.DeclineReason, ConstantDisplay.HRM_Attendance_Leaveday_DeclineReason},
+
+            {Att_LeaveDayModel.FieldNames.DateStart, ConstantDisplay.HRM_Attendance_Leaveday_DateStart},
+            {Att_LeaveDayModel.FieldNames.DateEnd, ConstantDisplay.HRM_Attendance_Leaveday_DateEnd},
+            {Att_LeaveDayModel.FieldNames.LeaveDays, ConstantDisplay.HRM_Attendance_Leaveday_TotalLeave},
+            {Att_LeaveDayModel.FieldNames.LeaveHours, ConstantDisplay.HRM_Attendance_Leaveday_Duration},
+            {Att_LeaveDayModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_Leaveday_Status},
+            {Att_LeaveDayModel.FieldNames.UserApproveName, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID},
+            {Att_LeaveDayModel.FieldNames.UserApproveName2, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID2},
+        };
+                Dictionary<string, string>
+                        formatFields = new Dictionary<string, string>
+                            ()
+                    {
+                    {Att_LeaveDayModel.FieldNames.DateStart,ConstantFormat.HRM_Format_DayMonthYear},
+                    {Att_LeaveDayModel.FieldNames.DateEnd,ConstantFormat.HRM_Format_DayMonthYear},
+                    };
+                var grid = new GridBuilderInfo
+                {
+                    Name = "gridAtt_Leaveday",
+                    ValueFields = valueFields,
+                    SizeFields = sizeFields,
+                    DisplayFields = displayFields,
+                    ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetLeaveDayListPersonal",
+                    ReadData = "filterFieldInfo",
+                    FormatFields = formatFields,
+                    AutoBind = true,
+                    ForeignKey = foreignKey,
+                    EventDataBound = "onDataBoundGrid",
+                    GridHeight=453,
+                    PageSize=10
+                };
+            }
+
+            @(Html.VnrGrid<Att_LeaveDayModel>(grid))
+        </div>
+
+    </div>
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

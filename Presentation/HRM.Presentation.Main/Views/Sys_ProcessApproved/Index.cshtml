@@ -1,0 +1,226 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using MvcSiteMapProvider.Web.Html
+@using HRM.Infrastructure.Security;
+
+@model Sys_ProcessApprovedModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var gridName = "gridProcessApproved";
+    var windowName = "windowSysProcessApproved";
+
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 900,
+        Title = "Quy Trình Phê Duyệt",
+        LoadContentFrom = @hrm_Sys_Web + "Sys_ProcessApproved/SysProcessApprovedInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Create_Title.TranslateString())';
+
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+
+        return {
+            ProcessName: $('#ProcessName').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Xử lý Edit popup
+        var url = '@hrm_Sys_Web' + "Sys_ProcessApproved/SysProcessApprovedInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Sys_ProcessApproved', titleEditPopUp);
+    });
+
+
+    $("#btnCreate").click(function () {
+        PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Sys_ProcessApproved');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        DeleteSelected(gridName, '@hrm_Sys_Web' + "Sys_ProcessApproved/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_ProcessApproved');
+    })
+
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportAllProcessApprovedList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sys_ProcessApproved');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportProcessApprovedSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sys_ProcessApproved');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="dvProcessApprovedName">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProcessName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.ProcessName)
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+        string[] valueFields = new string[]
+        {
+           Sys_ProcessApprovedModel.FieldNames.ProcessName,
+           Sys_ProcessApprovedModel.FieldNames.Description,
+           
+           Sys_ProcessApprovedModel.FieldNames.Approved1,
+           Sys_ProcessApprovedModel.FieldNames.Approved2,
+           Sys_ProcessApprovedModel.FieldNames.Approved3,
+           Sys_ProcessApprovedModel.FieldNames.Approved4,
+           Sys_ProcessApprovedModel.FieldNames.Approved5,
+           Sys_ProcessApprovedModel.FieldNames.Approved6,
+           Sys_ProcessApprovedModel.FieldNames.Approved7,
+           Sys_ProcessApprovedModel.FieldNames.Approved8,
+           Sys_ProcessApprovedModel.FieldNames.Approved9,
+           Sys_ProcessApprovedModel.FieldNames.Approved10,
+           
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_ProcessApprovedModel.FieldNames.ProcessName, 120},
+            {Sys_ProcessApprovedModel.FieldNames.Description, 120},
+            
+            {Sys_ProcessApprovedModel.FieldNames.Approved1, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved2, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved3, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved4, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved5, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved6, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved7, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved8, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved9, 100},
+            {Sys_ProcessApprovedModel.FieldNames.Approved10, 100},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_ProcessApprovedModel.FieldNames.ProcessName, ConstantDisplay.HRM_System_ProcessApproved_ProcessName},
+            {Sys_ProcessApprovedModel.FieldNames.Description, ConstantDisplay.HRM_System_ProcessApproved_Description},
+            
+            {Sys_ProcessApprovedModel.FieldNames.Approved1, ConstantDisplay.HRM_System_ProcessApproved_Approved1},
+            {Sys_ProcessApprovedModel.FieldNames.Approved2, ConstantDisplay.HRM_System_ProcessApproved_Approved2},
+            {Sys_ProcessApprovedModel.FieldNames.Approved3, ConstantDisplay.HRM_System_ProcessApproved_Approved3},
+            {Sys_ProcessApprovedModel.FieldNames.Approved4, ConstantDisplay.HRM_System_ProcessApproved_Approved4},
+            {Sys_ProcessApprovedModel.FieldNames.Approved5, ConstantDisplay.HRM_System_ProcessApproved_Approved5},
+            {Sys_ProcessApprovedModel.FieldNames.Approved6, ConstantDisplay.HRM_System_ProcessApproved_Approved6},
+            {Sys_ProcessApprovedModel.FieldNames.Approved7, ConstantDisplay.HRM_System_ProcessApproved_Approved7},
+            {Sys_ProcessApprovedModel.FieldNames.Approved8, ConstantDisplay.HRM_System_ProcessApproved_Approved8},
+            {Sys_ProcessApprovedModel.FieldNames.Approved9, ConstantDisplay.HRM_System_ProcessApproved_Approved9},
+            {Sys_ProcessApprovedModel.FieldNames.Approved10, ConstantDisplay.HRM_System_ProcessApproved_Approved10},
+
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetProcessApprovedList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_ProcessApprovedModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

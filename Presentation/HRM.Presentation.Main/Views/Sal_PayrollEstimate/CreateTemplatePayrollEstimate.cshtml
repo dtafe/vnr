@@ -1,0 +1,296 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.HrmSystem.Models
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+
+@model Sal_PayrollEstimateModel
+
+@{
+    Layout = null;
+    //  string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Main_Web;
+
+    var _hrm_Hr_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+
+@{
+    var window1 = new WindowBuilderInfo
+    {
+        Name = "windowConfigElement",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_PayrollEstimate/Sal_PayrollEstimateConfigIfno/",
+    };
+}
+@(Html.VnrWindow(window1))
+<script type="text/javascript">
+    SetFieldRequired();
+    function PayrollEstimateFitlerData() {
+
+        var checkedNodes = [];
+        var treeView = $("#OrgTreeViewDropDown").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        return {
+            //OrgStructureType: $("#OrgStructureType").val(),
+            OrgStructureIDs: checkedNodes.join(','),
+            @*OrgStructureID: $("#OrgStructureID").val(),
+            PayrollGroupID: $("#PayrollGroupID").val(),
+            StatusEmp: $("#StatusEmp").val(),
+            RateAdjust: $("#RateAdjust").val(),
+            BonusBudget: $("#BonusBudget").val(),
+            MonthStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthStart").val()),
+            MonthEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthEnd").val()),*@
+        };
+    };
+
+    function EvenAnalysisPayrollEstimat() {
+        ReadGrid('gridSal_PayrollEstimate');
+    };
+
+    function EvenComputePayrollEstimate() {
+        ShowHre_ProgressBar();
+        var grid = $("#gridSal_PayrollEstimate").data("kendoGrid");
+        parameterMap = grid.dataSource.transport.parameterMap;
+        var data = {};
+        var dataTemp = {};
+
+        var currentData = grid.dataSource.data();
+
+        var updatedRecords = [];
+        var newRecords = [];
+
+        for (var i = 0; i < currentData.length; i++) {
+            updatedRecords.push(currentData[i].toJSON());
+        }
+
+        $.extend(data, parameterMap({ models: updatedRecords, params: PayrollEstimateFitlerData() }));
+
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/SaveTemplatePayrollEstimat',
+            data: data,
+            type: 'POST',
+            success: function (data) {
+                CloseHre_ProgressBar();
+                if (data[0] != undefined && data[0] == 'error') {
+                    Notification(data[1], '@NotificationType.Warning.ToString()');
+                }
+                else {
+                    Notification('@ConstantMessages.Succeed.TranslateString()', '@NotificationType.Success.ToString()');
+                }
+            },
+            error: function (data) {
+                CloseHre_ProgressBar();
+                Notification('@ConstantMessages.Error.TranslateString()', '@NotificationType.Warning.ToString()');
+            }
+        });
+    };
+
+</script>
+@Html.Hidden("valueFields")
+@Html.Hidden("ValueKey")
+
+@Html.Hidden("ValueConfig")
+@Html.Hidden("ConfigID")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @*@Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")*@
+                            @{
+                                var _OrgStructureID = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "215px",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", _OrgStructureID)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenAnalysisPayrollEstimat", Name = "btnAnalysisPayrollEstimat", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "EvenComputePayrollEstimate", Name = "btnComputePayrollEstimate", Content = ConstantAction.HRM_Common_SaveChanges_Estimate.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+    </div>
+
+    <div class="clear"></div>
+</div>
+
+
+<div>
+    @using HRM.Presentation.Payroll.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = "gridSal_PayrollEstimate" + "__Sal_PayrollEstimate_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridSal_PayrollEstimate",
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/CreateTemplatePayrollEstimat",
+            ReadData = "PayrollEstimateFitlerData",
+            ShowEditIcon = false,
+            EditMode = GridEditMode.InCell,
+            Batch = true,
+            ServerOperation = false,
+            ShowCheckbox = true,
+            Navigatable = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+              Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName,
+            Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode,
+           // Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp,
+            //Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage,
+            Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaidView,
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal,
+
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend,
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend,
+
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,
+            Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday,
+             Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureID
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                 {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName, 170},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode, 80},
+            {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp, 90},
+            {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage, 100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaidView, 140},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday, 100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal, 100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend, 100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,100},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend, 100}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                 {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Sal_EstimateDetail_OrgStructureID},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode, ConstantDisplay.HRM_Sal_EstimateDetail_OrgStructureCode},
+            {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp, ConstantDisplay.HRM_Sal_EstimateDetail_QuantityEmp},
+            {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage, ConstantDisplay.HRM_Sal_EstimateDetail_SalaryAverage},
+            {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaidView, ConstantDisplay.HRM_Sal_EstimateDetail_LeaveUnpaid},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeHoliday},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday, ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightHoliday},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal, ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightNormal},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend, ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightWeekend},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNormal},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend, ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeWeekend}
+            };
+
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                       {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp, ConstantFormat.HRM_Format_Number_Integer},
+               {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage, ConstantFormat.HRM_Format_Number_Double},
+               {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaidView, ConstantFormat.HRM_Format_Number_Double},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,ConstantFormat.HRM_Format_Number_Double},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday, ConstantFormat.HRM_Format_Number_Double},
+                 {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal, ConstantFormat.HRM_Format_Number_Double},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend, ConstantFormat.HRM_Format_Number_Double},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,ConstantFormat.HRM_Format_Number_Double},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend, ConstantFormat.HRM_Format_Number_Double}
+            };
+
+            grid.DisableFields = new string[]{
+             Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName,
+            Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode,
+            Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp,
+            Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage,
+            };
+            grid.HiddenFields = new string[]{
+               Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureID,
+            };
+
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = "gridSal_BasicSalary",
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = @_hrm_Hr_Service + "Sal_GetData/GetBasicSalary/",
+    //    ReadData = "filterFieldInfo",
+    //    FormatFields = formatFields,
+    //    EventDataBound = "onDataBoundGrid",
+    //    HyperlinkFields = hyperlinkFields,
+    //    SumFields = sumFields,
+    //    FormatSum = "n2",
+    //};
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Sal_PayrollEstimateDetailModel>(grid))
+        <script>
+            ClickButtonChangeColum("btnChangeColumnPayrollEstimate", "Sal_PayrollEstimateDetailModel");
+            $(document).ready(function () {
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+                $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+            });
+        </script>
+    }
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

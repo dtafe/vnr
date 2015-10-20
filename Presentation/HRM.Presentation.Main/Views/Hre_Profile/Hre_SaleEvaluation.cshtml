@@ -1,0 +1,266 @@
+﻿@using HRM.Presentation.Evaluation.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security;
+
+@model Eva_SaleEvaluationByProfileSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Hre_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Eva_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Eva_Web = ConstantPathWeb.Hrm_Eva_Web;
+    var gridName = "gridSaleEvaluation";
+    var windowName = "windowSaleEvaluation";
+    var profileId = Guid.Empty;
+    if (ViewBag.profileId != null)
+    {
+        profileId = ViewBag.profileId;
+    }
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Title = "Thông tin Doanh Số",
+        LoadContentFrom = hrm_Hre_Web + "Hre_Profile/Hre_SaleEvaluationInfo?profileId=" + profileId,
+    };
+}
+@(Html.VnrWindow(window))
+
+
+<script type="text/javascript">
+    var titleEditPopUp = 'Chỉnh Sửa Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Update_Title.TranslateString())';*@
+    var titleCreatePopUp = 'Tạo Mới Doanh Số Cá Nhân'; @*'@Html.Raw(ConstantDisplay.HRM_Sys_User_Create_Title.TranslateString())';*@
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        return {
+            ProfileID: '@profileId',
+            SaleType: 'SaleIn'
+        };
+    }
+   
+    function LoadGrid()
+    {
+        ReadGrid(gridName);
+        createSaleInChart();
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //tim kiem
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //LoadGrid();
+        //ReadGrid(gridName);
+        //createSaleInChart();
+        setTimeout(function () { createSaleInChart(); }, 1000);
+        //Xử lý Edit popup
+        var url = '@hrm_Hre_Web' + "Hre_Profile/Hre_SaleEvaluationInfo?profileId=@profileId";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Eva_SaleEvaluation', titleEditPopUp);
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    $("#btnCreate1").click(function () {
+        PopUpEdit(windowName, '@hrm_Hre_Web' + "Hre_Profile/Hre_SaleEvaluationInfo?profileId="+SelectID, "", titleCreatePopUp);
+        @*PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Eva_SaleEvaluation');*@
+    });
+
+    //Xử Lý button delete
+    $('#btnDelete1').click(function (e) {
+        e.preventDefault();
+        DeleteSelected(gridName, '@hrm_Hre_Web' + "Hre_Profile/RemoveSaleEvaluation/", selectedIds.join(","), '@ConstantPermission.Eva_SaleEvaluation');
+    });
+
+
+
+    function createSaleInChart() {
+        var grid = $('#' + gridName).data("kendoGrid");
+        // alert(grid);
+        var targetNumbers = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        var resultNumbers = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        var resultPercents = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+        var max = 0;
+        for (var i = 0; i < grid._data.length; i++) {
+            var date = new Date(grid._data[i].Year);
+            var month = date.getMonth();
+            targetNumbers[month] = grid._data[i].TagetNumber;
+            resultNumbers[month] = grid._data[i].ResultNumber;
+            resultPercents[month] = Math.round(grid._data[i].ResultPercent * 1000) / 1000;
+            // take number max of TagetNumber
+            max = grid._data[0].TagetNumber;
+            if (grid._data[i].TagetNumber > max)
+                max = grid._data[i].TagetNumber;
+
+            //   TagetNumber  ResultNumber ResultPercent
+        }
+        
+
+      
+        $("#chartSaleIn").kendoChart({
+            title: {
+                text: "@ConstantDisplay.HRM_Evaluation_SaleEvaluation_SaleIn.TranslateString()"
+            },
+            legend: {
+                position: "bottom"
+            },
+            series: [{
+                name: "Chỉ Tiêu",
+                // data: [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32],
+                data: targetNumbers,
+                color: "#0094ff",
+                type: "column",
+                axis: "a"
+            }, {
+                type: "column",
+                name: "Thực Đạt",
+                //  data: [8, 9, 10, 11, 12, 13, 14, 15, 12, 17, 18, 19],
+                data: resultNumbers,
+                color: "#ad0e0e",
+                axis: "b"
+            }, {
+                name: "% Thực Đạt",
+                // data: [80, 75, 71, 69, 67, 65, 64, 63, 62, 61, 60, 59],
+                data: resultPercents,
+                // color: "#f16a2b",
+                color: "green",
+                type: "line",
+                dashType: "dot",
+                //line: {
+                //    color: "green",
+                //    opacity: 0.5,
+                //    width: 5,
+                //    style: "dot"
+                //},
+                axis: "c",
+            }],
+            valueAxes: [{
+                name: "a",
+                color: "#0094ff",
+                minorGridLines: {
+                    visible: true
+                },
+                min: 0,
+                max: max,
+            }, {
+                name: "b",
+                color: "#ad0e0e",
+                minorGridLines: {
+                    visible: true
+                },
+                min: 0,
+                max: max,
+            }, {
+                name: "c",
+                color: "green",
+                minorGridLines: {
+                    visible: true
+                },
+                labels: {
+                    format: "{0}%"
+                }
+            }],
+            categoryAxis: {
+                categories: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "July", "Aug", "Sep", "Oct", "Nov", "Dec"],
+                majorGridLines: {
+                    visible: false
+                },
+                axisCrossingValues: [0, 0, 32],
+            },
+            tooltip: {
+                visible: true,
+                format: "{0}",
+                template: "#= series.name #: #= value #"
+            }
+        });
+    }
+  //  $(document).bind("kendo:skinChange", createSaleInChart());
+
+</script>
+
+<div class="commandToolBarWidge" style="margin-top:3px">
+    <div class="GridTitle">
+        @Html.VnrLabel(ConstantDisplay.HRM_Evaluation_SaleEvaluation_SaleIn.TranslateString())
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate1", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete1", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+
+<div>
+    @*grid*@
+    <div style="float:left;width:510px;">
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new string[]
+            {
+                Eva_SaleEvaluationModel.FieldNames.Year,
+                Eva_SaleEvaluationModel.FieldNames.SalesTypeName,
+                Eva_SaleEvaluationModel.FieldNames.TagetNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultNumber,
+                Eva_SaleEvaluationModel.FieldNames.ResultPercent
+            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, 100},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, 120},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, 80},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, 80},
+            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantDisplay.HRM_Evaluation_SaleEvaluation_Year},
+                {Eva_SaleEvaluationModel.FieldNames.SalesTypeName, ConstantDisplay.HRM_Evaluation_SaleEvaluation_SalesTypeID},
+                {Eva_SaleEvaluationModel.FieldNames.TagetNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_TagetNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultNumber, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultNumber},
+                {Eva_SaleEvaluationModel.FieldNames.ResultPercent, ConstantDisplay.HRM_Evaluation_SaleEvaluation_ResultPercent},
+            };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+            {
+                {Eva_SaleEvaluationModel.FieldNames.Year, ConstantFormat.HRM_Format_MonthYear}
+            };
+
+            var grid = new GridBuilderInfo
+            {
+                Name = gridName,
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                ReadActionUrl = hrm_Eva_Service + "Eva_GetData/GetSaleEvaluationByProfileList",
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadData = "filterFieldInfo",
+                ShowCheckbox = false,
+                Scrollable = false,
+                GridHeight = 400,
+                AutoBind = true,
+            };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Eva_SaleEvaluationModel>(grid))
+    </div>
+
+    <div id="evaluationChart" style="float:left;padding-left:5px;">
+        <div class="demo-section k-content">
+            <div id="chartSaleIn"></div>
+        </div>
+    </div>
+
+</div>

@@ -1,0 +1,218 @@
+﻿@using HRM.Infrastructure.Utilities
+
+@using HRM.Presentation.UI.Controls.Kendo
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+
+@{
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+
+}
+
+
+<script>
+    SetFieldRequired();
+    function onSelectNodeTree() {
+        var treeView = $("#treeviewOrgStructureList").data("kendoTreeView");
+        checkedNodeIds(treeView.dataSource.view(), checkedNodes);
+        var energy = checkedNodes.join();
+        document.getElementById("OrgStructureListString").setAttribute("value", checkedNodes[0]);
+    }
+
+    function doSave() {
+        ShowHre_ProgressBar();
+        debugger;
+        var result = false;
+        var _ReceiveHealthIns = document.getElementById("ReceiveHealthIns");
+        var _IsBlackList = document.getElementById("IsBlackList");
+        var ReceiveSocialIns = document.getElementById("ReceiveSocialIns");
+        var IsRelationWithMartyr = document.getElementById("IsRelationWithMartyr");
+        var IsCommunistPartyMember = document.getElementById("IsCommunistPartyMember");
+        var IsTradeUnionist = document.getElementById("IsTradeUnionist");
+        var IsYouthUnionist = document.getElementById("IsYouthUnionist");
+        var IsVeteranUnionist = document.getElementById("IsVeteranUnionist");
+        var IsSelfDefenceMilitia = document.getElementById("IsSelfDefenceMilitia");
+        var IsHeadDept = document.getElementById("IsHeadDept");
+        var IsPeriodicExamination = document.getElementById("IsPeriodicExamination");
+        var _StoredDocuments = $("#Cat_StoredDocumentCodes").val();
+        if (_StoredDocuments != null) {
+            $('#@Html.FieldIdFor(model=>model.StoredDocuments)').val(_StoredDocuments.join(','));
+        }
+        else {
+            $('#@Html.FieldIdFor(model=>model.StoredDocuments)').val(null);
+        }
+        if (IsHeadDept != null && IsHeadDept.checked) {
+            $("#IsHeadDept").val("true");
+        } else {
+            $("#IsHeadDept").val("false");
+        }
+        if (IsRelationWithMartyr != null && IsRelationWithMartyr.checked) {
+            $("#IsRelationWithMartyr").val("true");
+        } else {
+            $("#IsRelationWithMartyr").val("false");
+        }
+        if (IsCommunistPartyMember != null && IsCommunistPartyMember.checked) {
+            $("#IsCommunistPartyMember").val("true");
+        } else {
+            $("#IsCommunistPartyMember").val("false");
+        }
+        if (IsTradeUnionist != null && IsTradeUnionist.checked) {
+            $("#IsTradeUnionist").val("true");
+        } else {
+            $("#IsTradeUnionist").val("false");
+        }
+        if (IsYouthUnionist != null && IsYouthUnionist.checked) {
+            $("#IsYouthUnionist").val("true");
+        } else {
+            $("#IsYouthUnionist").val("false");
+        }
+        if (IsVeteranUnionist != null && IsVeteranUnionist.checked) {
+            $("#IsVeteranUnionist").val("true");
+        } else {
+            $("#IsVeteranUnionist").val("false");
+        }
+        if (IsSelfDefenceMilitia != null && IsSelfDefenceMilitia.checked) {
+            $("#IsSelfDefenceMilitia").val("true");
+        } else {
+            $("#IsSelfDefenceMilitia").val("false");
+        }
+        if (_ReceiveHealthIns != null && _ReceiveHealthIns.checked) {
+            $("#ReceiveHealthIns").va("true");
+        } else {
+            $("#ReceiveHealthIns").val("false");
+        }
+        if (_IsBlackList != null && _IsBlackList.checked) {
+            $("#IsBlackList").val("true");
+        } else {
+            $("#IsBlackList").val("false");
+        }
+        if (ReceiveSocialIns != null && ReceiveSocialIns.checked) {
+            $("#ReceiveSocialIns").val("true");
+        } else {
+            $("#ReceiveSocialIns").val("false");
+        }
+        if (IsPeriodicExamination != null && IsPeriodicExamination.checked) {
+            $("#IsPeriodicExamination").val("true");
+        } else {
+            $("#IsPeriodicExamination").val("false");
+        }
+
+        // Validate trước khi kiểm tra số lương nv có vượt định mức hay ko.
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Hre_GetData/ValidateProfile',
+            type: 'POST',
+            async: false,
+            data: queryStringToJSON(slpitQueryEntity($('#form-create').serialize())),
+            success: function (returnValue)
+            {
+                debugger;
+                if(returnValue != null && returnValue != "")
+                {
+                    CloseHre_ProgressBar();
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', returnValue, "k-block k-info-colored");
+                    return;
+                }
+                else
+                {
+                    debugger;
+                    var _OrgStructureID = $('#@Html.FieldIdFor(model => model.OrgStructureID)').val();
+                    $.ajax({
+                        url: '@_hrm_Hr_Service' + 'Hre_GetData/IsAlertIfNumberOfEmpExceedPlan',
+                        type: 'POST',
+                        async: false,
+                        data: { OrgStructureID: _OrgStructureID },
+                        success: function (returnValue) {
+                            debugger;
+                            if (returnValue == "True") {
+                                debugger;
+                                $.when(kendo.ui.ExtOkCancelDialog.show({
+                                    title: '@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())',
+                                    message: '@Html.Raw(ConstantDisplay.HRM_ExceedNumberOfEmp.TranslateString())',
+                                    icon: "k-ext-warning",
+                                    width: "355px",
+                                    height: "105px"
+                                })
+                                  ).done(function (response) {
+                                      if (response.button == "OK") {
+                                          debugger;
+                                          CloseHre_ProgressBar();
+                                          var dataReturn = onCreate($('#form-create'), '@_hrm_Hr_Service', 'api/Hre_Profile/', "popupNotification");
+                                          if (dataReturn.ActionStatus == "ErrorDateOfBirth") {
+                                              ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Ngày Tháng Không Hợp Lệ", "k-block k-info-colored");
+                                              return;
+                                          }
+                                          if (dataReturn != null) {
+                                              $("#ID").val(dataReturn.ID);
+                                              result = true;
+                                          }
+                                      }
+                                      else if (response.button == "Cancel") {
+                                          CloseHre_ProgressBar();
+                                          result = false;
+                                      }
+                                  });
+                            }
+                            else
+                            {
+                                debugger;
+                                var dataReturn = onCreate($('#form-create'), '@_hrm_Hr_Service', 'api/Hre_Profile/', "popupNotification");
+                                if (dataReturn.ActionStatus == "ErrorDateOfBirth") {
+                                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Ngày Tháng Không Hợp Lệ", "k-block k-info-colored");
+                                    return;
+                                }
+                                if (dataReturn != null) {
+                                    $("#ID").val(dataReturn.ID);
+                                    result = true;
+                                }
+                                CloseHre_ProgressBar();
+                                result = true;
+                            }
+                        },
+                    });
+                }
+            },
+            });
+        return result;
+    }
+
+    function doSaveNew() {
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Hre_Profile/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+</script>
+
+<form action="#" method="POST" id="form-create">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.HreProfileIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_HR_Profile_AddNew.TranslateString() <a class="link-back" onclick="clickBackProfile()" style="padding-left: 3px">(@ConstantDisplay.HRM_HR_Back_To_Profile_List.TranslateString())</a>
+                    </div>
+                </div>
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-new", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("TabHre_Profile", Model)
+            </div>
+        </div>
+    </div>
+</form>
+
+<script>
+    function clickBackProfile() {
+        var link = $("#CurrentLinkForClickBack").val();
+        if (link == "") {
+            KendoRouteMapping("#Hrm_Main_Web/GeneralProfile/Index#NewTab", "Hrm_Main_Web", '@_hrm_Main_Web');
+        }
+        else {
+            clickBack();
+        }
+    }
+</script>

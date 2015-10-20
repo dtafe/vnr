@@ -1,0 +1,429 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Category.Models
+@using HRM.Presentation.Training.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+
+@model HRM.Presentation.Category.Models.Cat_TopicModel
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var TopicID = Guid.Empty;
+    if (Model != null)
+    {
+        TopicID = Model.ID;
+    }
+}
+
+<script>
+    $("input[name=IsComplex]").on('change', function () {
+        var radioItem = $("input[name=IsComplex]");
+        for (var i = 0; i < radioItem.length; i++) {
+            if (radioItem[i].checked) {
+                $("#contentTopic").show();
+                $("#contentFormula").show();
+                $("#contentGrid").show();
+                radioItem[i].value = true;
+            }
+            else {
+                $("#contentTopic").hide();
+                $("#contentFormula").hide();
+                $("#contentGrid").hide();
+                radioItem[i].value = false;
+            }
+        }
+    });
+    //var Validator = CheckValidate();
+    SetFieldRequired();
+
+    function onSave() {
+        $('input[name=IsComplex]').val(document.getElementById("IsComplex").checked);
+        $("#Formula").val($("#Formula").val().replace(/\+/g, '[+]'));
+        //  if (CheckValidate(data)) {
+        onSaveAndContinue($('#form_Cat_Topic'), '@_hrm_Hre_Service', 'api/Cat_Topic/', '@ConstantControlName.HRM_Cat_Topic_Grid_Name', '@ConstantControlName.HRM_Cat_Topic_PopUp_Name');
+        $("#Formula").val($("#Formula").val().replace("[+]", "+"));
+        // }
+        return false;
+    }
+
+    function onSaveClose() {
+        $('input[name=IsComplex]').val(document.getElementById("IsComplex").checked);
+        $("#Formula").val($("#Formula").val().replace(/\+/g, '[+]'));
+        //  if (CheckValidate(data)) {
+        onSaveAndClose($('#form_Cat_Topic'), '@_hrm_Hre_Service', 'api/Cat_Topic/', '@ConstantControlName.HRM_Cat_Topic_Grid_Name', '@ConstantControlName.HRM_Cat_Topic_PopUp_Name');
+
+        $("#Formula").val($("#Formula").val().replace("[+]", "+"));
+        // }
+        return false;
+    }
+    function onSaveDataPopUp() {
+        $('input[name=IsComplex]').val(document.getElementById("IsComplex").checked);
+        $("#Formula").val($("#Formula").val().replace(/\+/g, '[+]'));
+        //    if (CheckValidate(data)) {
+        //   if (!checkDuplicationCode()) {
+        onlySave($('#form_Cat_Topic'), '@_hrm_Hre_Service', 'api/Cat_Topic/', '@ConstantControlName.HRM_Cat_Topic_Grid_Name'); return false;
+        $("#Formula").val($("#Formula").val().replace("[+]", "+"));
+        //    }
+        // }
+    }
+
+    function filterFieldInfo() {
+        return {
+            TopicID: $("#Topic_ID").val()
+        };
+    }
+
+    function AddScoreTypeToTopic() {
+        debugger;
+        var _ScoreTypeID = $("#ScoreTypeID").val();
+        var _TopicID = $("#Topic_ID").val();
+
+        if (_TopicID == "") {
+            PopUpCreate("windowErrorTopic");
+            return;
+        }
+        if (_ScoreTypeID == null || _ScoreTypeID == "") {
+            ShowNotification('Thông Báo', '@ConstantDisplay.PleaseChooseScoreType.TranslateString()', "k-block k-info-colored");
+            return;
+        }
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Tra_GetData/AddScoreTypeToTopic",
+            data: { ScoreTypeID: _ScoreTypeID, TopicID: _TopicID },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                debugger;
+
+                if (data == 'Success') {
+                    ShowNotification('Thông Báo', '@ConstantMessages.Succeed.TranslateString()', "k-block k-success-colored");
+                    ReadGrid('grid_CourseTopic_info');
+                    setTimeout(function () {
+                        var grid = $('#grid_CourseTopic_info').data("kendoGrid");
+                        if (grid._data.length > 0) {
+                            debugger;
+                            var strFormula = "";
+                            var formula = "";
+                            if (grid._data.length == 1) {
+                                formula = "[" + grid._data[0].ScoreTypeCode + "]";
+                            } else {
+                                for (var i = 0; i < grid._data.length; i++) {
+                                    strFormula += "[" + grid._data[i].ScoreTypeCode + "]+";
+                                }
+                                formula = "(" + strFormula.substring(0, strFormula.length - 1) + ")/" + grid._data.length;
+                            }
+                            $("#Formula").val(formula);
+                        }
+                    }, 1000);
+
+                } else {
+                    ShowNotification('Thông Báo', '@ConstantMessages.ScoreTypeIsExistedInTopic.TranslateString()', "k-block k-info-colored");
+                }
+            }
+        });
+    }
+    $('#btnDeleteScoreType').click(function (e) {
+        debugger;
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        e.preventDefault();
+        DeleteSelected("grid_CourseTopic_info", '@_hrm_Main_Web' + "Tra_ScoreTopic/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Tra_ScoreType');
+        return false;
+    });
+</script>
+
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_Cat_Topic" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    @Html.HiddenFor(mode => mode.Topic_ID)
+    <table>
+        <tr>
+            <td>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.Code, "width: 300px")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.TopicName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.TopicName, "width: 300px")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.CertificateID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var _CertificateID = new ComboBoxBuilderInfo()
+    {
+        StyleCss = "width:300px",
+        Name = "TopicInfo_CertificateID",
+        DataTextField = "CertificateName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "Tra_GetData/GetMultiCertificate"
+    };
+                        }
+                        @(Html.VnrComboBoxFor(mode => mode.CertificateID, _CertificateID).Text(Model != null && Model.CertificateName != null ? Model.CertificateName.ToString() : string.Empty))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.MinimumScore)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var MinimumScore = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:150px",
+        Name = "TopicInfo_MinimumScore"
+    };
+                        }
+                        @(Html.VnrNumericTextBoxFor(model => model.MinimumScore, MinimumScore))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.MaximumScore)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var MaximumScore = new NumericTextBoxBuilderInfo<double>()
+    {
+        StyleCss = "width:150px",
+        Name = "TopicInfo_MaximumScore"
+    };
+                        }
+                        @(Html.VnrNumericTextBoxFor(model => model.MaximumScore, MaximumScore))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Description)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextAreaFor(mode => mode.Description, "width:500px;height:100px;")
+                    </div>
+                </div>
+                <div id="div2">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabel(ConstantDisplay.HRM_Tra_Class_Training_Title.TranslateString())
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrRadioButtonFor(mode => mode.IsNormal, "IsComplex")
+                        @Html.VnrLabelFor(mode => mode.IsNormal)
+
+                        @Html.VnrRadioButtonFor(mode => mode.IsComplex, "IsComplex")
+                        @Html.VnrLabelFor(mode => mode.IsComplex)
+                    </div>
+                    <div id="contentTopic" hidden="hidden">
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Tra_Class_Training_AddFormula.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrRadioButtonFor(mode => mode.IsTypeHandleFomular, "IsTypeHandleFomularAuto")
+                                @Html.VnrLabelFor(mode => mode.IsTypeHandleFomular)
+
+                                <div>
+                                    @Html.VnrRadioButtonFor(mode => mode.IsTypeHandleFomularAuto, "IsTypeHandleFomularAuto")
+                                    @Html.VnrLabelFor(mode => mode.IsTypeHandleFomularAuto)
+                                </div>
+
+                                @Html.HiddenFor(mode => mode.TypeHandleFomular)
+                            </div>
+                        </div>
+                        <div id=" div1">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ScoreTypeID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+    var _TopicID = new ComboBoxBuilderInfo()
+    {
+        DataTextField = "ScoreTypeName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "Tra_GetData/GetMultiScoreType",
+        ServerFilter = true,
+        StyleCss = "width:300px"
+    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.ScoreTypeID, _TopicID))
+                                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "AddScoreTypeToTopic", Name = "btnCreate_TraCourseScoreType", Content = ConstantAction.HRM_Common_Add_ScoreType.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                            </div>
+                        </div>
+                    </div>
+                    <div id="contentFormula" hidden="hidden">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.Formula)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextAreaFor(mode => mode.Formula, "width:500px;height:100px;")
+                        </div>
+                    </div>
+                </div>
+
+
+                @*<div class="commandToolBarWidge" id="anchor">
+                    <div style="float:left">
+                        <div class="GridTitle">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Tra_ScoreType_Title.TranslateString())
+                        </div>
+                    </div>
+                    <div style="float:right">
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                    </div>
+                    <div class="clear"></div>
+                </div>*@
+
+
+                <div id="contentGrid" hidden="hidden" style="width: 686px">
+                    @*<div class="commandToolBarWidge">*@
+                        <div class="commandToolBarWidge" id="anchor">
+                            <div style="float:left">
+                                <div class="GridTitle">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Tra_ScoreType_Title.TranslateString())
+                                </div>
+                            </div>
+                            <div style="float:right">
+                                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteScoreType", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                            </div>
+                            <div class="clear"></div>
+                        </div>
+                    <div>
+                        <!--Khai báo các thông tin cho Grid-->
+                        @{
+    var valueFieldsClass = new[]
+                        {
+                            Tra_ScoreTopicModel.FieldNames.ScoreTypeCode,
+                            
+                            Tra_ScoreTopicModel.FieldNames.ScoreTypeName
+                        };
+
+    var sizeFieldsClass = new Dictionary<string, int>()
+                        {
+                            {Tra_ScoreTopicModel.FieldNames.ScoreTypeCode, 100},
+                           
+                            {Tra_ScoreTopicModel.FieldNames.ScoreTypeName, 130},
+                        };
+
+    var filterableClass = new Dictionary<string, bool>()
+    {
+    };
+
+    var displayFieldsClass = new Dictionary<string, string>()
+                        {
+                            {Tra_ScoreTopicModel.FieldNames.ScoreTypeCode, ConstantDisplay.HRM_Tra_ScoreType_Code},
+                            {Tra_ScoreTopicModel.FieldNames.ScoreTypeName, ConstantDisplay.HRM_Tra_ScoreType_ScoreTypeName},
+                        };
+
+    var grid_CourseTopic = new GridBuilderInfo
+    {
+
+        Name = "grid_CourseTopic_info",
+        ValueFields = valueFieldsClass,
+        SizeFields = sizeFieldsClass,
+        DisplayFields = displayFieldsClass,
+        ReadActionUrl = _hrm_Hre_Service + "Tra_GetData/GetScoreTopicByTopic?TopicID=" + TopicID,
+        AutoBind = true,
+        ShowDeleteButton = true,
+        GridHeight = 150,
+        ShowCheckAll = false,
+        GridWidth = 684,
+        // ForeignKey = foreignKey,
+        ShowEditIcon = false,
+        ReadData = "filterFieldInfo"
+    };
+                        }
+                        @(Html.VnrGrid<Tra_ScoreTopicModel>(grid_CourseTopic))
+                    </div>
+                </div>
+                <div>
+                    @{
+    if (Model != null)
+    {
+        <script>
+            $(document).ready(function () {
+                debugger;
+                var newFormula = $("#Formula").val().replaceAll("[+]", "+");
+                $("#Formula").val(newFormula);
+
+                var _outValue = '@Model.IsComplex';
+                var _inValue = '@Model.IsNormal';
+                var _IsTypeHandleFomularValue = '@Model.IsTypeHandleFomular';
+                var _IsTypeHandleFomularAutoValue = '@Model.IsTypeHandleFomularAuto';
+                var _IsTypeHandleFomular = document.getElementById("IsTypeHandleFomular");
+                var _IsTypeHandleFomularAuto = document.getElementById("IsTypeHandleFomularAuto");
+                var _out = document.getElementById("IsComplex");
+                var _in = document.getElementById("IsNormal");
+                if (_outValue == "False") {
+                    _out.checked = false;
+                } else {
+                    $("#contentTopic").show();
+                    $("#contentFormula").show();
+                    $("#contentGrid").show();
+                    _out.checked = true;
+                }
+                if (_inValue == "True") {
+                    $("#contentTopic").hide();
+                    $("#contentFormula").hide();
+                    $("#contentGrid").hide();
+                    _in.checked = true;
+                } else {
+                    _in.checked = false;
+                }
+                if (_IsTypeHandleFomularValue == "False") {
+                    _IsTypeHandleFomular.checked = false;
+                } else {
+                    _IsTypeHandleFomular.checked = true;
+                }
+                if (_IsTypeHandleFomularAutoValue == "True") {
+                    _IsTypeHandleFomularAuto.checked = true;
+                } else {
+                    _IsTypeHandleFomularAuto.checked = false;
+                }
+
+
+                
+                
+            });
+        </script>
+    }
+                    }
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-CatTopic", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-CatTopic", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-CatTopic", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}
+

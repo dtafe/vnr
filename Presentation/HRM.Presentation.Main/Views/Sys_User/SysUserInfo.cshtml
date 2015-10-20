@@ -1,0 +1,312 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Business.Category.Models;
+@model HRM.Presentation.HrmSystem.Models.Sys_UserModel
+
+@{
+    ViewBag.Title = "SysUser";
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var userId = Model == null ? Guid.Empty : Model.ID;
+
+    var password = string.Empty;
+    if (Model != null)
+    {
+        password = Model.Password;
+    }
+}
+
+<script type="text/javascript">
+    //  var data = SetCharacteFieldRequired();
+    SetFieldRequired();
+    SetFieldRequiredByScreenName('Sys_UserInfo');
+    $(document).ready(function () {
+        var isCheckLDAP = $("#IsCheckLDAP").is(":checked");
+        if (!isCheckLDAP) {
+            $("#dvLDAPDatasource").hide();
+        } else {
+            $("#dvLDAPDatasource").show();
+        }
+
+        $('#IsCheckLDAP').click(function () {
+            if (!$(this).is(':checked')) {
+                $("#dvLDAPDatasource").hide();
+            } else {
+                $("#dvLDAPDatasource").show();
+            }
+        });
+    });
+
+    function checkDuplicationUser() {
+        var loginName = $("#UserLogin").val();
+        var iD = '@userId';
+
+        var data = { tableName: "Sys_UserInfo", columnName: "UserLogin", keyword: loginName, iD: iD };
+        var isduplicate = checkDuplicate('@_hrm_Sys_Service', 'Sys_GetData', 'CheckDuplicate', data, "UserLogin");
+        return isduplicate;
+    }
+
+    function convert_vi_to_en(alias) {
+        var value = alias;
+        $.ajax({
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/Convert_VI_To_EN',
+            data: { fullName: alias },
+            async :false,
+            type: 'POST',
+            success: function (data) {
+                value = data;
+                return data;
+            }
+        });
+        return value;
+    }
+
+    function getUserName(fullName) {
+        var userName = '';
+        fullName = fullName.toLowerCase();
+        if (fullName.indexOf('-') != -1) {
+            fullName = fullName.split('-')[0].trim();
+        }
+        var _fullName = convert_vi_to_en(fullName);
+        if (_fullName.length > 0 && _fullName.indexOf(" ") > 0) {
+            var arrFullName = _fullName.split(' ');
+            userName = arrFullName[arrFullName.length - 1] + "." + arrFullName[0];
+        }
+        return userName;
+    }
+
+
+    function validate() {
+        debugger;
+        var isValidateSuccess = true;
+        return isValidateSuccess;
+    }
+
+    function onSave() {
+        var multi = $("#SysUserInfo_MasterDataGroupID").data("kendoMultiSelect");
+        $("#MasterDataGroupIDstr").val(multi.value());
+
+        onSaveAndContinue($('#form_cat_sysuser'), '@_hrm_Sys_Service', 'api/Sys_User/', 'gridUser', 'windowSysUser'); return false;
+        return false;
+    }
+    function onSaveClose() {
+        var multi = $("#SysUserInfo_MasterDataGroupID").data("kendoMultiSelect");
+        $("#MasterDataGroupIDstr").val(multi.value());
+
+        onSaveAndClose($('#form_cat_sysuser'), '@_hrm_Sys_Service', 'api/Sys_User/', 'gridUser', 'windowSysUser'); return false;
+        return false;
+    }
+    function onSaveDataPopUp() {
+        var multi = $("#SysUserInfo_MasterDataGroupID").data("kendoMultiSelect");
+        $("#MasterDataGroupIDstr").val(multi.value());
+
+        onlySave($('#form_cat_sysuser'), '@_hrm_Sys_Service', 'api/Sys_User/', 'gridUser', 'windowSysUser'); return false;
+    }
+
+    function profileChanging() {
+        var multi = $("#SysUserInfo_ProfileID").data("kendoMultiSelect");
+        var userName = getUserName(multi._dataItems[0].ProfileName);
+        $("#UserInfoName1").val(multi._dataItems[0].ProfileName.split('-')[0].trim());
+        $("#UserLogin").val(userName);
+    }
+
+    function masterdataGroupChanging() {
+        var multi = $("#SysUserInfo_MasterDataGroupID").data("kendoMultiSelect");
+        $("#MasterDataGroupIDstr").val(multi.value());
+    }
+
+
+</script>
+<!--Form dùng cho edit và update-->
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "form_cat_sysuser" }))
+{
+    @Html.HiddenFor(model => model.ID)
+    @Html.HiddenFor(model => model.MasterDataGroupIDstr)
+
+    <table>
+        <tr>
+            <td>
+                <div id="div3">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    IEnumerable valueProfile = new string[] { };
+    if (Model != null)
+    {
+        valueProfile = new[] { new
+                                                     {
+                                                         ProfileName = Model.ProfileName,
+                                                         ID = Model.ProfileID
+                                                     } };
+    }
+
+    var multiSelectProfileID = new MultiSelectBuilderInfo()
+    {
+        Name = "SysUserInfo_ProfileID",
+        DataTextField = "ProfileName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+        Width = 300,
+        MaxSelectedItems = 1,
+        EventChange = "profileChanging",
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+        Value = valueProfile
+    };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.UserInfoName1)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.UserInfoName1, "Width:300px;")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.UserLogin)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.UserLogin, "Width:300px;")
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Password)
+                    </div>
+                    <div class="FieldValue">
+                        <input class="k-textbox" name="Password" id="Password" type="password" value="@password" style="width:300px;" />
+
+                        @*@(Html.VnrPasswordFor(model => model.Password))*@
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Email)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.Email, "Width:300px;")
+                    </div>
+                </div>
+
+                <div id="dvMasterDataGroupID">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.MasterDataGroupID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    IEnumerable valueMasterDataGroupID = new string[] { };
+    var catMasterDataGroup = new List<Cat_MasterDataGroupMultiEntity>();
+    if (Model != null && Model.MasterDataGroups != null)
+    {
+        // Tự động load ds dự án vào control multiSelect
+        var masterDataGroup = Model.MasterDataGroups;
+        for (int index = 0; index < masterDataGroup.Count; index++)
+        {
+            var item = masterDataGroup.ElementAt(index);
+            var itemKey = item.Key;
+            var itemValue = item.Value;
+            if (itemKey != null && itemValue != null)
+            {
+                var itemMasterDataGroup = new Cat_MasterDataGroupMultiEntity
+                {
+                    MasterDataGroupName = itemValue,
+                    ID = itemKey
+                };
+                catMasterDataGroup.Add(itemMasterDataGroup);    
+            }            
+        }
+    }
+
+    var multiSelectvalueMasterDataGroupID = new MultiSelectBuilderInfo()
+    {
+        Name = "SysUserInfo_MasterDataGroupID",
+        DataTextField = "MasterDataGroupName",
+        DataValueField = "ID",
+        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiMasterDataGroup",
+        Width = 300,
+        MaxSelectedItems = 10,
+        EventChange = "masterdataGroupChanging",
+        Placeholder = ConstantDisplay.HRM_HR_SelectMasterDataGroup.TranslateString(),
+        Value = catMasterDataGroup
+    };
+                        }
+                        @Html.VnrMultiSelectFor(mode => mode.MasterDataGroupID, multiSelectvalueMasterDataGroupID)
+                    </div>
+                </div>
+
+
+                <div id="dvDateFrom">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.EffectedDate)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+    var effectedDate = new DatePickerBuilderInfo()
+    {
+        //Value = @Html.DisplayFor(mode => mode.DateFrom).ToString(),
+        StyleCss = "width:120px;",
+        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+    };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.EffectedDate, effectedDate)
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.IsActivate)
+                    </div>
+                    <div class="FieldValue">
+                        @(Html.VnrCheckBoxFor(model => model.IsActivate))
+                    </div>
+                </div>
+
+                <div>
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.IsCheckLDAP)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrCheckBoxFor(p => p.IsCheckLDAP)
+                    </div>
+                </div>
+                <div id="dvLDAPDatasource">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.LDAPDatasource)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(mode => mode.LDAPDatasource, "Width:300px;")
+                    </div>
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td style="padding-top:2px; padding-bottom:10px;">
+                <div class="LineFooterCommandEdit">
+                </div>
+            </td>
+        </tr>
+        <tr>
+            <td>
+                <div>
+                    <div class="FieldTitle150">
+
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveDataPopUp", Name = "save-SysUser", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSave", Name = "save-continue-SysUser", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "onSaveClose", Name = "save-close-SysUser", Content = ConstantAction.HRM_Common_SaveClose.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+
+                    </div>
+                </div>
+            </td>
+        </tr>
+    </table>
+}

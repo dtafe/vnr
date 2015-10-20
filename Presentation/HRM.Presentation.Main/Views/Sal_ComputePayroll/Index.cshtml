@@ -1,0 +1,489 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.HrmSystem.Models
+
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Payroll.Models
+@{
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Main_Web;
+
+
+}
+@model Sal_PayrollTableModel
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpPayCommission",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Sal_ComputePayroll/Sal_PayCommissionInfo"
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+
+    SetFieldRequired();
+    var permissionNotAllow_MsgSalaryAdvance = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Payroll_Compute_AdanvacePayment.TranslateString())';
+    var permissionNotAllow_MsgSalary = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Payroll_Salary.TranslateString())';
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            Type: '@AsynTask.Payroll_Computing.ToString()'
+        };
+    };
+    //Khởi tạo điều kiện tìm kiếm
+    function GetValueCompute(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#OrgTreeViewDropDown").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _profile = $('#@Html.FieldIdFor(model => model.ProfileIDs)').data('kendoMultiSelect');
+        var GradePayroll = $('#SGradePayrollID').data('kendoMultiSelect');
+        var WorkingPlace = new VnrMultiSelect('WorkPlaceID');
+
+        return {
+            CutOffDurationID: $('#ddlCutOffDuration').val(),
+            OrgStructureID: checkedNodes.join(','),
+            ListProfileIDs: _profile.value(),
+            isIncludeWorkingEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeWorkingEmp)').checked,
+            @*PaymentQuit: document.getElementById('@Html.FieldIdFor(model => model.PaymentQuit)').checked,*@
+            GradePayrollID: GradePayroll.value().join(','),
+            WorkPlace: WorkingPlace.GetSelectValue().join(','),
+            WorkPlaceName: WorkingPlace.GetSelectText('ID', 'WorkPlaceName').join(','),
+            UserLogin:'@Session[SessionObjects.LoginUserName]',
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    };
+
+    $("#btnCompute").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_ComputePayroll_Compute', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_MsgSalary);
+            return;
+        }
+        if ($('#ddlCutOffDuration').val() == "") {
+            window.ShowNotificationProcessor('@ConstantDisplay.HRM_Payroll_NotSelectCutOffDuration.TranslateString()');
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComputePayroll',
+            traditional: true,
+            data: GetValueCompute(false),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data.Success != undefined && data.Success == false) {
+                    Notification(data.Messenger,'@NotificationType.Warning.ToString()');
+                }
+                else {
+                    IsActiveProgress = true;
+                    ShowProgressBar(data);
+                }
+            },
+            error: function (data) {
+                window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");
+                IsActiveProgress = false;
+            }
+        });
+    });
+
+    $("#btnCommissionPaymentCompute").click(function () {
+        PopUpCreate("PopUpPayCommission", "@Html.Raw(ConstantDisplay.HRM_Payroll_Compute_CommissionPayment.TranslateString())", '@HRM.Infrastructure.Security.ConstantPermission.Sal_ItemForShop');
+    });
+
+    $("#btnAdvancePaymentCompute").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sal_ComputePayroll_ComputeAdvance', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_MsgSalaryAdvance);
+            return;
+        }
+        if ($('#ddlCutOffDuration').val() == "") {
+            window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_NotSelectCutOffDuration"); //Chưa Dịch!
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComputeAdvancePayment',
+            data: GetValueCompute(false),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+
+                IsActiveProgress = true;
+                ShowProgressBar(data);
+            },
+            error: function (data) {
+                window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");//Chưa Dịch!
+                IsActiveProgress = false;
+            }
+        });
+    });
+
+
+    function ShowProgressBar(id) {
+        if (IsActiveProgress) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPercentComplete',
+                data: { id: id },
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (!isNaN(data)) {
+                        //UpdateValueProgress(data);
+                        CreateProgress(data);
+                        setTimeout(function () {
+                            if (data < 100) {
+                                ShowProgressBar(id);
+                            }
+                            else {
+                                ReadGrid("gridAtt_ComputePayroll");
+                            }
+                        }, 1000);
+                    }
+                },
+                error: function (data) {
+                    window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_ErrorInProcessing");//Chưa Dịch!
+                    IsActiveProgress = false;
+                }
+            });
+        }
+
+    };
+
+    //Export All
+    $("#btnExport").click(function () {
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportOvertimeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_ComputePayroll');
+    });
+
+    $(document).ready(function () {
+        document.getElementById("isIncludeWorkingEmp").checked = true;
+    });
+    $("#isIncludeWorkingEmp").click(function () {
+        debugger;
+        var x = document.getElementById("isIncludeWorkingEmp");
+        //var y = document.getElementById("PaymentQuit");
+        //if (x.checked == true) {
+        //    y.checked = false;
+        //}
+    });
+    //$("#PaymentQuit").click(function () {
+    //    var x = document.getElementById("isIncludeWorkingEmp");
+    //    var y = document.getElementById("PaymentQuit");
+    //    if(y.checked == true){
+    //        x.checked = false;
+    //    }
+    //});
+
+    $('#btnWaiting').click(function (e) {
+
+        $("#UserCreateID").val('@Session[SessionObjects.LoginUserName]');
+        var userLoginName = '@Session[SessionObjects.LoginUserName]';
+        debugger;
+        if ($('#ddlCutOffDuration').val() == "") {
+            window.ShowNotificationProcessor("@ConstantDisplay.HRM_Payroll_NotSelectCutOffDuration.ToString().TranslateString()"); //Chưa Dịch!
+            return;
+        }
+
+        var checkedNodes = [];
+        var treeView = $("#OrgTreeViewDropDown").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var orderNumer = checkedNodes.join(',');
+
+        $.when(kendo.ui.ExtOkCancelDialog.show({
+            title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+            message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+            icon: "k-ext-warning",
+            width: "355px",
+            height: "105px"
+        })
+            ).done(function (response) {
+                checkedNodes = [];
+                if (response.button == "OK") {
+                    debugger;
+
+                    $.ajax({
+                        url: '@_hrm_Hr_Service' + "Sal_GetData/ActionApprovedLockObject/",
+                        data: { selectedIds: $("#ddlCutOffDuration").val(), status: '@EnumDropDown.LockObjectStatus.E_APPROVED.ToString()', workPlaceID: $("#WorkPlaceID").val(), orderNumber: orderNumer, userLoginName: userLoginName },
+                        type: 'POST',
+                        //traditional: true,
+                        success: function (data) {
+                            debugger;
+                            ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+                            selectedIds = [];
+
+                        },
+                        error: function (data) {
+                            alert('@ConstantDisplay.Hrm_Error.TranslateString()');//Chưa dịch
+                        }
+                    });
+                    @*DoActionData("gridAtt_ComputePayroll", '@_hrm_Hr_Service' + "Sal_GetData/ActionApprovedLockObject/", $("#CutOffDurationID").val(), '@EnumDropDown.LockObjectStatus.E_LOCKED.ToString()', $("#WorkPlaceID").val(), checkedNodes);*@
+                }
+                else if (response.button == "Cancel") {
+                    return false;
+                }
+            });
+
+
+        return false;
+    });
+
+    function DoActionData(gridName, actionURL, parameter, status, workPlaceID, orderNumber) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status: status, workPlaceID: workPlaceID, orderNumber: orderNumber },
+            type: 'POST',
+            //traditional: true,
+            success: function (data) {
+
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+
+            },
+            error: function (data) {
+                alert('@ConstantDisplay.Hrm_Error.TranslateString()');//Chưa dịch
+            }
+        });
+    };
+
+    function DownloadDescription(id) {
+        debugger;
+        var grid = $("#gridAtt_ComputePayroll").data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Description.indexOf('.XML') != -1)
+        {
+            var arrOutputpath = selectedItem.Description.split('\\');
+            arrOutputpath = arrOutputpath.slice(arrOutputpath.length - 3, arrOutputpath.length);
+            var Outputpath = '@_hrm_Main_Web' + arrOutputpath.join('/');
+
+            var win = window.open(Outputpath, '_blank');
+            win.focus();
+        }
+    };
+
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div style="float:left">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CutOffDurationID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var cutOffDurationName = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "ddlCutOffDuration",
+                                        DataTextField = "CutOffDurationName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                                        StyleCss = "width:205px",
+                                    };
+                                }
+                                @(Html.VnrDropDownList(cutOffDurationName))
+                            </div>
+                        </div>
+
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @*@Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")*@
+                                @{
+                                    var _OrgStructureID = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Width = "205px",
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", _OrgStructureID)
+                                @Html.HiddenFor(model => model.OrgStructureID)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ProfileIDs = new MultiSelectBuilderInfo
+                                    {
+
+                                        DataTextField = "ProfileName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+                                        //  MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                        Width = 203,
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, _ProfileIDs)
+                            </div>
+                        </div>
+                    </div>
+                    <div style="float:left">
+                        <div id="div7">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var PlaceDropdown = new MultiSelectBuilderInfo()
+                                    {
+                                        DataValueField = "ID",
+                                        DataTextField = "WorkPlaceName",
+                                        Url = _hrm_Hr_Service + "Cat_Getdata/GetMultiWorkPlace",
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(m => m.WorkPlaceID, PlaceDropdown)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.GradePayrollID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _GradePayrollID = new MultiSelectBuilderInfo()
+                                    {
+                                        Name = "SGradePayrollID",
+                                        DataTextField = "GradeCfgName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiGradePayroll",
+                                        Width = 200,
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.GradePayrollID, _GradePayrollID))
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+
+                            </div>
+                            <div class="FieldValue" style="font-weight:bold">
+                                @{
+                                    var IsIncludeWorkingEmp = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(model => model.isIncludeWorkingEmp, IsIncludeWorkingEmp)
+                                @Html.VnrLabelFor(mode => mode.isIncludeWorkingEmp)
+                            </div>
+
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        <div style="float:left">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCompute", Content = ConstantDisplay.HRM_Payroll_Salary.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnAdvancePaymentCompute", Content = ConstantDisplay.HRM_Payroll_Compute_AdanvacePayment.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCommissionPaymentCompute", Content = ConstantDisplay.HRM_Payroll_Compute_CommissionPayment.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnWaiting", Content = ConstantAction.HRM_Common_Waitting.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+        </div>
+        <div style="float:right">
+            @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = "Xuất Bảng Lương Tháng", ImageUrl = ConstantPath.IconExportPath })*@
+
+        </div>
+
+        <div class="clear"></div>
+    </div>
+</div>
+
+@{
+
+    valueFields = new string[]
+        {
+            Sys_AsynTaskModel.FieldNames.Summary,
+            Sys_AsynTaskModel.FieldNames.Status,
+            Sys_AsynTaskModel.FieldNames.UserCreate,
+            Sys_AsynTaskModel.FieldNames.PercentComplete,
+            Sys_AsynTaskModel.FieldNames.TimeStart,
+            Sys_AsynTaskModel.FieldNames.TimeEnd,
+            Sys_AsynTaskModel.FieldNames.Description,
+        };
+
+    Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, 205},
+            {Sys_AsynTaskModel.FieldNames.Status, 80},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, 110},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, 80},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, 135},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd,135},
+            {Sys_AsynTaskModel.FieldNames.Description, 220}
+        };
+
+    Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, ConstantDisplay.HRM_System_AsynTask_Summary},
+            {Sys_AsynTaskModel.FieldNames.Status, ConstantDisplay.HRM_System_AsynTask_Status},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantDisplay.HRM_System_AsynTask_PercentComplete},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, ConstantDisplay.HRM_System_AsynTask_UserNameCreate},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantDisplay.HRM_System_AsynTask_TimeStart},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantDisplay.HRM_System_AsynTask_TimeEnd},
+            {Sys_AsynTaskModel.FieldNames.Description, ConstantDisplay.HRM_System_AsynTask_Description},
+        };
+
+    Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantFormat.HRM_Format_Percent}
+        };
+
+
+    Dictionary<string, string> HyperlinkFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Description,"DownloadDescription"},
+        };
+    var grid = new GridBuilderInfo
+    {
+        Name = "gridAtt_ComputePayroll",
+        ValueFields = valueFields,
+        FormatFields = formatFields,
+        SizeFields = sizeFields,
+        HyperlinkFields = HyperlinkFields,
+        DisplayFields = displayFields,
+        ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetAsynTaskList",
+        ReadData = "filterFieldInfo",
+        ShowEditIcon = false,
+        AutoBind = true,
+        ShowCheckbox = false,
+    };
+}
+
+<!--Khởi tạo Grid-->
+@(Html.VnrGrid<Sys_AsynTaskModel>(grid))
+
+
+

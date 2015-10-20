@@ -1,0 +1,298 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Training.Models;
+@using HRM.Infrastructure.Security;
+
+@model Tra_PlanSearchModel
+
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+
+}
+
+<script>
+
+    //Data khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#TraPlanOutside_DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#TraPlanOutside_DateTo").val()),
+            PlanName: $('#TraPlanOutside_PlanName').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid("grid_Tra_PlanOutside");
+        });
+
+        //Xử lý Edit popup
+
+        EditGridNewPage("grid_Tra_PlanOutside", '#Hrm_Main_Web/Tra_PlanOutside/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Tra_PlanOutside');
+        if (!isAccess) {
+            return;
+        }
+
+        KendoRouteMapping('#Hrm_Main_Web/Tra_PlanOutside/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử Lý grid
+    GridCheckbox("grid_Tra_PlanOutside");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("grid_Tra_PlanOutside", '@_hrm_Main_Web' + "Tra_Plan/RemoveSelected/", selectedIds, '@ConstantPermission.Tra_PlanOutside');
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportPlanOutsideSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Tra_PlanOutside');
+    });
+
+    $("#btnExportAll").click(function () {
+
+        var grid = $('#grid_Tra_PlanOutside').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Tra_GetData/ExportAllPlanOutsideList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Tra_PlanOutside');
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @ConstantDisplay.HRM_Rec_RecruitmentCampaign_DateStart.TranslateString()
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _DateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "TraPlanOutside_DateFrom",
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Common_From.TranslateString()
+
+                                    };
+                                    var _DateTo = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "TraPlanOutside_DateTo",
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_Common_To.TranslateString()
+
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateFrom, _DateFrom)
+
+                                @Html.VnrDatePickerFor(mode => mode.DateTo, _DateTo)
+
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div style="float:left">
+                            <div>
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(model => model.PlanName)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _PlanName = new TextBoxBuilderInfo()
+                                    {
+                                        Name = "TraPlanOutside_PlanName",
+                                    };
+                                    }
+                                    @Html.VnrTextBoxFor(mode => mode.PlanName, _PlanName)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnPlanOutside", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+       var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Tra_PlanOutside_Name + "__Tra_PlanOutside_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Tra_PlanOutside_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hr_Service + "Tra_GetData/GetPlanOutsideList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+
+                Tra_PlanModel.FieldNames.PlanName,
+                Tra_PlanModel.FieldNames.DateFrom,
+                Tra_PlanModel.FieldNames.DateTo,
+                Tra_PlanModel.FieldNames.Cost,
+                 Tra_PlanModel.FieldNames.Description,
+                Tra_PlanModel.FieldNames.UserCreate,
+                Tra_PlanModel.FieldNames.DateCreate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+
+                {Tra_PlanModel.FieldNames.PlanName,140},
+                {Tra_PlanModel.FieldNames.DateFrom,82},
+                {Tra_PlanModel.FieldNames.DateTo,82},
+                {Tra_PlanModel.FieldNames.Cost,100},
+                    {Tra_PlanModel.FieldNames.Description,140},
+                {Tra_PlanModel.FieldNames.UserCreate,100},
+                {Tra_PlanModel.FieldNames.DateCreate,90}
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Tra_PlanModel.FieldNames.PlanName,true},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+
+                {Tra_PlanModel.FieldNames.PlanName,ConstantDisplay.HRM_Tra_Plan_PlanName},
+                {Tra_PlanModel.FieldNames.DateFrom,ConstantDisplay.HRM_Tra_Plan_DateFrom},
+                {Tra_PlanModel.FieldNames.DateTo,ConstantDisplay.HRM_Tra_Plan_DateTo},
+                {Tra_PlanModel.FieldNames.Cost,ConstantDisplay.HRM_Tra_Plan_Cost},
+                    {Tra_PlanModel.FieldNames.Description,ConstantDisplay.HRM_Tra_Plan_Description},
+                {Tra_PlanModel.FieldNames.UserCreate,ConstantDisplay.HRM_Category_OvertimeType_UserCreate},
+                {Tra_PlanModel.FieldNames.DateCreate,ConstantDisplay.HRM_Category_LeaveDayType_DateCreate},
+
+
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_Tra_PlanOutside",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = _hrm_Hr_Service + "Tra_GetData/GetPlanOutsideList/",
+        //    ReadData = "filterFieldInfo"
+        //};
+    }
+
+    @(Html.VnrGrid<Tra_PlanModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnPlanOutside", "Tra_PlanModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

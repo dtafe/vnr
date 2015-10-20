@@ -1,0 +1,397 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models
+@model HRM.Presentation.Payroll.Models.Sal_PayrollEstimateModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+  
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> lstStatus = Enum.GetValues(typeof(EnumDropDown.StatusEmployee))
+.Cast<EnumDropDown.StatusEmployee>()
+.Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p => p.Text)
+.ToList();
+}
+@Html.Hidden("Screen", screen)
+
+<script type="text/javascript">
+    SetFieldRequired();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _GradePayrollID = $('#@Html.FieldIdFor(model => model.PayrollGroupID)').val() != null ? $('#@Html.FieldIdFor(model => model.PayrollGroupID)').val()[0] : $('#@Html.FieldIdFor(model => model.PayrollGroupID)').val();
+        var elementPara = {
+            CutOffDurationID: $('#ddlCutOffDuration').val(),
+            OrgStructureID: $("#OrgStructureID").val(),
+            PayrollGroupID : _GradePayrollID,
+            OrgStructureType: $('#SOrgStructureType').val() ? $('#SOrgStructureType').val()[0] : null,
+            StatusEmp: $("#StatusEmp").val(),
+            RateAdjust: $('#@Html.FieldIdFor(model => model.RateAdjust)').val(),
+            BonusBudget: $('#@Html.FieldIdFor(model => model.BonusBudget)').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    $("#btnSearch").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        ReadGrid('gridSal_PayrollEstimate');
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/ReportPayrollEstimate', filterFieldInfo(true));
+       
+    });
+
+        $("#btnExport").click(function () {
+            
+
+
+            var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCSeniority');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/ReportPayrollEstimate',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+            }
+        });
+    });
+
+
+</script>
+
+
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+               <div style="float:left;width:500px">
+                   <div id="div2">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(model => model.CutOffDurationID)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var cutOffDurationName = new DropDownListBuilderInfo()
+                               {
+                                   Name = "ddlCutOffDuration",
+                                   DataTextField = "CutOffDurationName",
+                                   DataValueField = "ID",
+                                   Url = _hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                                   StyleCss = "width:200px"
+                               };
+                           }
+                           @(Html.VnrDropDownList(cutOffDurationName))
+                       </div>
+                   </div>
+                   <div>
+                       <div id="div14">
+                           <div class="FieldTitle">
+                               @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                           </div>
+                           <div class="FieldValue">
+                               <div class="FieldValue">
+                                   @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdownForCreate")
+                                   @Html.HiddenFor(mode => mode.OrgStructureID)
+                               </div>
+                           </div>
+                       </div>
+                   </div>  
+
+                   <div id="div4">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(model => model.PayrollGroupID)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var _PayrollGroupID = new MultiSelectBuilderInfo()
+                               {
+                                   Name = "SPayrollGroupID",
+                                   DataTextField = "PayrollGroupName",
+                                   DataValueField = "ID",
+                                   Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                   Placeholder = ConstantDisplay.HRM_Category_SelectPayrollGroup.TranslateString(),
+                                   MaxSelectedItems = 1
+                               };
+                           }
+                           @(Html.VnrMultiSelectFor(mode => mode.PayrollGroupID, _PayrollGroupID))
+                       </div>
+                   </div>
+
+                   
+
+                   
+               </div>
+
+
+                <div style="float:left">
+                    
+                    <div id="div4">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.OrgStructureType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "SOrgStructureType",
+                                    DataTextField = "OrgStructureTypeName",
+                                    DataValueField = "OrgStructureTypeCode",
+                                    Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                    MaxSelectedItems = 1
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.OrgStructureType, _OrgStructureTypeID))
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.StatusEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _StatusSyn = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstStatus,
+                                    OptionLabel = "Vui Lòng Chọn ...",
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.StatusEmp, _StatusSyn))
+                        </div>
+                    </div>
+                   
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.RateAdjust)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var RateAdjust = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    StyleCss = "width:205px",
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(m => m.RateAdjust, RateAdjust)
+
+                
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.BonusBudget)
+                        </div>
+                        <div class="FieldValue">
+                       
+                            @{
+                                var BonusBudget = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    StyleCss = "width:205px",
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(m => m.BonusBudget, BonusBudget)
+                        </div>
+                    </div>
+
+                </div>
+                
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                        StyleCss = "width:200px;",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName,
+           Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode,
+           Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp,
+           Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage,
+           Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaid,
+           
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal,
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend,
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend,
+           
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,
+           Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday,
+           
+           Sal_PayrollEstimateDetailModel.FieldNames.AmountHour,
+
+           Sal_PayrollEstimateDetailModel.FieldNames.AmountLeaveDay,
+           Sal_PayrollEstimateDetailModel.FieldNames.AmountOvertime,
+           Sal_PayrollEstimateDetailModel.FieldNames.AmountTotal,
+                      
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+           {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName,140},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode,80},
+           {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage,100},
+           
+           {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaid,140},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend,100},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountHour,90},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountLeaveDay,120},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountOvertime,110},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountTotal,110},
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+           {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Sal_EstimateDetail_OrgStructureID},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OrgStructureCode,ConstantDisplay.HRM_Sal_EstimateDetail_OrgStructureCode},
+           {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp,ConstantDisplay.HRM_Sal_EstimateDetail_QuantityEmp},
+           {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage,ConstantDisplay.HRM_Sal_EstimateDetail_SalaryAverage},
+           
+           {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaid,ConstantDisplay.HRM_Sal_EstimateDetail_LeaveUnpaid},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNormal},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeHoliday},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeWeekend},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightNormal},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightHoliday},
+           {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend,ConstantDisplay.HRM_Sal_EstimateDetail_OvertimeNightWeekend},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountHour,ConstantDisplay.HRM_Sal_EstimateDetail_AmountHour},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountLeaveDay,ConstantDisplay.HRM_Sal_EstimateDetail_AmountLeaveDay},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountOvertime,ConstantDisplay.HRM_Sal_EstimateDetail_AmountOvertime},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountTotal,ConstantDisplay.HRM_Sal_EstimateDetail_AmountTotal},
+            };
+            
+             Dictionary<string, string>
+            formatFields = new Dictionary<string, string>
+                ()
+            {
+                     {Sal_PayrollEstimateDetailModel.FieldNames.QuantityEmp, ConstantFormat.HRM_Format_Money},
+               {Sal_PayrollEstimateDetailModel.FieldNames.SalaryAverage, ConstantFormat.HRM_Format_Money},
+               {Sal_PayrollEstimateDetailModel.FieldNames.LeaveUnpaid, ConstantFormat.HRM_Format_Money},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeHoliday,ConstantFormat.HRM_Format_Money},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightHoliday, ConstantFormat.HRM_Format_Money},
+                 {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightNormal, ConstantFormat.HRM_Format_Money},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNightWeekend, ConstantFormat.HRM_Format_Money},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeNormal,ConstantFormat.HRM_Format_Money},
+            {Sal_PayrollEstimateDetailModel.FieldNames.OvertimeWeekend, ConstantFormat.HRM_Format_Money},
+             {Sal_PayrollEstimateDetailModel.FieldNames.AmountHour,ConstantFormat.HRM_Format_Money},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountLeaveDay,ConstantFormat.HRM_Format_Money},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountOvertime,ConstantFormat.HRM_Format_Money},
+           {Sal_PayrollEstimateDetailModel.FieldNames.AmountTotal,ConstantFormat.HRM_Format_Money},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "gridSal_PayrollEstimate",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Sal_GetData/ReportPayrollEstimate",
+            ReadData = "filterFieldInfo",
+            FormatFields = formatFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sal_PayrollEstimateDetailModel>(grid))
+</div>
+
+
+
+
+

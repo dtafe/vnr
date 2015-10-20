@@ -1,0 +1,285 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Presentation.UI.Controls.Kendo.MultiSelect
+@using HRM.Presentation.Hr.Models
+
+@using HRM.Infrastructure.Utilities
+@using System.Collections;
+@model HRM.Presentation.Hr.Models.Hre_RelativesModel
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+}
+@{
+    IList<SelectListItem> list = Enum.GetValues(typeof(EnumDropDown.Gender))
+         .Cast<EnumDropDown.Gender>()
+         .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+         .ToList();
+
+    SelectList data = new SelectList(list, "Value", "Text");
+}
+
+@Html.ValidationSummary(false)
+@Html.AntiForgeryToken()
+<script>
+    SetFieldRequired();
+    $(".Dependant").hide();
+
+    // Kiểm tra trùng tên người thân
+    $("#RelativeName").change(function () {
+        ShowHre_ProgressBar();
+        var _ID = $('#@Html.FieldIdFor(model => model.ID)').val();
+        var _RelativeName = $("#RelativeName").val().trim();
+        $.ajax({
+            url: '@_hrm_Hr_Service' + 'Hre_GetData/CheckDuplicateRelatives',
+            type: 'POST',
+            data: { ID: _ID, name: _RelativeName },
+            success: function (status) {
+                
+                if (status != '') {
+                    $("#idFailRelatives").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idSuccessRelatives").attr("style", "display: none");
+                    ShowNotification('@ConstantDisplay.HRM_Dashboard_Alerts.TranslateString()', '@ConstantDisplay.HRM_HR_Profile_ProfileNameExistInSystem.TranslateString()' + status, "k-block k-info-colored");
+                    CloseHre_ProgressBar();
+                }
+                else {
+                    $("#idSuccessRelatives").attr("style", "display: inline-block; padding-top: 4px; padding-left: 5px; padding-right: 5px");
+                    $("#idFailRelatives").attr("style", "display: none");
+                    CloseHre_ProgressBar();
+                }
+            },
+        });
+    });
+    $('#CheckAddDependant').change(function () {
+        if ($(this).is(":checked")) {
+            $(".Dependant").show();
+        }
+        else
+        {
+            $(".Dependant").hide();
+        }
+       
+    });
+
+</script>
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div class="hrm_box" style="width:550px">
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    IEnumerable valueProfile = new string[] { };
+                                    if (Model != null)
+                                    {
+                                        valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+                                    }
+                                }
+                                @{
+                                    var Profile = new MultiSelectBuilderInfo()
+                                     {
+                                         DataTextField = Hre_RelativesModel.FieldNames.ProfileName,
+                                         DataValueField = Hre_RelativesModel.FieldNames.ID,
+                                         Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+                                         Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                         MaxSelectedItems = 1,
+                                         Width = 200,
+                                         Value = valueProfile
+                                     };
+                                    var CheckAddDependant = new CheckBoxBuilderInfo()
+                                    {
+
+
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                                @Html.VnrCheckBoxFor(m=>m.CheckAddDependant,CheckAddDependant)@ConstantDisplay.HRM_HR_Relatives_CheckAddDependant.TranslateString()
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div class="Dependant">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.MonthOfEffect)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var MonthOfEffect=new DatePickerBuilderInfo()
+                                    {
+                                        Format=ConstantFormat.HRM_Format_DayMonthYear
+                                    };
+                                    
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthOfEffect, MonthOfEffect)
+                            </div>
+                        </div>
+                        <div class="Dependant">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.MonthOfExpiry)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var MonthOfExpiry = new DatePickerBuilderInfo()
+                                    {
+                                        Format = ConstantFormat.HRM_Format_DayMonthYear
+                                    };
+
+                                }
+                                @Html.VnrDatePickerFor(model => model.MonthOfExpiry, MonthOfExpiry)
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.HiddenFor(mode => mode.ID)
+                                @Html.VnrLabelFor(mode => mode.RelativeName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(mode => mode.RelativeName)
+                                <div id="idSuccessRelatives" style="display: none"><img src="Content\images\icons\accept.png" /></div>
+                                <div id="idFailRelatives" style="display: none; padding-top: 4px; padding-left: 5px; padding-right: 5px; "><img src="Content\images\icons\reject.png" /></div>
+
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.IDNo)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.IDNo, "width:200px")
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Career)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.Career, "Width:200px;")
+                                @Html.ValidationMessageFor(model => model.Career)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Gender)
+                            </div>
+                            <div class="FieldValue">
+
+                                @{
+                                    var gender = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "RelativeInfo_Gender",
+                                        BindTo = list,
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        StyleCss = "Width: 100px",
+                                        OptionLabel = " "
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.Gender, gender)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.YearOfBirth)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Kendo().MaskedTextBoxFor(model => model.YearOfBirth).Mask("00/00/0000").HtmlAttributes(new { style = "width:100px" })
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.NationalityID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    IEnumerable ValueNationalityID = new string[] { };
+                                    if (Model != null)
+                                    {
+                                        ValueNationalityID = new[] { new { CountryName = Model.CountryName, ID = Model.NationalityID } };
+                                    }
+                                }
+                                @{
+                                    var mtsCountry = new MultiSelectBuilderInfo()
+                                     {
+                                         Autobind = true,
+                                         DataTextField = Hre_RelativesModel.FieldNames.CountryName,
+                                         DataValueField = Hre_RelativesModel.FieldNames.ID,
+                                         Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiCountry",
+                                         Placeholder = ConstantDisplay.HRM_Category_SelectCountry.TranslateString(),
+                                         MaxSelectedItems = 1,
+                                         Width = 200,
+                                         Value = ValueNationalityID
+                                     };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.NationalityID, mtsCountry))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.RelativeTypeName)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    IEnumerable ValueRelativeType = new string[] { };
+                                    if (Model != null)
+                                    {
+                                        ValueRelativeType = new[] { new { RelativeTypeName = Model.RelativeTypeName, ID = Model.RelativeTypeID } };
+                                    }
+                                }
+                                @{
+                                    var _RelativeType = new MultiSelectBuilderInfo()
+                                    {
+
+                                        DataTextField = Hre_RelativesModel.FieldNames.RelativeTypeName,
+                                        DataValueField = Hre_RelativesModel.FieldNames.ID,
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiRelativeType",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectRelativeType.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        Width = 200,
+                                        Value = ValueRelativeType
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(model => model.RelativeTypeID, _RelativeType))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Address)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.Address)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.Notes)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextAreaFor(model => model.Notes)
+                                @Html.ValidationMessageFor(model => model.Notes, "min-width:200px")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>

@@ -1,0 +1,146 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Recruitment.Models
+@using HRM.Infrastructure.Security
+
+@model Rec_CandidateModel
+@{
+    IList<SelectListItem> Result = Enum.GetValues(typeof(Interview))
+     .Cast<Interview>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    string[] valueFields = null;
+    var candidateID = Guid.Empty;
+    if (ViewData["CandidateID"] != null)
+    {
+        candidateID = Common.ConvertToGuid(ViewData["CandidateID"].ToString());
+    }
+    if (Model != null)
+    {
+        candidateID = Model.ID;
+    }
+}
+@{
+    var windowInterview = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Rec_Interview_PopUp_Name,
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_Interview/InterviewInfoDetail?CandidateID=" + candidateID,
+    };
+}
+@(Html.VnrWindow(windowInterview))
+<script>
+    var titleEditPopUpRecInterview = '@Html.Raw(ConstantDisplay.HRM_Rec_Interview_Update_Title.TranslateString())';
+    var titleCreatePopUpRecInterview = '@Html.Raw(ConstantDisplay.HRM_Rec_Interview_Create_Title.TranslateString())';
+    var gridName = '@ConstantControlName.HRM_Rec_Interview_Grid_Name';
+    var windowName = '@ConstantControlName.HRM_Rec_Interview_PopUp_Name';
+    var checkedNodes = [];
+
+    //Xử lý tạo mới
+    $("#btnCreateInterview1").click(function () {
+
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_Interview');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(windowName, titleCreatePopUpRecInterview, '@ConstantPermission.Rec_Interview');
+    });
+    //Xử Lý grid
+    // GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDeleteInterview1').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Rec_Interview/RemoveSelecteds/", selectedIds, '@ConstantPermission.Rec_Interview');
+        return false;
+    });
+
+    $(document).ready(function () {
+        var url = '@_hrm_Main_Web' + "Rec_Interview/InterviewInfoDetail/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Rec_Interview', titleEditPopUpRecInterview);
+    });
+</script>
+<div style="padding-top:3px">
+    <div class="commandToolBarWidge">
+        <div class="GridTitle">
+            @Html.VnrLabel(ConstantDisplay.HRM_REC_Interview.TranslateString())
+        </div>
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateInterview1", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteInterview1", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {Rec_InterviewModel.FieldNames.ResultInterview,new object[]
+               { "Value", "Text", Result, ConstantDisplay.HRM_Rec_Interview_Status,""}},
+
+        };
+
+            valueFields = new string[]
+        {
+            Rec_InterviewModel.FieldNames.PositionName,
+            Rec_InterviewModel.FieldNames.Interviewer1,
+            Rec_InterviewModel.FieldNames.DateInterview,
+            Rec_InterviewModel.FieldNames.ResultInterview,
+            Rec_InterviewModel.FieldNames.Totalcomment,
+            Rec_InterviewModel.FieldNames.TagName,
+            Rec_InterviewModel.FieldNames.LevelInterview,
+        };
+
+            //Set độ rộng cho từng column
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Rec_InterviewModel.FieldNames.PositionName, 100},
+            {Rec_InterviewModel.FieldNames.Interviewer1, 130},
+            {Rec_InterviewModel.FieldNames.DateInterview, 120},
+            {Rec_InterviewModel.FieldNames.ResultInterview, 80},
+            {Rec_InterviewModel.FieldNames.Totalcomment, 150},
+            {Rec_InterviewModel.FieldNames.TagName, 120},
+            {Rec_InterviewModel.FieldNames.LevelInterview, 120},
+        };
+
+            //Thông tin hiển thị được dịch
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Rec_InterviewModel.FieldNames.PositionName, ConstantDisplay.HRM_Rec_Interview_PositionName},
+            {Rec_InterviewModel.FieldNames.Interviewer1, ConstantDisplay.HRM_Rec_Interview_Interviewer1},
+            {Rec_InterviewModel.FieldNames.DateInterview, ConstantDisplay.HRM_Rec_Interview_DateInterview},
+            {Rec_InterviewModel.FieldNames.ResultInterview, ConstantDisplay.HRM_Rec_Interview_Status},
+            {Rec_InterviewModel.FieldNames.Totalcomment, ConstantDisplay.HRM_Rec_Interview_Totalcomment},
+            {Rec_InterviewModel.FieldNames.TagName, ConstantDisplay.HRM_Rec_Interview_TagName},
+            {Rec_InterviewModel.FieldNames.LevelInterview, ConstantDisplay.HRM_REC_Candidate_LevelInterview},
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = ConstantControlName.HRM_Rec_Interview_Grid_Name,
+                ValueFields = valueFields,
+                ForeignKey = foreignKey,
+                AutoBind = true,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetInterviewListByCandidateID?ID=" + candidateID,
+                ReadData = "filterFieldInfo",
+                ShowDeleteButton = true,
+                ShowEditButton = false,
+                GridHeight = 580,
+                ShowEditIcon = false
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Rec_InterviewModel>(grid))
+    </div>
+</div>

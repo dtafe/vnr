@@ -1,0 +1,193 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Att_ReportLateEarlyTotalModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            SDateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateFrom").val()),
+            SDateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportLateEarlyTotal',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        CloseHre_ProgressBar();
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        
+                        $.ajax({
+                            url: '@_hrm_Hr_Service' + "Att_GetData/GetReportLateEarlyTotal",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            async: false,
+                            success: function (data) {
+                                CloseHre_ProgressBar();
+                                
+                                var grid = VnrGridDynamic;
+                                grid.GridName = 'grid_ReportLateEarlyTotal';
+                                grid.DataSource = data.Data;
+                                VnrGridDynamicControl(grid);
+                            }
+                        });
+                        checkedNodes = [];
+                    }
+                }
+            });
+            return false;
+        });
+    });
+    $("#btnExport").click(function () {
+
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportLateEarlyTotal";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_ReportLateEarlyTotal');
+        checkedNodes = [];
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportLateEarlyTotal', filterFieldInfo(true));
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.SDateFrom)
+                        @Html.HiddenFor(m => m.UserExport)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var SDateFrom = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                Value = DateTime.Now.ToString("dd/MM/yyyy"),
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.SDateFrom, SDateFrom)
+                        @{
+                            var SDateTo = new DatePickerBuilderInfo()
+                            {
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                Value = DateTime.Now.ToString("dd/MM/yyyy"),
+                            };
+                        }
+                        @Html.VnrDatePickerFor(mode => mode.SDateTo, SDateTo)
+
+                    </div>
+                    <div style="clear: both;"></div>
+                </div>
+
+
+                <div id="div14">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                    </div>
+                    <div class="FieldValue">
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+
+
+        </div>
+    </div>
+</div>
+<div id="grid_ReportLateEarlyTotal"></div>

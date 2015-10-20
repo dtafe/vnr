@@ -1,0 +1,170 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@model HRM.Presentation.Category.Models.Cat_PivotModel
+@{
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    IList<SelectListItem> list = Enum.GetValues(typeof(EnumDropDown.DuplicateData))
+     .Cast<EnumDropDown.DuplicateData>()
+     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+     .ToList();
+
+    string preC = string.Empty;
+    if (TempData["PreController"] != null)
+    {
+        preC = TempData["PreController"].ToString();
+    }
+}
+<script>
+
+    function filterFieldInfo() {
+        debugger;
+        return {
+            PivotFileName: $('#@Html.FieldIdFor(model => model.TemplateFile)').val(),
+            PivotName: $('#PivotName').val(),
+            ID: $('#PivotName').val(),
+            UserID: $("#UserLoginId").val(),
+            
+        };
+    }
+
+    var column = [], columnInvalid = [];
+
+    function onChangeNew(e) {
+        debugger;
+        $("#ExportID").val(this._current[0].childNodes[0].childNodes[1].id);
+    }
+    $("#btnSave").click(function () {
+        ShowHre_ProgressBar();
+       
+       
+      
+                    $.ajax({
+                        url: '@_hrm_Hre_Service' + "Cat_GetData/ConvertFromPivot/",
+                        dataType: "json",
+                        type: "POST",
+                        async: false,
+                        data: filterFieldInfo(),
+                        success: function (data) {
+                           
+                            var n = data.indexOf(","), status = '', fullPath = '';
+                            if (n > 0) {
+                                status = data.substring(0, n);
+                                if (status == "Success") {
+                                    debugger;
+                                    fullPath = data.substring(n + 1, data.length);
+                                    var strDownload = fullPath.split("\\");
+                                    var url = strDownload[strDownload.length - 3] + "/" + strDownload[strDownload.length - 1];
+                                    ShowNotificationProcessor(status);
+                                    window.location.href = '@_hrm_Main_Web' + url;
+                                }
+                            } else if (data == "-1")
+                            {
+                                ShowNotificationProcessor("Không Tìm Thấy File Xuất Excel");
+                            }
+                            CloseHre_ProgressBar();
+                           
+                        },
+                        error: function () {
+                            CloseHre_ProgressBar();
+                        },
+                    });
+
+        CloseHre_ProgressBar();
+    });
+
+
+
+    
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div>
+                        <div style="float:left; width:550px">
+                            <div id="div2">
+                              
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(model => model.PivotName)
+                                </div>
+                                <div class="FieldValue">
+                           
+                                    @{
+                                        var _ImportName = new ComboBoxBuilderInfo
+                                        {
+                                            DataTextField = "PivotName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiPivot",
+                                            Placeholder = ConstantDisplay.HRM_Category_SelectImport.TranslateString(),
+                                            StyleCss = "width:300px;",
+                                            //Template = "<span class=\"k-state-default\">#: data.ImportName #" + @Html.Hidden("#: data.ID #", null, new { Id = "#: data.ID #" }) + "</span>",
+                                            //EventChange = "onChangeNew",
+                                           // Data = "ImportData1"
+                                        };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.PivotName, _ImportName)
+                                    @Html.Hidden("ExportID")
+                                </div>
+                            </div>
+                          
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.TemplateFile)
+                                </div>
+                                <div class="FieldValue" style="max-width: 300px!important">
+                                    <script>
+                                        function onSuccess(e) {
+                                            debugger;
+                                            var responseTxt = jQuery.parseJSON(e.XMLHttpRequest.responseText);
+                                            var status = responseTxt.Status;
+                                            if (status == true) {
+                                                //value null
+                                                $("#TemplateFile").val('');
+                                                //set value
+                                                $("#TemplateFile").val(responseTxt.FileName);
+                                            } else {
+                                                $("#TemplateFile").val('');
+                                            }
+                                        }
+                                    </script>
+                                    @Html.HiddenFor(model => model.TemplateFile)
+                                    <input type="file" name="files" id="UploadImportTemplateFile" />
+                                    <script>
+                                        var vnrUpload = VnrUploadBuilder;
+                                        vnrUpload.Id = "UploadImportTemplateFile";
+                                        vnrUpload.Host = '@_hrm_Main_Web';
+                                        vnrUpload.Files = '@Html.DisplayFor(model => model.TemplateFile)';
+                                        vnrUpload.Field = "TemplateFile";
+                                        vnrUpload.AutoUpload = true;
+                                        VnrUpload(vnrUpload);
+                                    </script>
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+               
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSave", Content = ConstantAction.HRM_Common_Pivot.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSave", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImportSave", Content = ConstantAction.HRM_Common_ImportAndSave.TranslateString(), ImageUrl = ConstantPath.IconSavePath })*@
+    </div>
+    <div style="float: right">
+        <div id="idDataInvalid"></div>
+    </div>
+    @*@Html.Partial("Tab_Import")*@
+</div>

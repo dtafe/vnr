@@ -1,0 +1,485 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model FIN_TravelRequestSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Contract.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+  .Cast<EnumDropDown.Gender>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+  .ToList();
+
+    IList<SelectListItem> listSta = Enum.GetValues(typeof(EnumDropDown.WorkdayStatus))
+          .Cast<EnumDropDown.WorkdayStatus>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+          .ToList();
+
+    var userLoginName = Session[SessionObjects.LoginUserName];
+          
+}
+
+
+@Html.Hidden("Screen", screen)
+
+@{
+    var windowApproved = new WindowBuilderInfo
+    {
+        Name = "windowTravelRequest_SendRequest",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "FIN_TravelRequest/TravelRequest_RequestInfo/",
+    };
+}
+@(Html.VnrWindow(windowApproved))
+
+
+<script type="text/javascript">
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            DateRequest: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateRequest").val()),
+            TravelRequestName: $('#TravelRequestName1').val(),
+            UserCreateID: $('#@Html.FieldIdFor(model=>model.UserCreateID)').val(),
+            UserApproveID: $('#@Html.FieldIdFor(model=>model.UserApproveID)').val(),
+            ClaimCode: $('#@Html.FieldIdFor(model=>model.ClaimCode)').val(),
+            ClaimName: $('#@Html.FieldIdFor(model=>model.ClaimName)').val(),
+            FunctionID: $('#SFunctionID').val() ? $('#SFunctionID').val()[0] : null,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserName: '@userLoginName',
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+
+        VnrCommon.FormatDate()
+
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+
+            var grid = $('#grid_TravelRequest').data("kendoGrid");
+            grid.dataSource.read();
+
+            checkedNodes = [];
+        });
+        //Xử lý nút Edit
+
+        EditGridNewPage("grid_TravelRequest", '#Hrm_Main_Web/FIN_TravelRequest/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    $("#btnPayment").click(function () {
+        $("#isPayment").val("true");
+        KendoRouteMapping('#Hrm_Main_Web/FIN_TravelRequest/CreatePayment/' + selectedIds, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    $("#btnCreate").click(function () {
+
+        KendoRouteMapping('#Hrm_Main_Web/FIN_TravelRequest/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    GridCheckbox("gridHre_Contract");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.FIN_TravelRequest');
+        if (!isAccess) {
+            return;
+        }
+
+        var isAllowDelete = true;
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Hre_GetData/CheckAllowRemoveFinTravelRequest",
+            data: { id: selectedIds.join(",") },
+            type: 'POST',
+            success: function (data) {
+                if (data == false) {
+                    ShowNotificationProcessor("Bạn không được xoá những dữ liệu đã được phê duyệt");
+                    isAllowDelete = false;
+                    return false;
+                }
+                else {
+                    var grid = $('#grid_TravelRequest').data("kendoGrid");
+                    var selectedItem = grid.dataItem(grid.select());
+                    DeleteSelected("grid_TravelRequest", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveSelected/", selectedIds, '@ConstantPermission.FIN_TravelRequest');
+                    return false;
+                }
+            }
+        });   
+    });
+
+
+
+    $('#btnSendRequest').click(function (e) {
+        var userId = '@Session[SessionObjects.UserId]';
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Dữ Liệu Để Gửi Mail");
+            return;
+        }
+        e.preventDefault();
+        var grid = $('#grid_TravelRequest').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToSendMail.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("grid_TravelRequest", '@_hrm_Hr_Service' + "Hre_GetData/ActionSendMailTravelRequest/", selectedIds, userId, '@_hrm_Main_Web');
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+
+      
+
+    });
+
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter, userId, host) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, userId: userId, host: host },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_SendMail_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');//Chưa dịch
+            }
+        });
+    };
+
+
+    $('#btnReject').click(function (e) {
+
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Đơn Hàng Để Từ Chối");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "FIN_TravelRequest/TravelRequestRejectInfo/";
+        PopUpEdit("windowTravelRequest_Reject", url, selectedIds[0], "Từ Chối Đơn Hàng");
+
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#grid_TravelRequest').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAllTravelRequestList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.FIN_TravelRequest');
+    });
+
+    function onDataBoundGrid() {
+        CheckedGrid("grid_TravelRequest", selectedIds.join(","));
+    };
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Hre_GetData/ExportTravelRequestByTemplate', filterFieldInfo(true));
+    });
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        var grid = $('#grid_TravelRequest').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportTravelRequestByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.FIN_TravelRequest');
+    });
+
+</script>
+
+@*<form action="#" method="POST" id="form-search">*@
+<div class="panel-wrap">
+ 
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model=>model.DateRequest)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _DateRequest = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss="width:120px",
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model=>model.DateRequest,_DateRequest)
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.TravelRequestName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("TravelRequestName1", "width:200px;")
+                            </div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model=>model.UserCreateID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _UserCreateID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "UserInfoName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                                        Value = @Html.DisplayFor(mode => mode.UserCreateID).ToString(),
+                                        Placeholder = @ConstantDisplay.HRM_System_SelectRequester.TranslateString(),
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.UserCreateID, _UserCreateID)
+                            </div>
+                        </div>
+                        <div class="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model=>model.UserApproveID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _UserApproveID = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "UserInfoName",
+                                        DataValueField="ID",
+                                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                                        Value=@Html.DisplayFor(model=>model.UserApproveID).ToString(),
+                                        StyleCss="width:200px",
+                                        Placeholder = @ConstantDisplay.HRM_Attendance_SelectSysUserID.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model=>model.UserApproveID,_UserApproveID)
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="hrm_box">
+                        <div class="div5">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model=>model.ClaimCode)
+                            </div>
+                            <div class="FieldValue">
+                               @Html.VnrTextBoxFor(model=>model.ClaimCode)
+                            </div>
+                        </div>
+                        <div class="div6">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ClaimName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model=>model.ClaimName)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSendRequest", Content = ConstantDisplay.HRM_Common_SendRequest_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnPayment", Content = ConstantAction.HRM_Common_Payment.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSendRequest", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })*@
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    StyleCss = "width:200px;",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {FIN_TravelRequestModel.FieldNames.Status,new object[]
+               { "Value", "Text", listSta, ConstantDisplay.HRM_Rec_Candidate_Status,""}},
+               
+             
+        };
+        
+        valueFields = new[]
+        {
+            FIN_TravelRequestModel.FieldNames.TravelRequestCode,
+            
+            FIN_TravelRequestModel.FieldNames.TravelRequestName,
+            
+            FIN_TravelRequestModel.FieldNames.UserCreateName,
+         //   FIN_TravelRequestModel.FieldNames.UserApprovedName,
+            FIN_TravelRequestModel.FieldNames.StatusView,
+            //FIN_TravelRequestModel.FieldNames.CostEstimate,
+            //FIN_TravelRequestModel.FieldNames.CashAdvance,
+            //FIN_TravelRequestModel.FieldNames.CostActual,
+            //FIN_TravelRequestModel.FieldNames.Balance,
+            //FIN_TravelRequestModel.FieldNames.PaidAmount
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {FIN_TravelRequestModel.FieldNames.TravelRequestCode, 130},
+            
+            {FIN_TravelRequestModel.FieldNames.TravelRequestName, 130},
+            {FIN_TravelRequestModel.FieldNames.UserCreateName, 130},
+          //  {FIN_TravelRequestModel.FieldNames.UserApprovedName, 130},
+            {FIN_TravelRequestModel.FieldNames.StatusView, 100},
+            //{FIN_TravelRequestModel.FieldNames.CostEstimate, 120},
+            //{FIN_TravelRequestModel.FieldNames.CashAdvance, 120},
+            //{FIN_TravelRequestModel.FieldNames.CostActual, 120},
+            //{FIN_TravelRequestModel.FieldNames.Balance, 100},
+            //{FIN_TravelRequestModel.FieldNames.PaidAmount, 140},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {FIN_TravelRequestModel.FieldNames.TravelRequestCode, ConstantDisplay.HRM_FIN_Claim_TravelRequestCode},
+            {FIN_TravelRequestModel.FieldNames.TravelRequestName, ConstantDisplay.HRM_FIN_Claim_TravelRequestName},
+            {FIN_TravelRequestModel.FieldNames.UserCreateName, ConstantDisplay.HRM_Fin_PurchaseRequest_UserCreateID},
+           // {FIN_TravelRequestModel.FieldNames.UserApprovedName, ConstantDisplay.HRM_Fin_PurchaseRequest_UserApprovedID},
+            {FIN_TravelRequestModel.FieldNames.StatusView, ConstantDisplay.HRM_Att_Report_Status},
+            //{FIN_TravelRequestModel.FieldNames.CostEstimate, ConstantDisplay.HRM_Fin_PurchaseRequest_CostEstimate},
+            //{FIN_TravelRequestModel.FieldNames.CashAdvance, ConstantDisplay.HRM_Fin_PurchaseRequest_CashAdvance},
+            //{FIN_TravelRequestModel.FieldNames.CostActual, ConstantDisplay.HRM_Fin_PurchaseRequest_CostActual},
+            //{FIN_TravelRequestModel.FieldNames.Balance, ConstantDisplay.HRM_Fin_PurchaseRequest_Balance},
+            //{FIN_TravelRequestModel.FieldNames.PaidAmount, ConstantDisplay.HRM_Fin_PurchaseRequest_PaidAmount}
+        };
+
+
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_TravelRequest",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetTravelRequestList",
+            ReadData = "filterFieldInfo",
+
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Hr.Models.FIN_TravelRequestModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+

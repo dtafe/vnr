@@ -1,0 +1,197 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using MvcSiteMapProvider.Web.Html
+@using HRM.Infrastructure.Security;
+
+@model Sys_TemplateSendMailModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var gridName = "gridTemplateSendMail";
+    var windowName = "windowTemplateSendMail";
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 700,
+        Title = "TemplateEmail",
+        LoadContentFrom = @hrm_Sys_Web + "Sys_TemplateSendMail/SysTemplateSendMailInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Sys_TemplateSendMail_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Sys_TemplateSendMail_PopUp_Create_Title.TranslateString())';
+
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        return {
+            TemplateName: $('#TemplateName1').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Xử lý Edit popup
+        var url = '@hrm_Sys_Web' + "Sys_TemplateSendMail/SysTemplateSendMailInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Sys_TemplateSendMail', titleEditPopUp);
+    });
+
+
+    $("#btnCreate").click(function () {
+        PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Sys_TemplateSendMail');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        DeleteSelected(gridName, '@hrm_Sys_Web' + "Sys_TemplateSendMail/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_TemplateSendMail');
+    })
+
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportAllUserApproveList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sys_TemplateSendMail');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportUserApproveSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sys_TemplateSendMail');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="dvUserApproveName">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.TemplateName)
+                        </div>
+                        <div class="FieldValue">
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("TemplateName1", "width:200px;")
+                            </div>
+
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        @*<div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+        {
+         Sys_TemplateSendMailModel.FieldNames.TemplateName,
+         Sys_TemplateSendMailModel.FieldNames.Subject,
+         Sys_TemplateSendMailModel.FieldNames.Description,
+         //Sys_TemplateSendMailModel.FieldNames.Notes
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_TemplateSendMailModel.FieldNames.TemplateName, 130},
+            {Sys_TemplateSendMailModel.FieldNames.Subject, 130},
+            {Sys_TemplateSendMailModel.FieldNames.Description, 200},
+            //{Sys_TemplateSendMailModel.FieldNames.Notes, 200}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_TemplateSendMailModel.FieldNames.TemplateName, ConstantDisplay.HRM_Sys_TemplateSendMail_TemplateName},
+            {Sys_TemplateSendMailModel.FieldNames.Subject, ConstantDisplay.HRM_Sys_TemplateSendMail_Subject},
+            {Sys_TemplateSendMailModel.FieldNames.Description, ConstantDisplay.HRM_HR_Discipline_DescriptionOfViolation},
+            //{Sys_TemplateSendMailModel.FieldNames.Notes, ConstantDisplay.HRM_Sys_TemplateSendMail_Notes},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetTeamPlateEmailList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+           
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_TemplateSendMailModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

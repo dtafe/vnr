@@ -1,0 +1,320 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_Overtime.TranslateString();
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Att_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_EmpPortal_Web = ConstantPathWeb.Hrm_EmpPortal_Web;
+
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+  .Cast<EnumDropDown.OverTimeStatus>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+  .ToList();
+    var userId = Session["ProfileID"];
+}
+@model Att_OvertimeSearchOTModel
+<div class="container">
+    <div class="row">
+        <ul class="breadcrumb hidden-xs" style="margin-bottom:auto">
+            <li><a href="/Portal/Home">Trang Chủ</a></li>
+            <li><a href="/Att_Overtime/OvertimeList">DS Tăng Ca</a></li>
+        </ul>
+    </div>
+</div>
+<div class="form-tile">@*@ViewBag.Title*@</div>
+<div class="container">
+    <div class="row">
+        <div id="example">
+            <div class="demo-section k-header">
+                <div id="toolbar"></div>
+            </div>
+            <script>
+                var selectedIds = [];
+                var checkedNodes = [];
+                var OverTimeID = null;
+                var ShiftID = null;
+                var gridOvertimeName = "gridAtt_Overtime";
+                function filterFieldInfo(isExport) {
+                    return {
+                        SysUserID: '@userId',
+                        IsExport: isExport,
+                        ValueFields: $('#valueFieldsGrid').val()
+                    };
+                }
+
+                $(document).ready(function () {
+                    $("#toolbar").kendoToolBar({
+                        items: [
+                            { type: "button", id: "btnDelete", text: "Xóa", imageUrl: "/Content/images/icons/delete.png" },
+                            { type: "separator" },
+                             {
+                                 type: "splitButton",
+                                 imageUrl: "/Content/images/icons/excel.png",
+                                 text: "Xuất excel",
+                                 menuButtons: [
+                                     { text: "Xuất tất cả", id: "btnExportAll", imageUrl: "/Content/images/icons/excel.png" },
+                                     { text: "Xuất đã chọn", id: "btnExportSelected", imageUrl: "/Content/images/icons/excel.png" },
+                                 ]
+                             },
+                        ],
+                        click: function (e) {
+                            var id = e.id;
+                            switch (id) {                                
+                                case "btnExportSelected":
+                                    if (selectedIds.length == 0) {
+                                        ExportSelectedFail();
+                                        return;
+                                    }
+                                    var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportOvertimeSelectedPortal/";
+                                    var urlDownload = '@_hrm_EmpPortal_Web';
+                                    var listIds = selectedIds;
+                                    var listFields = $('#valueFieldsGrid').val();
+                                    ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_Overtime_OvertimeList_Portal');
+                                    selectedIds = [];
+                                    break;
+                                case "btnExportAll":
+                                    var grid = $('#' + gridOvertimeName).data("kendoGrid");
+                                    if (grid._data.length == 0) {
+                                        ExportAllFail();
+                                        return;
+                                    }
+                                    var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportOvertimeListPortalByProfile/";
+                                    var urlDownload = '@_hrm_EmpPortal_Web';
+                                    var dataParameter = filterFieldInfo(true);
+                                    debugger;
+                                    ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Overtime_OvertimeList_Portal');
+                                    break;
+                                case "btnDelete":
+
+                                    if (selectedIds.length == 0) {
+                                        DeleteFail();
+                                        return;
+                                    }
+                                   
+                                    var recordids = [];
+                                    for (var i = 0; i < selectedIds.length; i++) {
+                                        recordids.push(selectedIds[i]);
+                                    }
+                                    var IsActive = true;
+                                    var grid = $('#gridAtt_Overtime').data("kendoGrid");
+                                    
+                                    var currentSource = grid.dataSource.data();
+
+                                    $.ajax({
+                                        type: 'POST',
+                                        url: '@_hrm_Hre_Service' + 'Att_GetData/GetConfig_Allow',
+                                        dataType: 'json',
+                                        async: false,
+                                        success: function (data) {
+                                            for (var i = 0; i < currentSource.length; i++) {
+                                                if (selectedIds.indexOf(currentSource[i].id) != -1) {
+                                                    if (currentSource[i].Status == "Duyệt" || currentSource[i].Status == "E_APPROVED") {
+                                                        if (data == true) {
+                                                            ErrorMessages("Dữ Liệu Có Trạng Thái Duyệt Không Được Xóa");
+                                                            IsActive = false;
+                                                            return IsActive;
+                                                        }
+                                                        else {
+                                                            selectedIds.splice(selectedIds.indexOf(currentSource[i].id), 1);
+
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    });
+                                    if (!IsActive) {
+                                        return;
+                                    }
+                                    debugger;
+                                    e.preventDefault();
+                                    if (recordids.length == selectedIds.length) {
+                                        DeleteSelectedConfirm("gridAtt_Overtime", '@_hrm_EmpPortal_Web' + "Att_Overtime/RemoveSelected/", selectedIds, '@ConstantPermission.Att_Overtime_OvertimeList_Portal');
+                                        return false;
+                                    }
+
+                                    DeleteSelecteds("gridAtt_Overtime", '@_hrm_EmpPortal_Web' + "Att_Overtime/RemoveSelected/", selectedIds, recordids, '@ConstantPermission.Att_Overtime_OvertimeList_Portal');
+                                    return false;
+
+                                    selectedIds = [];
+                                    break;
+                            }
+                        }
+
+                    });
+                    $("#btnActionSearch").click(function () {
+                        status = $('#@Html.FieldIdFor(model => model.Status)').val();
+                       
+                        var grid = $('#gridAtt_Overtime').data("kendoGrid");
+                        grid.dataSource.read();
+                        checkedNodes = [];
+                        selectedIds = [];//clear array khi tìm kiếm lại grid
+
+                        return false;
+                    });
+
+                    $("#" + gridOvertimeName).on("click", ".gridEditImgButton", function (e) {
+                        var grid = $("#" + gridOvertimeName).data("kendoGrid");
+                        var row = $(this).closest("tr");
+                        var dataItem = grid.dataItem(row);
+                        if (dataItem.Status != "Duyệt" && dataItem.Status != "E_APPROVED") {
+                            location.href = "/Att_Overtime/Edit/" + dataItem.ID;
+                        }
+                        else {
+                            ErrorMessages("Trạng Thái Đã Duyệt Không Được Phép Chỉnh Sửa!");
+                        }
+
+                    });
+                });
+
+                function onSelectOverTime(e) {
+                    var dataItem = this.dataItem(e.item.index());
+                    OverTimeID = dataItem.ID;
+                }
+
+                function onSelectShift(e) {
+                    var dataItem = this.dataItem(e.item.index());
+                    ShiftID = dataItem.ID;
+                }
+
+
+                function onDataBoundGrid() {
+                  
+                    var grid = $('#gridAtt_Overtime').data("kendoGrid");
+
+                    grid.tbody.find('>tr').each(function () {
+                        debugger;
+                        var dataItem = grid.dataItem(this);
+
+                        var valueField = dataItem['Status'];
+
+                        //Xử Lý đổi màu cột
+                        if (valueField != '' && valueField != undefined) {
+                            debugger;
+                
+
+                            if (valueField == "Yêu Cầu" || valueField == "E_SUBMIT") {
+                                $(this.cells[4]).attr('style', 'color:#FF9900');
+                            }
+                            if (valueField == "Yêu Cầu" || valueField == "E_APPROVED") {
+                                $(this.cells[4]).attr('style', 'color:#00CC00');
+                            } if (valueField == "Yêu Cầu" || valueField == "E_REJECTED") {
+                                $(this.cells[4]).attr('style', 'color:#FF0000');
+                            }
+                        }
+
+                    });
+
+                }
+
+            </script>
+        </div>        
+    </div>
+    <div class="row">
+        <div>
+            <!--Khai báo các thông tin cho Grid-->
+            @using HRM.Presentation.Attendance.Models
+            @{
+                Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_OvertimeModel.FieldNames.Status,new object[]
+               { "Value", "Text", listStatus, ConstantDisplay.HRM_Attendance_Overtime_Status,""}}
+
+        };
+                var valueFields = new string[]
+        {
+            Att_OvertimeModel.FieldNames.CodeEmp,
+            Att_OvertimeModel.FieldNames.ProfileName,
+           // Att_OvertimeModel.FieldNames.Status,
+            Att_OvertimeModel.FieldNames.StatusTranslate,
+            Att_OvertimeModel.FieldNames.ReasonOT,
+            Att_OvertimeModel.FieldNames.DeclineReason,
+            Att_OvertimeModel.FieldNames.WorkDate,
+            Att_OvertimeModel.FieldNames.InTime,
+            Att_OvertimeModel.FieldNames.OutTime,
+            Att_OvertimeModel.FieldNames.RegisterHours,
+            Att_OvertimeModel.FieldNames.ApproveHours,
+            Att_OvertimeModel.FieldNames.OvertimeTypeName,
+            Att_OvertimeModel.FieldNames.UserApproveName1,
+            Att_OvertimeModel.FieldNames.UserApproveName2
+        };
+
+                Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_OvertimeModel.FieldNames.CodeEmp, 120},
+            {Att_OvertimeModel.FieldNames.ProfileName, 180},
+            //{Att_OvertimeModel.FieldNames.Status, 127},
+            {Att_OvertimeModel.FieldNames.StatusTranslate, 140},
+            {Att_OvertimeModel.FieldNames.ReasonOT, 130},
+            {Att_OvertimeModel.FieldNames.DeclineReason, 130},
+            {Att_OvertimeModel.FieldNames.WorkDate, 95},
+            {Att_OvertimeModel.FieldNames.InTime,75},
+            {Att_OvertimeModel.FieldNames.OutTime,75},
+            {Att_OvertimeModel.FieldNames.RegisterHours, 120},
+            {Att_OvertimeModel.FieldNames.ApproveHours, 120},
+            {Att_OvertimeModel.FieldNames.OvertimeTypeName, 120},
+            {Att_OvertimeModel.FieldNames.UserApproveName1, 145},
+            {Att_OvertimeModel.FieldNames.UserApproveName2, 140}
+        };
+                Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_OvertimeModel.FieldNames.CodeEmp, ConstantDisplay.HRM_Attendance_Overtime_ProfileID},
+            {Att_OvertimeModel.FieldNames.ProfileName, ConstantDisplay.HRM_Attendance_Overtime_ProfileName},
+            //{Att_OvertimeModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_Overtime_Status},
+            {Att_OvertimeModel.FieldNames.StatusTranslate, ConstantDisplay.HRM_Attendance_Overtime_Status},
+            {Att_OvertimeModel.FieldNames.ReasonOT, ConstantDisplay.HRM_Attendance_Overtime_ReasonOT},
+            //{Att_OvertimeModel.FieldNames.DeclineReason, "Lý Do Từ Chối"},
+            {Att_OvertimeModel.FieldNames.DeclineReason, ConstantDisplay.HRM_Attendance_Overtime_DeclineReason},
+            {Att_OvertimeModel.FieldNames.WorkDate, ConstantDisplay.HRM_Attendance_Overtime_WorkDate},
+            {Att_OvertimeModel.FieldNames.InTime, ConstantDisplay.HRM_Attendance_Overtime_InTime},
+            {Att_OvertimeModel.FieldNames.OutTime, ConstantDisplay.HRM_Attendance_Overtime_OutTime},
+            {Att_OvertimeModel.FieldNames.RegisterHours, ConstantDisplay.HRM_Attendance_Overtime_RegisterHours},
+            {Att_OvertimeModel.FieldNames.ApproveHours, ConstantDisplay.HRM_Attendance_Overtime_ApproveHours},
+            {Att_OvertimeModel.FieldNames.OvertimeTypeName, ConstantDisplay.HRM_Attendance_Overtime_OvertimeTypeID},
+            {Att_OvertimeModel.FieldNames.UserApproveName1, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID},
+            {Att_OvertimeModel.FieldNames.UserApproveName2, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID2}
+        };
+
+                Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Att_OvertimeModel.FieldNames.WorkDate, ConstantFormat.HRM_Format_DayMonthYear},
+            {Att_OvertimeModel.FieldNames.InTime, ConstantFormat.HRM_Format_HourMinSecond},
+            {Att_OvertimeModel.FieldNames.OutTime, ConstantFormat.HRM_Format_HourMinSecond}
+        };
+
+                var grid = new GridBuilderInfo
+                {
+                    Name = "gridAtt_Overtime",
+                    ValueFields = valueFields,
+                    SizeFields = sizeFields,
+                    DisplayFields = displayFields,
+                    ReadActionUrl = @_hrm_Hre_Service + "Att_GetData/GetOvertimeListPersonal/",
+                    ReadData = "filterFieldInfo",
+                    AutoBind = true,
+                    FormatFields = formatFields,
+                    EventDataBound = "onDataBoundGrid",
+                    ForeignKey = foreignKey,
+                    GridHeight = 453,
+                    PageSize = 10
+                };
+            }
+
+            <!--Khởi tạo Grid-->
+            @(Html.VnrGrid<HRM.Presentation.Attendance.Models.Att_OvertimeModel>(grid))
+        </div>
+
+    </div>
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

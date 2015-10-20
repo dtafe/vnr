@@ -1,0 +1,704 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.UI.Controls.Kendo;
+
+@model HRM.Presentation.Recruitment.Models.Rec_RecruitmentHistorySearchModelNew
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Rec_Candidate_Title.TranslateString();
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listCandidateStatus = Enum.GetValues(typeof(EnumDropDown.CandidateStatus))
+            .Cast<EnumDropDown.CandidateStatus>()
+            .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+            .ToList();
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+    .Cast<EnumDropDown.Gender>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+    .ToList();
+    IList<SelectListItem> listStatusHealth = Enum.GetValues(typeof(EnumDropDown.StatusHealth))
+ .Cast<EnumDropDown.StatusHealth>()
+ .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+ .ToList();
+    IList<SelectListItem> conditionName = Enum.GetValues(typeof(ConditionName)).Cast<ConditionName>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text).ToList();
+
+}
+@Html.Hidden("Screen", screen)
+<script type="text/javascript">
+    var checkedNodes = [];
+    var userLG = $('#UserLoginId').val();
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            CodeCandidate: $('#@Html.FieldIdFor(model => model.CodeCandidate)').val(),
+            IdentifyNumber: $('#@Html.FieldIdFor(model=>model.IdentifyNumber)').val(),
+            Gender: $('#@Html.FieldIdFor(model => model.Gender)').val(),
+            Mobile: $('#@Html.FieldIdFor(model => model.Mobile)').val(),
+            PositionID: $("#SPositionID").val(),
+            DateOfBirthFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateOfBirthFrom").val()),
+            DateOfBirthTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateOfBirthTo").val()),
+            TProvinceID: $("#STProvinceID").val(),
+            Status: $('#@Html.FieldIdFor(model => model.Status)').val(),
+            CandidateName: $('#@Html.FieldIdFor(model => model.CandidateName)').val(),
+            WorkDateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#WorkDateFrom").val()),
+            WorkDateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#WorkDateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            JobVacancyID: $('#@Html.FieldIdFor(model => model.JobVacancyID)').val() ? $('#@Html.FieldIdFor(model => model.JobVacancyID)').val()[0] : null,
+            RankID: $("#SRankID").val(),
+            RecruitmentCampaignID: $("#SRecruitmentCampaignID").val(),
+            WorkPlaceID: $('#@Html.FieldIdFor(model => model.WorkPlaceID)').val(),
+            DateApplyFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateApplyFrom").val()),
+            DateApplyTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateApplyTo").val()),
+            DateExamFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateExamFrom").val()),
+            DateExamTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateExamTo").val()),
+            ReasonFailFilter: $('#RecConditionName').val(),
+            EducationLevelID: $('#@Html.FieldIdFor(model => model.EducationLevelID)').val(),
+            TagID: $("#STagID").val(),
+            LevelInterview: $('#@Html.FieldIdFor(model => model.LevelInterview)').val(),
+            IsExport: false,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+
+
+    $(document).ready(function () {
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+        //Jump anchor
+        jumpAnchor("anchor");
+
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridRec_RecruitmentHistory').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+
+        $("#btnCreate").click(function () {
+            KendoRouteMapping('#Hrm_Main_Web/Rec_RecruitmentHistory/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        });
+        //Xử lý nút Edit
+        EditGridNewPage("gridRec_RecruitmentHistory", '#Hrm_Main_Web/Rec_RecruitmentHistory/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+
+    });
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#gridRec_RecruitmentHistory').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportAllRecruitmentHistoryListNew/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo();
+        var listFields = $('#valueFieldsGrid').val();
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_RecruitmentHistory');
+    });
+
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        var grid = $('#gridRec_RecruitmentHistory').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("gridRec_RecruitmentHistory", '@_hrm_Main_Web' + "Rec_RecruitmentHistory/RemoveSelected/", selectedIds, '@ConstantPermission.Rec_RecruitmentHistory');
+        return false;
+    });
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hre_Service' + '/Rec_GetData/ExportRecruitmentHistoryListByTemplate', filterFieldInfo(true));
+
+    });
+    $("#btnExportExcelByTemplate").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        var grid = $("#gridRec_RecruitmentHistory").data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportRecruitmentHistoryListByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParamater = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParamater, urlDownload, '@ConstantPermission.Rec_RecruitmentHistory');
+
+    });
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div class="hrm_box" style="padding-right: 20px">
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Rec_Candidate_JobVacancy.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _JobVacancyID = new MultiSelectBuilderInfo
+                                        {
+                                            DataTextField = "JobVacancyName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiJobVacancy",
+                                            MaxSelectedItems = 1,
+                                        };
+                                    }
+                                    @Html.VnrMultiSelectFor(mode => mode.JobVacancyID, _JobVacancyID)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.RecruitmentCampaignID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _RecruitmentCampaignID = new DropDownListBuilderInfo
+                                        {
+                                            Name = "SRecruitmentCampaignID",
+                                            DataTextField = "RecruitmentCampaignName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiRecruitmentCampaign",
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(mode => mode.RecruitmentCampaignID, _RecruitmentCampaignID)
+                                </div>
+                            </div>
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    <label>
+                                        @ConstantDisplay.HRM_REC_Candidate_Position.TranslateString()
+                                    </label>
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var PositionName = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "SPositionID",
+                                            DataTextField = "PositionName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiPosition",
+                                            OptionLabel = ConstantDisplay.HRM_Category_SelectJobVacancyPosition.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(mode => mode.PositionID, PositionName)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.RankID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _RankID = new DropDownListBuilderInfo()
+                                        {
+                                            Name = "SRankID",
+                                            DataValueField = "ID",
+                                            DataTextField = "NameEntityName",
+                                            Url = _hrm_Hre_Service + "Cat_GetData/GetMultiRank",
+                                            OptionLabel = ConstantDisplay.HRM_Rec_JobCondition_SelectRank.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(model => model.RankID, _RankID)
+                                </div>
+                            </div>
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    <label>
+                                        @ConstantDisplay.HRM_Canteen_Report_workPlaceId.TranslateString()
+                                    </label>
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _workplaceName = new ComboBoxBuilderInfo()
+                                        {
+                                            DataTextField = "WorkPlaceName",
+                                            DataValueField = "ID",
+                                            Url = _hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+                                            StyleCss = "width:200px;",
+                                            Value = Model == null ? string.Empty : Model.WorkPlaceID.ToString(),
+                                        };
+                                    }
+                                    @Html.VnrComboBoxFor(mode => mode.WorkPlaceID, _workplaceName)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hrm_box" style="padding-right:20px">
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_REC_Candidate_DateApply.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateApplyFrom = new DatePickerBuilderInfo()
+                                        {
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateApplyFrom, DateApplyFrom)
+                                    @{
+                                        var DateApplyTo = new DatePickerBuilderInfo()
+                                        {
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateApplyTo, DateApplyTo)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    <label>
+                                        @ConstantDisplay.HRM_REC_Candidate_DateHire.TranslateString()
+                                    </label>
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _WorkdateFrom = new DatePickerBuilderInfo()
+                                        {
+                                            // Name = "WorkdateFrom",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.WorkDateFrom, _WorkdateFrom)
+                                    @{
+                                        var _WorkdateTo = new DatePickerBuilderInfo()
+                                        {
+                                            // Name = "WorkdateTo",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.WorkDateTo, _WorkdateTo)
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Rec_Candidate_DateExam.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateExamFrom = new DatePickerBuilderInfo()
+                                        {
+                                            Name = "DateExamFrom",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateExamFrom, DateExamFrom)
+                                    @{
+                                        var DateExamTo = new DatePickerBuilderInfo()
+                                        {
+                                            Name = "DateExamTo",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateExamTo, DateExamTo)
+                                </div>
+                            </div>
+                            <div id="div4">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.Status)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var _status = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "Text",
+                                            DataValueField = "Value",
+                                            BindTo = listCandidateStatus
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(model => model.Status, _status)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div5">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.Gender)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var gender = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "Text",
+                                            DataValueField = "Value",
+                                            BindTo = listGender,
+                                            OptionLabel = ConstantDisplay.HRM_Category_SelectGender.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDropDownListFor(model => model.Gender, gender)
+                                </div>
+                            </div>
+                        </div>
+                        <div class="hrm_box" style="padding-right: 20px">
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.CandidateName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.CandidateName, "width:200px")
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.CodeCandidate)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.CodeCandidate, "width:204px")
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                                </div>
+                            </div>
+                            <div>
+                                <div class="FieldTitle150">
+                                    <label>
+                                        @ConstantDisplay.HRM_HR_ReportBirthday_DayOfBirth.TranslateString()
+                                    </label>
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var DateOfBirthFrom = new DatePickerBuilderInfo()
+                                        {
+                                            Name = "DateOfBirthFrom",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateOfBirthFrom, DateOfBirthFrom)
+                                    @{
+                                        var DateOfBirthTo = new DatePickerBuilderInfo()
+                                        {
+                                            Name = "DateOfBirthTo",
+                                            StyleCss = "width:100px;",
+                                            Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrDatePickerFor(model => model.DateOfBirthTo, DateOfBirthTo)
+                                </div>
+                            </div>
+                            <div id="div2">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelFor(mode => mode.Mobile)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(model => model.Mobile)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                    <div class="hrm_box" style="padding-right: 20px">
+                        <div>
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.LevelInterview)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var LevelInterview = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(model => model.LevelInterview, LevelInterview)
+                            </div>
+                        </div>
+
+                        <div id="div14">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ReasonFailFilter)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ConditionName = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "RecConditionName",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = conditionName,
+                                        StyleCss = "width: 200px;"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.ReasonFailFilter, _ConditionName)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.TProvinceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _TProvinceName = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "STProvinceID",
+                                        DataTextField = "ProvinceName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Cat_GetData/GetMultiProvince",
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectProvince.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.TProvinceID, _TProvinceName)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.EducationLevelID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _nameEntity = new DropDownListBuilderInfo()
+                                    {
+                                        DataValueField = "ID",
+                                        DataTextField = "NameEntityName",
+                                        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiEducationLevel",
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.EducationLevelID, _nameEntity)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.TagID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _TagID = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "STagID",
+                                        DataTextField = "TagName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiTag",
+                                        OptionLabel = ConstantDisplay.HRM_Category_SelectTag.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.TagID, _TagID)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    </div>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportExcelByTemplate", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnRecruitmentHistory", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<script>
+    function clickCandidate(id) {
+        KendoRouteMapping('#Hrm_Rec_Web/GeneralCandidate/Index/' + id, 'Hrm_Rec_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Recruitment.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridRec_RecruitmentHistory_Name + "__Rec_RecruitmentHistory_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridRec_RecruitmentHistory_Name,
+            ShowCommand = false,
+            ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetRecruitmentHistoryListNew/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+            {
+                Rec_RecruitmentHistoryModel.FieldNames.CodeCandidate,
+                Rec_RecruitmentHistoryModel.FieldNames.CandidateName,
+                //Rec_RecruitmentHistoryModel.FieldNames.E_UNIT,
+                //Rec_RecruitmentHistoryModel.FieldNames.E_DIVISION,
+                Rec_RecruitmentHistoryModel.FieldNames.OrgStructureName,
+                //Rec_RecruitmentHistoryModel.FieldNames.E_TEAM,
+                //Rec_RecruitmentHistoryModel.FieldNames.E_SECTION,
+                Rec_RecruitmentHistoryModel.FieldNames.JobVacancyName,
+                Rec_RecruitmentHistoryModel.FieldNames.RankName,
+                Rec_RecruitmentHistoryModel.FieldNames.PositionName,
+                Rec_RecruitmentHistoryModel.FieldNames.GenderView,
+                Rec_RecruitmentHistoryModel.FieldNames.DateOfBirth,
+                Rec_RecruitmentHistoryModel.FieldNames.DateApply,
+                Rec_RecruitmentHistoryModel.FieldNames.StatusView,
+                //Rec_RecruitmentHistoryModel.FieldNames.DateStartWorking
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Rec_RecruitmentHistoryModel.FieldNames.CodeCandidate,89},
+                {Rec_RecruitmentHistoryModel.FieldNames.CandidateName,140},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_UNIT,135},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_DIVISION,135},
+
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_TEAM,135},
+                {Rec_RecruitmentHistoryModel.FieldNames.OrgStructureName,135},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_SECTION,135},
+
+                {Rec_RecruitmentHistoryModel.FieldNames.JobVacancyName,120},
+                {Rec_RecruitmentHistoryModel.FieldNames.RankName,120},
+                {Rec_RecruitmentHistoryModel.FieldNames.PositionName,120},
+                {Rec_RecruitmentHistoryModel.FieldNames.GenderView,80},
+                {Rec_RecruitmentHistoryModel.FieldNames.DateOfBirth,90},
+                {Rec_RecruitmentHistoryModel.FieldNames.DateApply,115},
+                {Rec_RecruitmentHistoryModel.FieldNames.StatusView,130},
+                //{Rec_RecruitmentHistoryModel.FieldNames.DateStartWorking,100}
+
+
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Rec_RecruitmentHistoryModel.FieldNames.CodeCandidate, ConstantDisplay.HRM_Rec_Candidate_CodeCandidate},
+                {Rec_RecruitmentHistoryModel.FieldNames.CandidateName, ConstantDisplay.HRM_Rec_Candidate_CandidateName},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Rec_RecruitmentHistoryModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                //{Rec_RecruitmentHistoryModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+                {Rec_RecruitmentHistoryModel.FieldNames.JobVacancyName, ConstantDisplay.HRM_Rec_Candidate_JobVacancyIDs},
+                {Rec_RecruitmentHistoryModel.FieldNames.RankName, ConstantDisplay.HRM_Rec_JobVacancy_RankID},
+                {Rec_RecruitmentHistoryModel.FieldNames.PositionName,  ConstantDisplay.HRM_REC_Candidate_Position},
+                {Rec_RecruitmentHistoryModel.FieldNames.GenderView,  ConstantDisplay.HRM_HR_Profile_Gender},
+                {Rec_RecruitmentHistoryModel.FieldNames.DateOfBirth,  ConstantDisplay.HRM_HR_ReportBirthday_DayOfBirth},
+                {Rec_RecruitmentHistoryModel.FieldNames.DateApply, ConstantDisplay.HRM_REC_Candidate_DateApply},
+                {Rec_RecruitmentHistoryModel.FieldNames.StatusView, ConstantDisplay.HRM_Rec_Candidate_Status},
+                //{Rec_RecruitmentHistoryModel.FieldNames.DateStartWorking,ConstantDisplay.HRM_REC_Candidate_DateStartWorking},
+
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    //var grid = new GridBuilderInfo
+    //{
+    //    Name = "gridRec_RecruitmentHistory",
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetRecruitmentHistoryListNew/",
+    //    ReadData = "filterFieldInfo",
+
+
+    //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Recruitment.Models.Rec_RecruitmentHistoryModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnRecruitmentHistory", "Rec_RecruitmentHistoryModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

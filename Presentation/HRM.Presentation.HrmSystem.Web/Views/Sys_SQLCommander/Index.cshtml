@@ -1,0 +1,236 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security;
+@model Sys_SQLCommanderModel
+@{
+    //ViewBag.Title = "Salary CostCentre Index";
+    var _Hrm_Sal_Web = ConstantPathWeb.Hrm_Sal_Web;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Sal_Service = ConstantPathWeb.Hrm_Sal_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    Layout = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+}
+@Html.Hidden("Screen", screen)
+<script type="text/javascript">
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    $(document).ready(function () {
+        EditGridNewPage("gridRep_Master", '#Hrm_Sys_Web/Sys_CustomReport/Edit/', 'Hrm_Sys_Web', '@hrm_Sys_Web');
+    });
+
+    function filterFieldInfo(isExport) {
+       var elementPara= {
+            Commander: $("#Commander").val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+       };
+       if (isExport == true) {
+           elementPara["ExportId"] = $('#ddlScreenName').val();
+       }
+       return elementPara;
+    };
+
+    function btnSearch() {
+
+        $.ajax({
+            url: '@hrm_Sys_Service' + "Sys_GetData/SQLCommander",
+            type: 'POST',
+            data: filterFieldInfo(false),
+            datatype: 'json',
+            success: function (data) {
+                CloseHre_ProgressBar();
+                debugger;
+                if (typeof (data) == "string") {
+                    ShowNotificationProcessor(data);
+                    return;
+                }
+
+                if (typeof (data) == "object")
+                {
+                    var grid = VnrGridDynamic;
+                    grid.GridName = "grid_SQLCommander";
+                    grid.ShowCheckbox = true;
+                    grid.ServerOperation = true;
+            
+                    grid.DataSource = data.Data;
+                    VnrGridDynamicControl(grid);
+                    return;
+                }
+                
+                
+               
+                   
+                    
+                
+               
+            }
+        });
+    };
+
+  
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@hrm_Sys_Service' + '/Sys_GetData/SQLCommander', filterFieldInfo(true));
+     
+        });
+
+    $("#btnExport").click(function () {
+
+
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Sal_ReportSalaryTableMonth');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@hrm_Sys_Service' + '/Sys_GetData/SQLCommander',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+                }
+        });
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div >
+                    <div class="FieldTitle" style="width: 125px;">
+                        @Html.VnrLabelFor(m => m.Commander)
+                    </div>
+                    <div class="FieldValue" style="width: 80%; height: 100px">
+                        @Html.VnrTextAreaFor(mode => mode.Commander, "width:80%;height:100px;")
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+       
+        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "btnSearch", Name = "btnSearch", Content = ConstantAction.HRM_Common_Commander.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    </div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = "Delete", ImageUrl = ConstantPath.IconDeletePath })*@
+    </div>
+    <div class="clear"></div>
+</div>
+
+@*<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.HrmSystem.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+            Sys_SQLCommanderModel.FieldNames.ColumnName,
+            
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_SQLCommanderModel.FieldNames.ColumnName, 150},
+            
+
+        };
+        var filterable = new Dictionary<string, bool>()
+        {
+            {Sys_SQLCommanderModel.FieldNames.ColumnName,true}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_SQLCommanderModel.FieldNames.ColumnName, "Tên Cột"},
+            
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridSQl_Commander",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = @hrm_Sys_Service + "Sys_GetData/GetReportMaster/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_SQLCommanderModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)*@
+<div id="grid_SQLCommander">
+
+</div>
+

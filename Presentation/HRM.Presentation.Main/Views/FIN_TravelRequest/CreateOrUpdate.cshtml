@@ -1,0 +1,573 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+
+@using System.Collections
+@using HRM.Infrastructure.Security
+
+@model FIN_TravelRequestModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var ContractID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        ContractID = Model.ID;
+    }
+    IList<SelectListItem> travelRequestType = Enum.GetValues(typeof(EnumDropDown.TravelRequestType))
+.Cast<EnumDropDown.TravelRequestType>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+.ToList();
+}
+ 
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowTravelRequestItem",
+        Visible = false,
+        Title = @ConstantDisplay.HRM_Category_ExportItem.TranslateString(),
+        Width = 700,
+        LoadContentFrom = _hrm_Main_Web + "FIN_TravelRequest/TravelRequestItemInfo?TravelRequestID=" + ContractID,
+    };
+}
+@(Html.VnrWindow(window))
+@*@{
+    var windowClaim = new WindowBuilderInfo
+    {
+        Name = "windowClaim",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "FIN_TravelRequest/FIN_ClaimInfo/",
+    };
+}
+@(Html.VnrWindow(windowClaim))*@
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = ConstantDisplay.Hrm_Notification.TranslateString(),
+        Content = ConstantDisplay.PleaseSaveTravelRequest.TranslateString()
+    };
+}
+@(Html.VnrWindow(windowError))
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<script type="text/javascript">
+    SetFieldRequired();
+    var gridName = '@ConstantControlName.HRM_FIN_TravelRequestItem_Grid_Name.TranslateString()';
+    var popUpName = '@ConstantControlName.HRM_FIN_TravelRequestItem_PopUp_Name.TranslateString()';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_Create_Title.TranslateString())';
+    $("#btnCreateTravelRequestItem").click(function () {
+
+
+        var x = $('#@Html.FieldIdFor(model => model.TravelRequest_ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+
+            PopUpCreate("windowTravelRequestItem", titleCreatePopUp, '@ConstantPermission.Hre_AppendixContract')
+        }
+    });
+    //Truyền nhiều id trên lưới
+    function PopData1(idWindow, url, parameter1, parameter2, titlePopUp) {
+
+        var window = $("#" + idWindow).data("kendoWindow");
+        window.refresh({
+            url: url,
+            data: { TravelRequestID: parameter1, ProfileID: parameter2 }
+        }).center().open().title(titlePopUp);
+    }
+    $("#btnCreateClaim").click(function () {
+
+
+        var x = $('#@Html.FieldIdFor(model => model.TravelRequest_ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+            PopData1("windowClaim", '@_hrm_Main_Web' + 'FIN_TravelRequest/FIN_ClaimInfo/', x, $("#ProfileID").val().join(","), '@Html.Raw(ConstantDisplay.HRM_FIN_Claim_PopUp_Create_Title.TranslateString())');
+        }
+    });
+
+    $(document).ready(function () {
+        document.getElementById("JobTitleName").readOnly = true;
+        document.getElementById("OrgStructureName").readOnly = true;
+        document.getElementById("Channel").readOnly = true;
+        document.getElementById("Region").readOnly = true;
+        document.getElementById("Area").readOnly = true;
+        document.getElementById("OrgStructureCode").readOnly = true;
+        document.getElementById("SupervisorName").readOnly = true;
+        document.getElementById("WorkPlaceName").readOnly = true;
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "FIN_TravelRequest/TravelRequestItemInfo/";
+        EditGridPopUp("grid_TravelRequestItem", "windowTravelRequestItem", url, '@ConstantPermission.Hre_Contract', titleEditPopUp);
+        var url1 = '@_hrm_Main_Web' + "FIN_TravelRequest/FIN_ClaimInfo/";
+        EditGridPopUp("gridClaim", "windowClaim", url1, '@ConstantPermission.FIN_Claim', '@Html.Raw(ConstantDisplay.HRM_FIN_Claim_PopUp_Edit_Title.TranslateString())');
+    });
+
+    function filterFieldInfo() {
+        return {
+            TravelRequestID: $("#TravelRequest_ID").val()
+        };
+    }
+
+
+
+
+    GridCheckbox(gridName);
+
+    //Xóa PLHĐ
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_TravelRequestItem", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveSelectedPRItem/", selectedIds.join(","));
+    });
+    $('#btnDeleteClaim').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.FIN_Claim');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("gridClaim", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveFIN_ClaimSelected/", selectedIds.join(","));
+    });
+
+    function ProfileSelect(e) {
+
+
+        var dataItem = this.dataSource.view()[e.item.index()];
+
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataByProfileID",
+            data: { ProfileID: dataItem.ID },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                debugger;
+                if (data != null) {
+                    $("#JobTitleName").val(data.JobTitleName);
+                    $("#OrgStructureName").val(data.OrgStructureName);
+                    $("#Channel").val(data.Channel);
+                    $("#Region").val(data.Region);
+                    $("#Area").val(data.Area);
+                    $("#OrgStructureCode").val(data.OrgStructureCode);
+                    $("#SupervisorName").val(data.SupervisorName);
+                    $("#WorkPlaceName").val(data.WorkPlaceName);
+                }
+            }
+
+        });
+    }
+
+
+    $('#btnApproved').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#grid_TravelRequestItem').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("grid_TravelRequestItem", '@_hrm_Hr_Service' + "Hre_GetData/ActionApprovedTravelRequestItem/", selectedIds, 'E_APPROVED');
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    $('#btnSubmit').click(function (e) {
+        var userId = '@Session[SessionObjects.UserId]';
+        e.preventDefault();
+        var grid = $('#grid_TravelRequestItem').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("grid_TravelRequestItem", '@_hrm_Hr_Service' + "Hre_GetData/ActionSubmitTravelRequestItem/", selectedIds, 'E_SUBMIT', userId);
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter, status, userId) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status: status, userId: userId },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');//Chưa dịch
+            }
+        });
+    };
+
+    
+
+</script>
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            @Html.HiddenFor(mode => mode.ID)
+            @Html.HiddenFor(mode => mode.TravelRequest_ID)
+            @Html.HiddenFor(mode => mode.UserCreateID)
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px;">
+                      <fieldset>
+                          <legend>
+                              Thông Tin Người Yêu Cầu
+                          </legend>
+                      </fieldset>
+                        <div style="width:100%">
+                            <div style="float:left;">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        @Html.HiddenFor(mode => mode.ID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            IEnumerable valueProfile = new string[] { };
+                                            if (Model != null)
+                                            {
+                                                valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+                                            }
+                                        }
+                                        @{
+                                            var Profile = new MultiSelectBuilderInfo()
+                                            {
+                                                // Name = "ProfileID",
+                                                DataTextField = Hre_ContractModel.FieldNames.ProfileName,
+                                                DataValueField = Hre_ContractModel.FieldNames.ID,
+                                                Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+                                                Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                                MaxSelectedItems = 1,
+                                                Value = valueProfile,
+                                                EventSelect = "ProfileSelect",
+                                                
+
+                                            };
+                                        }
+                                        @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                                    </div>
+                                </div>
+
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.JobTitleName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.JobTitleName)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.OrgStructureName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.OrgStructureName)
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div style="float:left">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Channel)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Channel)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Region)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Region)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Area)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Area)
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="float:left">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.OrgStructureCode)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.OrgStructureCode)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.SupervisorName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.SupervisorName)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.WorkPlaceName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.WorkPlaceName)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div style="display: block; padding-top: 10px;">
+                        <fieldset>
+                            <legend>
+                                Thông Tin Chung
+                            </legend>
+                        </fieldset>
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Type)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _type = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = travelRequestType,
+                                     //   StyleCss = "Width:300px",
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.Type, _type)
+                            </div>
+                        </div>
+                            <div class="DivContentTitleValue" id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.TravelRequestName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.TravelRequestName)
+                                </div>
+                            </div>
+                            @*<div class="DivContentTitleValue" id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.TravelRequestCode)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.TravelRequestCode)
+                                </div>
+                            </div>*@
+                 
+
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTravelRequestItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSubmit", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        //Thông tin hiển column hiển thị
+        string[] valueFields = new string[]
+                            {
+                                FIN_TravelRequestItemModel.FieldNames.TravelRequestItemCode,
+                                FIN_TravelRequestItemModel.FieldNames.TravelRequestItemName,
+                                FIN_TravelRequestItemModel.FieldNames.PurposeView,
+                                FIN_TravelRequestItemModel.FieldNames.MeanView,
+                                FIN_TravelRequestItemModel.FieldNames.Departure,
+                                FIN_TravelRequestItemModel.FieldNames.DepartureTime,
+                                FIN_TravelRequestItemModel.FieldNames.Arrival,
+                                FIN_TravelRequestItemModel.FieldNames.ArrivalTime,
+                                FIN_TravelRequestItemModel.FieldNames.IsBookingHotel,
+                                FIN_TravelRequestItemModel.FieldNames.Description,
+                                FIN_TravelRequestItemModel.FieldNames.StatusView,
+                                
+                            };
+
+        //Set độ rộng cho từng column
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {FIN_TravelRequestItemModel.FieldNames.TravelRequestItemCode, 130},
+                                {FIN_TravelRequestItemModel.FieldNames.TravelRequestItemName, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.PurposeView, 130},
+                                {FIN_TravelRequestItemModel.FieldNames.MeanView, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.Departure, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.DepartureTime, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.Arrival, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.ArrivalTime, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.IsBookingHotel, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.Description, 100},
+                                {FIN_TravelRequestItemModel.FieldNames.StatusView, 100},
+                            };
+
+        //Thông tin hiển thị được dịch
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {FIN_TravelRequestItemModel.FieldNames.TravelRequestItemCode, ConstantDisplay.HRM_FIN_TravelRequestItem_TravelRequestItemCode},
+                                {FIN_TravelRequestItemModel.FieldNames.TravelRequestItemName, ConstantDisplay.HRM_FIN_TravelRequestItem_TravelRequestItemName},
+                                {FIN_TravelRequestItemModel.FieldNames.PurposeView, ConstantDisplay.HRM_FIN_TravelRequestItem_Purpose},
+                                {FIN_TravelRequestItemModel.FieldNames.MeanView, ConstantDisplay.HRM_FIN_TravelRequestItem_Mean},
+                                {FIN_TravelRequestItemModel.FieldNames.Departure, ConstantDisplay.HRM_FIN_TravelRequestItem_Departure},
+                                {FIN_TravelRequestItemModel.FieldNames.DepartureTime, ConstantDisplay.HRM_FIN_TravelRequestItem_DepartureTime},
+                                {FIN_TravelRequestItemModel.FieldNames.Arrival, ConstantDisplay.HRM_FIN_TravelRequestItem_Arrival},
+                                {FIN_TravelRequestItemModel.FieldNames.ArrivalTime, ConstantDisplay.HRM_FIN_TravelRequestItem_ArrivalTime},
+                                {FIN_TravelRequestItemModel.FieldNames.IsBookingHotel,ConstantDisplay.HRM_FIN_TravelRequestItem_IsBookingHotel},
+                                {FIN_TravelRequestItemModel.FieldNames.Description, ConstantDisplay.HRM_FIN_TravelRequestItem_Description},
+                                {FIN_TravelRequestItemModel.FieldNames.StatusView, ConstantDisplay.HRM_FIN_TravelRequest_Status},
+                                   
+                            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_TravelRequestItem",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            GridHeight = 400,
+            AutoBind = true,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetTravelRequestItemByTravelRequestID?TravelRequestID=" + ContractID,
+            ReadData = "filterFieldInfo",
+        
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<FIN_TravelRequestItemModel>(grid))
+</div>
+
+
+<div>
+    @if(Model == null)
+    {
+        <script>
+            $(document).ready(function () {
+                var profileId = '@Session[SessionObjects.ProfileID]';
+                $.ajax({
+                    url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataByProfileID",
+                    data: { ProfileID: profileId },
+                    type: 'POST',
+                    datatype: 'json',
+                    success: function (data) {
+                        debugger;
+                        if (data != null) {
+                            var dataSource = new kendo.data.DataSource();
+                            var ItemsSelect = [];
+                            dataSource.add({ ID: data.ID, ProfileName: data.ProfileName });
+                            ItemsSelect.push(data.ID);
+                            var multiProfile = $("#ProfileID").data("kendoMultiSelect");
+
+                            multiProfile.setDataSource(dataSource);
+                            multiProfile.value(ItemsSelect);
+
+
+                            $("#JobTitleName").val(data.JobTitleName);
+                            $("#OrgStructureName").val(data.OrgStructureName);
+                            $("#Channel").val(data.Channel);
+                            $("#Region").val(data.Region);
+                            $("#Area").val(data.Area);
+                            $("#OrgStructureCode").val(data.OrgStructureCode);
+                            $("#SupervisorName").val(data.SupervisorName);
+                            $("#WorkPlaceName").val(data.WorkPlaceName);
+                        }
+                    }
+
+                });
+            });
+        </script>
+    }
+</div>

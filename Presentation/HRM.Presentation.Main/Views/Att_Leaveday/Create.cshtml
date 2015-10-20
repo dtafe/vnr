@@ -1,0 +1,100 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_LeaveDayModel
+@{
+    ViewBag.Title = "Index AttLeaveday";
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Att_Service;
+    var userId = Session[SessionObjects.UserId];
+}
+
+<script>
+    SetFieldRequired();
+    function doSave() {
+        $("#UserID").val('@Session[SessionObjects.UserId]');
+        $("#UserRegister").val('@Session[SessionObjects.UserId]');
+        var result = false;
+        @*var ProfileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        ProfileID != null ? $('#@Html.FieldIdFor(model => model.ProfileIds)').val(ProfileID.join(',')) : null;*@
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'api/Att_Leaveday',
+            data: queryStringToJSON(slpitQueryEntity($("#form-create-att-leaveday").serialize())),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                debugger;
+
+                if (data.ActionStatus.indexOf('[') == 0) {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    return;
+                }
+                if (data.ActionStatus.indexOf(',') > 0 || data.ActionStatus == "Error") {
+                    var strStatus = data.ActionStatus.split(',');
+                    if (strStatus[0] == "Error") {
+                        ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Đăng Ký Ngày Nghỉ Bị Trùng", "k-block k-info-colored");
+                        return;
+                    }
+                }
+                if (data.ActionStatus.indexOf(',') > 0 || data.ActionStatus == "Locked") {
+                    var strStatus = data.ActionStatus.split(',');
+                    if (strStatus[0] == "Locked") {
+                        ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Dữ Liệu Đã Bị Khóa", "k-block k-info-colored");
+                        return;
+                    }
+                }
+                if (data.ActionStatus == "Success") {
+                    ShowNotificationProcessor(data.ActionStatus);
+                    $('#@Html.FieldIdFor(model => model.ID)').val(data.ID);
+                    result = true;
+                    return result;
+                }
+                if (data.ActionStatus == "ErrorTotalLeave") {
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Số Ngày Nghỉ Vượt Quá Quy Định", "k-block k-info-colored");
+                    return;
+                }
+
+            }
+        });
+        return result;
+    }
+    function doSaveNew() {
+        if (doSave()) {
+            KendoRouteMapping('#Hrm_Main_Web/Att_LeaveDay/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        }
+    }
+
+</script>
+
+<div>
+    @ViewBag.MsgInsert
+</div>
+
+<span id="popupNotification"></span>
+<form action="#" method="POST" id="form-create-att-leaveday">
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.AttLeavedayIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Attendance_LeaveDay_AddNew.TranslateString() @Html.ActionLink("(" + ConstantDisplay.HRM_Attendance_Back_To_LeaveDay_List.TranslateString() + ")", "Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSaveNew", Name = "save-continue", Content = ConstantAction.HRM_Common_SaveNew.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("CreateOrUpdate", Model)
+            </div>
+        </div>
+
+    </div>
+</form>
+

@@ -1,0 +1,327 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.Laundry.Models;
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Laundry.Models.Lau_ReportSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Laundry_ReportExceptClothing.TranslateString();
+    Layout = null;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var checkedNodes = [];
+     
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _ProfileIDs = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+        var _Lines = $('#@Html.FieldIdFor(model => model.LineID)').val() != null ? $('#@Html.FieldIdFor(model => model.LineID)').val().join(',') : $('#@Html.FieldIdFor(model => model.LineID)').val();
+        var _Lockers = $('#@Html.FieldIdFor(model => model.LockerID)').val() != null ? $('#@Html.FieldIdFor(model => model.LockerID)').val().join(',') : $('#@Html.FieldIdFor(model => model.LockerID)').val();
+       
+        var elementPara = {
+            ProfileIDs: _ProfileIDs,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            LineID: _Lines,
+            LockerID: _Lockers,
+            isIncludeQuitEmp: $('#@Html.FieldIdFor(model => model.isIncludeQuitEmp)').val(),
+            OrgStructureID: checkedNodes.join(","),
+            selectedIds: selectedIds.join(",")
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            if (CheckValidate(data)) {
+                checkedNodes = [];
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+                var grid = $('#grid_ReportExceptClothing').data("kendoGrid");
+                grid.dataSource.read();
+            }
+        });
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    $("#btnExport").click(function () {
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/GetReportExceptClothing/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Lau_ReportExceptClothing');
+        checkedNodes = [];
+        selectedIds = [];
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div style="width:550px; display:block; float:left">
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(@ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ProfileName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+                            </div>
+                        </div>
+                       
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                               
+                            </div>
+                        </div>
+                        
+                    </div>
+                    <div style="width:550px; display:block; float:left">
+                        
+                        <div id="div5">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Laundry_Line_LineName.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _line = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "LineLMSName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Lau_GetData/GetMultiLine",
+                                        Placeholder = ConstantDisplay.HRM_Laundry_SelectLine.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.LineID, _line)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Laundry_Locker_LockerName.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _locker = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "LockerLMSName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Lau_GetData/GetMultiLocker",
+                                        Placeholder = ConstantDisplay.HRM_Laundry_SelectLocker.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.LockerID, _locker)
+                            </div>
+                        </div>
+
+                        
+                        
+                        <div id="div8">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrRadioButtonFor(mode => mode.isIncludeQuitEmp)
+                                @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                    StyleCss = "width:200px"
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Lau_ReportExceptClothingModel.FieldNames.ProfileName,
+           Lau_ReportExceptClothingModel.FieldNames.CodeEmp,
+           Lau_ReportExceptClothingModel.FieldNames.LockerName,         
+           Lau_ReportExceptClothingModel.FieldNames.LineName,  
+           Lau_ReportExceptClothingModel.FieldNames.TimeLog,  
+           Lau_ReportExceptClothingModel.FieldNames.SumMonthAmount,          
+           Lau_ReportExceptClothingModel.FieldNames.AmountClothing,          
+           Lau_ReportExceptClothingModel.FieldNames.ExceedingStandards,          
+           Lau_ReportExceptClothingModel.FieldNames.SubtractSalary,
+           
+           Lau_ReportExceptClothingModel.FieldNames.BranchName,
+           Lau_ReportExceptClothingModel.FieldNames.DepartmentName,
+           Lau_ReportExceptClothingModel.FieldNames.TeamName,
+           Lau_ReportExceptClothingModel.FieldNames.SectionName,
+           
+           Lau_ReportExceptClothingModel.FieldNames.BranchCode,
+           Lau_ReportExceptClothingModel.FieldNames.DepartmentCode,
+           Lau_ReportExceptClothingModel.FieldNames.TeamCode,
+           Lau_ReportExceptClothingModel.FieldNames.SectionCode,
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Lau_ReportExceptClothingModel.FieldNames.ProfileName,160},
+            {Lau_ReportExceptClothingModel.FieldNames.CodeEmp,80},
+            {Lau_ReportExceptClothingModel.FieldNames.LockerName,170},           
+            {Lau_ReportExceptClothingModel.FieldNames.LineName,150},
+            {Lau_ReportExceptClothingModel.FieldNames.TimeLog,90},
+            {Lau_ReportExceptClothingModel.FieldNames.SumMonthAmount,110},
+            {Lau_ReportExceptClothingModel.FieldNames.AmountClothing,110},
+            {Lau_ReportExceptClothingModel.FieldNames.ExceedingStandards,120},
+            {Lau_ReportExceptClothingModel.FieldNames.SubtractSalary,100},
+            
+            {Lau_ReportExceptClothingModel.FieldNames.BranchName,80},
+            {Lau_ReportExceptClothingModel.FieldNames.DepartmentName,100},
+            {Lau_ReportExceptClothingModel.FieldNames.TeamName,80},
+            {Lau_ReportExceptClothingModel.FieldNames.SectionName,80},
+             
+            {Lau_ReportExceptClothingModel.FieldNames.BranchCode,100},
+            {Lau_ReportExceptClothingModel.FieldNames.DepartmentCode,100},
+            {Lau_ReportExceptClothingModel.FieldNames.TeamCode,100},
+            {Lau_ReportExceptClothingModel.FieldNames.SectionCode,80},
+            
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Lau_ReportExceptClothingModel.FieldNames.ProfileName,ConstantDisplay.HRM_Canteen_Report_ProfileName},
+            {Lau_ReportExceptClothingModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Canteen_Report_CodeEmp},
+            {Lau_ReportExceptClothingModel.FieldNames.LockerName,ConstantDisplay.HRM_Laundry_LaundryRecord_LockerID},         
+            {Lau_ReportExceptClothingModel.FieldNames.LineName,ConstantDisplay.HRM_Laundry_LaundryRecord_LineName},
+            {Lau_ReportExceptClothingModel.FieldNames.TimeLog,ConstantDisplay.HRM_Laundry_ReportEmpDetail_DateWash},
+            {Lau_ReportExceptClothingModel.FieldNames.SumMonthAmount,ConstantDisplay.HRM_Laundry_Report_SumMonthAmount},
+            {Lau_ReportExceptClothingModel.FieldNames.AmountClothing,ConstantDisplay.HRM_Laundry_Report_MonthStandards},
+            {Lau_ReportExceptClothingModel.FieldNames.ExceedingStandards,ConstantDisplay.HRM_Laundry_Report_ExceedingStandards},
+            {Lau_ReportExceptClothingModel.FieldNames.SubtractSalary,ConstantDisplay.HRM_Laundry_Report_SubtractSalary},
+            
+            {Lau_ReportExceptClothingModel.FieldNames.BranchName,ConstantDisplay.HRM_Attendance_BranchName1},
+            {Lau_ReportExceptClothingModel.FieldNames.DepartmentName,ConstantDisplay.HRM_Attendance_DepartmentName1},
+            {Lau_ReportExceptClothingModel.FieldNames.TeamName,ConstantDisplay.HRM_Attendance_TeamName1},
+            {Lau_ReportExceptClothingModel.FieldNames.SectionName,ConstantDisplay.HRM_Attendance_SectionName1},
+             
+            {Lau_ReportExceptClothingModel.FieldNames.BranchCode,ConstantDisplay.HRM_Attendance_BranchCode},
+            {Lau_ReportExceptClothingModel.FieldNames.DepartmentCode,ConstantDisplay.HRM_Attendance_DepartmentCode},
+            {Lau_ReportExceptClothingModel.FieldNames.TeamCode,ConstantDisplay.HRM_Attendance_TeamCode},
+            {Lau_ReportExceptClothingModel.FieldNames.SectionCode,ConstantDisplay.HRM_Attendance_SectionCode},
+            
+       };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Lau_ReportExceptClothingModel.FieldNames.SubtractSalary,ConstantFormat.HRM_Format_Money},
+
+        };
+        var grid = new GridBuilderInfo
+        {
+            ShowEditIcon = false,
+            Name = "grid_ReportExceptClothing",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hre_Service + "Lau_GetData/GetReportExceptClothing",
+            ReadData = "filterFieldInfo",
+            ServerOperation = false
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Lau_ReportExceptClothingModel>(grid))
+</div>
+

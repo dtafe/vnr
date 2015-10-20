@@ -1,0 +1,335 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Attendance.Models.Att_ReportStatisticsOvertimeByYearModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL) {
+        
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            Year: $('#@Html.FieldIdFor(model => model.Year)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            OvertimeTypeID: $('#@Html.FieldIdFor(model => model.OvertimeTypeID)').val(),
+            isIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.IsIncludeQuitEmp)').checked,
+            NoDisplay0Data: document.getElementById('@Html.FieldIdFor(model => model.NoDisplay0Data)').checked,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            var year = filterFieldInfo().Year;
+            if (year == '') {
+                ShowNotificationProcessor('Vui Lòng Nhập Năm');
+                return;
+            }
+
+
+            checkedNodes = [];
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridAtt_ReportStatisticsOvertimeByYear').data("kendoGrid");
+            grid.dataSource.read();
+
+        });
+    });
+
+    $("#btnExport").click(function () {
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportStatisticsOvertimeByYear');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportStatisticsOvertimeByYear/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportStatisticsOvertimeByYear', filterFieldInfo(true));
+    });
+</script>
+
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div>
+                        <div style="float:left; width:430px">
+                            <div id="div2">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.Year)
+                                    @Html.HiddenFor(m => m.UserExport)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var year = new NumericTextBoxBuilderInfo<int>()
+                                        {
+                                            Value = int.Parse(DateTime.Now.Year.ToString()),
+                                            Format = ConstantFormat.HRM_Format_Number_Integer,
+                                            StyleCss = "width:80px"
+                                        };
+                                    }
+                                    @(Html.VnrNumericTextBoxFor(model => model.Year, year))
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div6">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                            </div>
+
+                            <div id="dvisIncludeQuitEmp">
+                                <div class="FieldTitle">
+
+                                </div>
+                                <div class="FieldValue">
+                                    <div class="FieldValue">
+                                        @{
+                                            var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                                        }
+                                        @Html.VnrCheckBoxFor(model => model.IsIncludeQuitEmp, IsIncludeQuitEmp)
+                                    </div>
+                                    <div style="float:left; padding-top:3px">
+                                        @Html.VnrLabelForNoneIcon(model => model.IsIncludeQuitEmp)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style="display: block; float: left; width: 600px">
+                            <div id="dvOvertimeTypeID">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OvertimeTypeID)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var OvertimeType = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "OvertimeTypeName",
+                                            DataValueField = "ID",
+                                            Url = _hrm_Hr_Service + "Cat_GetData/GetMultiOvertimeType",
+                                            Placeholder = ConstantDisplay.HRM_Attendance_SelectOvertimeType.TranslateString(),
+                                            Autobind = true,
+                                            Value = @Html.DisplayFor(mode => mode.OvertimeTypeID).ToString()
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.OvertimeTypeID, OvertimeType))
+                                </div>
+                            </div>
+
+                            <div class="DivContentTitleValue" id="dvNoDisplay0Data">
+                                <div class="FieldTitle">
+                                </div>
+                                <div class="FieldValue">
+                                    <div style="float:left">
+                                        @{
+                                            var _NoDisplay0Data = new CheckBoxBuilderInfo()
+                                            {
+                                            };
+                                        }
+                                        @Html.VnrCheckBoxFor(mode => mode.NoDisplay0Data, _NoDisplay0Data)
+                                    </div>
+                                    <div style="float:left; padding-top:3px">
+                                        @Html.VnrLabelForNoneIcon(model => model.NoDisplay0Data)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+
+
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+             Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeEmp,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.ProfileName,
+
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeOrg,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.SumHourCO,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M1,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M2,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M3,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M4,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M5,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M6,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M7,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M8,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M9,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M10,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M11,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.M12,
+            Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateFrom,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateTo,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.UserExport,
+           Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateExport
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeEmp,70},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.ProfileName,135},
+
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeOrg,100},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.SumHourCO,120}
+
+    };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+                   {Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Att_Report_CodeEmp},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.ProfileName, ConstantDisplay.HRM_Att_Report_ProfileName},
+
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.BranchName,ConstantDisplay.HRM_Att_Report_BranchName},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.CodeOrg,ConstantDisplay.HRM_Att_Report_CodeOrg},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.SumHourCO,ConstantDisplay.HRM_Att_Report_SumHourCO},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M1 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M1},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M2 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M2},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M3 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M3},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M4 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M4},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M5 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M5},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M6 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M6},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M7 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M7},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M8 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M8},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M9,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M9},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M10 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M10},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M11 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M11},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.M12 ,Att_ReportStatisticsOvertimeByYearModel.FieldNames.M12},
+            {Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateTo ,ConstantDisplay.HRM_Attendance_DateTo},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.UserExport ,ConstantDisplay.HRM_Att_Report_UserExport},
+             {Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateExport ,ConstantDisplay.HRM_Attendance_DateExport}
+            };
+        string[] hiddenFields = new string[]
+            {
+                        Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateFrom,
+                       Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateTo,
+                       Att_ReportStatisticsOvertimeByYearModel.FieldNames.UserExport,
+                       Att_ReportStatisticsOvertimeByYearModel.FieldNames.DateExport
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportStatisticsOvertimeByYear",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportStatisticsOvertimeByYear",
+            ReadData = "filterFieldInfo",
+            HiddenFields = hiddenFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportStatisticsOvertimeByYearModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

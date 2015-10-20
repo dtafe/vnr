@@ -1,0 +1,382 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using System.Collections
+@using HRM.Presentation.Recruitment.Models
+
+@model Rec_JobConditionByVacancySearchModel
+
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    string JobConditionIDs = "";
+    Guid? JobVacancyID = Guid.Empty;
+    if (ViewData["JobVacancyID"] != null)
+    {
+        JobVacancyID = Common.ConvertToGuid(ViewData["JobVacancyID"].ToString());
+    }
+    if (!string.IsNullOrEmpty(ViewData["JobConditionIDs"].ToString()))
+    {
+        JobConditionIDs = ViewData["JobConditionIDs"].ToString();
+    }
+}
+@{
+    var windowJobCondition = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Rec_JobCondition_PopUp_Name,
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_JobVacancy/Rec_JobVacancyCondition?JobVacancyID=" + JobVacancyID,
+        Width = 550
+    };
+}
+@(Html.VnrWindow(windowJobCondition))
+@{
+    var windowConditionSelect = new WindowBuilderInfo
+    {
+        Name = "windowConditionSelect",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_JobVacancy/ConditionSelect/",
+        Width = 910
+    };
+}
+@(Html.VnrWindow(windowConditionSelect))
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+
+    var gridNamewindowJobCondition = '@ConstantControlName.HRM_Rec_JobCondition_Grid_Name';
+    var popUpNamewindowJobCondition = '@ConstantControlName.HRM_Rec_JobCondition_PopUp_Name';
+    var titleEditPopUpwindowJobCondition = '@Html.Raw(ConstantDisplay.HRM_Rec_JobCondition_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpwindowJobCondition = '@Html.Raw(ConstantDisplay.HRM_Rec_JobCondition_PopUp_Create_Title.TranslateString())';
+    // var JobConditionIDs;
+    $(document).ready(function () {
+        $("#btnCreateJobCondition").hide();
+
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        EditGridPopUp(gridNamewindowJobCondition, popUpNamewindowJobCondition, '@_hrm_Main_Web' + "Rec_JobVacancy/Rec_JobVacancyCondition/", '@ConstantPermission.Rec_JobCondition', titleEditPopUpwindowJobCondition);
+    });
+    //Truyền nhiều id trên lưới
+    function PopData(idWindow, url, parameter, titlePopUp) {
+
+        var window = $("#" + idWindow).data("kendoWindow");
+        window.refresh({
+            url: url,
+            data: { JobVacancyID: parameter }
+        }).center().open().title(titlePopUp);
+    }
+
+    var ConditionIDs = "";
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        debugger;
+
+
+        //   if ($("#JobVacancyID").val() != "" && $("#JobVacancyID").val() != undefined) {
+
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hre_Service' + "Rec_GetData/GetJobConditionIDs/",
+            data: { JobVacancyID: $("#JobVacancyID").val() },
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data == "null")
+                    ConditionIDs = "";
+                else
+                    ConditionIDs = data;
+            }
+        })
+        if ($("#JobVacancyID").val() == undefined) {
+            ConditionIDs = '@JobConditionIDs';
+        }
+        return {
+            JobConditionIDs: ConditionIDs,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridNamewindowJobCondition);
+    //Tạo mới Sản phẩm
+    $("#btnCreateJobCondition").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_JobCondition');
+        if (!isAccess) {
+            return;
+        }
+
+
+        if ($("#JobVacancyID").val() != '') {
+            PopUpCreate(popUpNamewindowJobCondition, titleCreatePopUpwindowJobCondition);
+        }
+        else {
+            ShowNotification('@ConstantMessages.Notification.TranslateString()', '@ConstantMessages.YouMustSaveFirst.TranslateString()', "k-block k-info-colored");
+            return;
+        }
+    });
+    $("#btnAddCondition").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_JobCondition');
+        if (!isAccess) {
+            return;
+        }
+
+
+        if ($("#JobVacancyID").val() != '') {
+            var url = '@_hrm_Main_Web' + "Rec_JobVacancy/ConditionSelect/";
+            PopData('windowConditionSelect', url, '@JobVacancyID', '@ConstantDisplay.HRM_Rec_JobCondition_SelectCondition.TranslateString()');
+        }
+        else {
+            ShowNotification('@ConstantMessages.Notification.TranslateString()', '@ConstantMessages.YouMustSaveFirst.TranslateString()', "k-block k-info-colored");
+            return;
+        }
+    });
+
+
+    //Xóa Sản phẩm
+    $('#btnDeleteJobCondition').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Rec_JobCondition');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteJobCavancy();
+        //DeleteSelected(gridNamewindowJobCondition, '@_hrm_Main_Web' + "Rec_JobCondition/RemoveSelected/", selectedIds.join(","));
+    });
+    $('#btnDeleteJobVacancy').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Rec_JobCondition');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+    });
+    function DeleteJobCavancy() {
+
+        if (selectedIds != '' && selectedIds != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(ConstantDisplay.HRM_Dashboard_Alerts.TranslateString())',
+                message: '@Html.Raw(ConstantDisplay.HRM_Message_AreYouSureWantToDelete.TranslateString())',
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+                if (response.button == "OK") {
+
+                    @*// xóa khỏi JobVacancy
+                    $.ajax({
+                        traditional: true,
+                        type: 'POST',
+                        url: '@hrm_Rec_Web' + "Rec_JobCondition/RemoveSelected/",
+                        data: { selectedIds: selectedIds.join(",") },
+                        dataType: 'json',
+                        success: function (e) {
+                            selectedIds = [];
+                            ReadGrid(gridNamewindowJobCondition);
+                            window.ShowNotificationProcessor("Success");
+
+                        }
+
+                    });*@
+                    // xóa khỏi JobCondition
+                    if ('@JobVacancyID' != '@Guid.Empty') {
+                        $.ajax({
+                            type: 'POST',
+                            url: '@_hrm_Hre_Service' + "Rec_GetData/DeleteJobCavancy/",
+                            data: { JobVacancyID: '@JobVacancyID', ConditionIDs: selectedIds.join(',') },
+                            dataType: 'json',
+                            success: function (e) {
+                                debugger;
+                                selectedIds = [];
+                                ReadGrid(gridNamewindowJobCondition);
+                                window.ShowNotificationProcessor("Success");
+                            }
+
+                        });
+                    }
+                    else {
+                        $.ajax({
+                            type: 'POST',
+                            url: '@_hrm_Hre_Service' + "Rec_GetData/DeleteJobCavancy/",
+                            data: { JobVacancyID: $("#JobVacancyID").val(), ConditionIDs: selectedIds.join(',') },
+                            dataType: 'json',
+                            success: function (e) {
+                                debugger;
+                                selectedIds = [];
+                                ReadGrid(gridNamewindowJobCondition);
+                                window.ShowNotificationProcessor("Success");
+
+                            }
+
+                        });
+                    }
+
+                }
+            })
+
+        }
+    }
+
+    $("#btnExportJobConditionSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportJobConditionSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Rec_JobCondition');
+    });
+
+    $("#btnExportJobConditionAll").click(function () {
+
+        var grid = $('#@ConstantControlName.HRM_Rec_JobCondition_Grid_Name').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportJobConditionByVacancyList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = {
+            JobConditionIDs: ConditionIDs,
+            IsExport: true,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_JobCondition');
+    });
+
+
+</script>
+
+<div style="display:block; padding-top:10px;width: 99%">
+    <fieldset>
+        <legend>
+            @ConstantDisplay.HRM_Rec_JobVacancy_Condition.TranslateString()
+        </legend>
+
+        <div class="commandToolBarWidge" id="anchor">
+            <div style="float:left">
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnAddCondition", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateJobCondition", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            </div>
+            <div style="float:right">
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteJobCondition", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+            </div>
+
+            <div class="clear"></div>
+        </div>
+        <div>
+            <!--Khai báo các thông tin cho Grid-->
+            @{
+
+                IList<SelectListItem> conditionName = Enum.GetValues(typeof(ConditionName)).Cast<ConditionName>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).ToList();
+
+                IList<SelectListItem> conditionBrand = Enum.GetValues(typeof(ConditionBrand))
+       .Cast<ConditionBrand>()
+       .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+       .ToList();
+
+                IList<SelectListItem> valueType = Enum.GetValues(typeof(HRM.Infrastructure.Utilities.ValueType))
+          .Cast<HRM.Infrastructure.Utilities.ValueType>()
+
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).ToList();
+
+                Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {Rec_JobConditionModel.FieldNames.ConditionName,new object[]
+               { "Value", "Text", conditionName, ConstantDisplay.HRM_Rec_JobCondition_ConditionName,""}},
+
+                  {Rec_JobConditionModel.FieldNames.ConditionBrand,new object[]
+               { "Value", "Text", conditionBrand, ConstantDisplay.HRM_Rec_JobCondition_ConditionBrand,""}},
+
+                 {Rec_JobConditionModel.FieldNames.ValueType,new object[]
+               { "Value", "Text", valueType, ConstantDisplay.HRM_Rec_JobCondition_ValueType,""}},
+
+        };
+                string[] valueFields = new[]
+        {
+
+            Rec_JobConditionModel.FieldNames.Code,
+            Rec_JobConditionModel.FieldNames.ConditionName,
+            Rec_JobConditionModel.FieldNames.Value1,
+           // Rec_JobConditionModel.FieldNames.Value2,
+            Rec_JobConditionModel.FieldNames.ConditionBrand,
+            Rec_JobConditionModel.FieldNames.ValueType,
+            Rec_JobConditionModel.FieldNames.Note,
+        };
+
+                var sizeFields = new Dictionary<string, int>()
+        {
+
+            {Rec_JobConditionModel.FieldNames.Code,120},
+            {Rec_JobConditionModel.FieldNames.ConditionName,120},
+            {Rec_JobConditionModel.FieldNames.Value1,120},
+           // {Rec_JobConditionModel.FieldNames.Value2,120},
+            {Rec_JobConditionModel.FieldNames.ConditionBrand,120},
+            {Rec_JobConditionModel.FieldNames.ValueType,120},
+            {Rec_JobConditionModel.FieldNames.Note,120},
+        };
+
+                var filterable = new Dictionary<string, bool>()
+        {
+            {Rec_JobConditionModel.FieldNames.Code,true},
+           {Rec_JobConditionModel.FieldNames.ConditionName,true},
+            {Rec_JobConditionModel.FieldNames.Value1,true},
+           // {Rec_JobConditionModel.FieldNames.Value2,true},
+            {Rec_JobConditionModel.FieldNames.ConditionBrand,true},
+            {Rec_JobConditionModel.FieldNames.ValueType,true},
+            {Rec_JobConditionModel.FieldNames.Note,true},
+        };
+
+                var displayFields = new Dictionary<string, string>()
+        {
+            {Rec_JobConditionModel.FieldNames.Code,ConstantDisplay.HRM_Rec_JobCondition_Code},
+            {Rec_JobConditionModel.FieldNames.ConditionName,ConstantDisplay.HRM_Rec_JobCondition_ConditionName},
+            {Rec_JobConditionModel.FieldNames.Value1,ConstantDisplay.HRM_Rec_JobCondition_Value1},
+           // {Rec_JobConditionModel.FieldNames.Value2,ConstantDisplay.HRM_Rec_JobCondition_Value2},
+            {Rec_JobConditionModel.FieldNames.ConditionBrand,ConstantDisplay.HRM_Rec_JobCondition_ConditionBrand},
+            {Rec_JobConditionModel.FieldNames.ValueType,ConstantDisplay.HRM_Rec_JobCondition_ValueType},
+            {Rec_JobConditionModel.FieldNames.Note,ConstantDisplay.HRM_Rec_JobCondition_Note},
+        };
+
+                var grid = new GridBuilderInfo
+                {
+                    Name = ConstantControlName.HRM_Rec_JobCondition_Grid_Name,
+                    ForeignKey = foreignKey,
+                    ValueFields = valueFields,
+                    SizeFields = sizeFields,
+                    DisplayFields = displayFields,
+                    Filterable = filterable,
+                    AutoBind = true,
+                    ShowEditIcon = false,
+                    ReadData = "filterFieldInfo",
+                    ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetJobConditionByVacancyId/",
+                };
+            }
+
+            @(Html.VnrGrid<Rec_JobConditionModel>(grid))
+        </div>
+    </fieldset>
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

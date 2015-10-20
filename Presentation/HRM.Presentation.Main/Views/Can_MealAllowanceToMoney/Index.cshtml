@@ -1,0 +1,409 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+@model HRM.Presentation.Canteen.Models.Can_MealAllowanceToMoneySearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Can_MealAllowanceToMoney_Title.TranslateString();
+    Layout = null;
+    var _hrm_Can_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Can_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    
+
+    IList<SelectListItem> listMealAllowanceType = Enum.GetValues(typeof(StatusMealAllowanceType))
+  .Cast<StatusMealAllowanceType>()
+  .Select(x => new SelectListItem { Value = ((int)x).ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+  .ToList();
+
+    IList<SelectListItem> listMealAllowanceTypeStatus = Enum.GetValues(typeof(StatusMealAllowanceToMoney))
+  .Cast<StatusMealAllowanceToMoney>()
+  .Select(x => new SelectListItem { Value = ((int)x).ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+  .ToList();
+
+}
+ @{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowCanMealAllowanceToMoney",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = _hrm_Can_Web + "Can_MealAllowanceToMoney/MealInfo/",
+    };
+}
+@(Html.VnrWindow(window))   
+<script type="text/javascript">
+    var popUpName = '@ConstantControlName.HRM_Canteen_MealAllowanceToMoney_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Can_MealAllowanceToMoney_Update_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Can_MealAllowanceToMoney_Create_Title.TranslateString())';
+    var submitNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString())';
+    var approveNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString())';
+
+
+    var checkedNodes = [];
+     
+
+    //Data khi tìm kiếm
+    function filterFieldInfo(isExport) {
+
+        //    var strMealAllowanceTypeValue = $("#MealAllowanceType1").data("kendoDropDownList").value();
+
+        return {
+            ProfileCodeSearch: $('#ProfileCode1').val(),
+            //DateFrom: $('#DateFrom1').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateFrom").val()),
+            //DateTo: $('#DateTo1').val(),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateTo").val()),
+            MealAllowanceTypeSettingID: $('#SMealAllowanceTypeSettingName').val(),
+            ProfileNameSearch: $('#ProfileName1').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            
+            var grid = $('#gridCan_MealAllowanceToMoney').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+        });
+
+        $('#gridCan_MealAllowanceToMoney').on("click", ".gridEditImgButton", function (e) {
+            
+            var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Can_MealAllowanceToMoney');
+            if (!isAccess) {
+                return;
+            }
+            
+            var grid = $('#gridCan_MealAllowanceToMoney').data("kendoGrid");
+            var selectedItem = grid.dataItem(grid.select());
+            if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+                @*KendoRouteMapping('#Hrm_Can_Web/Can_MealAllowanceToMoney/Edit/' + selectedItem.Id, 'Hrm_Can_Web', '@_hrm_Can_Web');*@
+                @*EditGridNewPage("gridCan_MealAllowanceToMoney", '#Hrm_Can_Web/Can_MealAllowanceToMoney/Edit/', 'Hrm_Can_Web', '@_hrm_Can_Web');*@
+                var url = '@_hrm_Can_Web' + "Can_MealAllowanceToMoney/MealInfo/";
+                PopUpEdit("windowCanMealAllowanceToMoney", url, selectedItem.ID, titleEditPopUp);
+                return;
+            } else {
+                alert('Không Thể Chỉnh Sửa Dữ Liệu Đang Ở Trạng Thái Duyệt!');
+                return;
+            }
+        });
+
+        @*EditGridNewPage("gridCan_MealAllowanceToMoney", '#Hrm_Can_Web/Can_MealAllowanceToMoney/Edit/', 'Hrm_Can_Web', '@_hrm_Can_Web');*@
+    });
+
+    //Xử lý Create
+    $("#btnCreate").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_MealAllowanceToMoney');
+        if (!isAccess) {
+            return;
+        }   
+        PopUpCreate("windowCanMealAllowanceToMoney", titleCreatePopUp,'@ConstantPermission.Can_MealAllowanceToMoney');
+        @*KendoRouteMapping('#Hrm_Can_Web/Can_MealAllowanceToMoney/Create/', 'Hrm_Can_Web', '@_hrm_Can_Web');*@
+    });
+
+   
+    //Xử Lý grid
+    GridCheckbox("gridCan_MealAllowanceToMoney");
+
+
+
+
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Can_MealAllowanceToMoney');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridCan_MealAllowanceToMoney", '@_hrm_Can_Web' + "Can_MealAllowanceToMoney/RemoveSelected/", selectedIds.join(","));
+        return false;
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $('#btnActionSubmit').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_MealAllowanceToMoneySubmit', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(submitNotAllow_Msg);
+            return;
+        }
+        
+        e.preventDefault();
+        var grid = $('#gridCan_MealAllowanceToMoney').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var r = confirm("Bạn Có Chắc Chắn Muốn Thay Đổi Trạng Thái?");
+            if (r == true) {
+                DoActionData("gridCan_MealAllowanceToMoney", '@_hrm_Can_Service' + "Canteen_ActionData/SubmitMealAllowance/", selectedIds.join(","), "E_WAIT_APPROVED");
+            }
+        }
+        else {
+            ErrorMessages("Ngày Công Đã Duyệt Không Được Phép Chỉnh Sửa!");
+        }
+        return false;
+    });
+
+    $('#btnActionApproved').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_MealAllowanceToMoneyApproved', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(approveNotAllow_Msg);
+            return;
+        }
+
+
+        e.preventDefault();
+        var grid = $('#gridCan_MealAllowanceToMoney').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var r = confirm("Bạn Có Chắc Chắn Muốn Thay Đổi Trạng Thái?");
+            if (r == true) {
+                DoActionData("gridCan_MealAllowanceToMoney", '@_hrm_Can_Service' + "Canteen_ActionData/SubmitMealAllowance/", selectedIds.join(","), "E_APPROVED");
+            }
+        }
+        else {
+            ErrorMessages("Ngày Công Đã Duyệt Không Được Phép Chỉnh Sửa!");
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter,status) {
+        
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status: status },
+            type: 'POST',
+            success: function (data) {
+                
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+
+    $("#btnExportAll").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Can_MealAllowanceToMoney');
+        if (!isAccess) {
+            return;
+        }
+        var grid = $('#gridCan_MealAllowanceToMoney').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Can_Service' + "Canteen_GetData/GetMealAllowanceToMoneyList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        selectedIds = [];
+    });
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div class="hrm_box">
+                        <div id="dvProfileCode">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileCodeSearch)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("ProfileCode1", "width:200px;")
+                            </div>
+                        </div>
+
+                        <div id="dvProfileName">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileNameSearch)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBox("ProfileName1", "width:200px;")
+                            </div>
+                        </div>
+
+
+
+
+                    </div>
+
+                    <div class="hrm_box">
+                        <div id="dvDateFrom">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "SDateFrom",
+                                        StyleCss="width:100px",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateFrom, dateFrom)
+
+
+                                @{
+                                    var dateTo = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "SDateTo",
+                                        StyleCss = "width:100px",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateTo, dateTo)
+                            </div>
+                        </div>
+
+                        <div id="dvProfileStatus">
+                            <div class="FieldTitle">
+                               @Html.VnrLabelFor(mode => mode.MealAllowanceTypeSettingID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _MealAllowanceTypeSettingName = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "MealAllowanceTypeSettingName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Can_Service + "Canteen_GetData/GetMultiMealAllowanceTypeSetting",
+                                        Name = "SMealAllowanceTypeSettingName",
+                                        StyleCss = "width:200px;"
+                                    };
+                                    
+                                }
+                                @Html.VnrComboBox(_MealAllowanceTypeSettingName)
+                            </div>
+                            @*<div class="FieldValue">
+                                @{
+                                    var dropdownProfileStatus = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "MealAllowanceType1",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        OptionLabel = ConstantDisplay.HRM_Can_MealAllowanceToMoney_MealAllowanceType.TranslateString(),
+                                        BindTo = listMealAllowanceType,
+                                        StyleCss = "Width:200px;"
+                                    };
+                                }
+                                @(Html.VnrDropDownList(dropdownProfileStatus))
+                            </div>*@
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionApproved", Content = ConstantDisplay.HRM_Common_Approve_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })
+        @*<div class="btn-group">
+            <button type="button" class="btn btn-default dropdown-toggle" data-toggle="dropdown" style="height:27px;font-size:12px">
+                <span class="glyphicon glyphicon-list" style="height:27px;"></span>
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>*@
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Canteen.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+            Can_MealAllowanceToMoneyModel.FieldNames.CodeEmp,
+            Can_MealAllowanceToMoneyModel.FieldNames.ProfileName,
+            Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeSettingName,
+            Can_MealAllowanceToMoneyModel.FieldNames.DateFrom,
+            Can_MealAllowanceToMoneyModel.FieldNames.DateTo,
+          //  Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeName,
+          Can_MealAllowanceToMoneyModel.FieldNames.Status,
+            Can_MealAllowanceToMoneyModel.FieldNames.Note
+            
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+           {Can_MealAllowanceToMoneyModel.FieldNames.CodeEmp,80},
+            {Can_MealAllowanceToMoneyModel.FieldNames.ProfileName,150},
+            {Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeSettingName,140},
+            {Can_MealAllowanceToMoneyModel.FieldNames.DateFrom,100},
+            {Can_MealAllowanceToMoneyModel.FieldNames.DateTo,100},
+         //   {Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeName,150},
+         {Can_MealAllowanceToMoneyModel.FieldNames.Status,120},   
+         {Can_MealAllowanceToMoneyModel.FieldNames.Note,250},
+            
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Can_MealAllowanceToMoneyModel.FieldNames.CodeEmp, ConstantDisplay.HRM_Can_MealAllowanceToMoney_ProfileCode},
+            {Can_MealAllowanceToMoneyModel.FieldNames.ProfileName, ConstantDisplay.HRM_Can_MealAllowanceToMoney_ProfileName},
+            {Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeSettingName, ConstantDisplay.HRM_Can_MealAllowanceToMoney_MealAllowanceTypeSettingName},
+            {Can_MealAllowanceToMoneyModel.FieldNames.DateFrom, ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateFrom},
+            {Can_MealAllowanceToMoneyModel.FieldNames.DateTo, ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateTo},
+          //  {Can_MealAllowanceToMoneyModel.FieldNames.MealAllowanceTypeName, ConstantDisplay.HRM_Can_MealAllowanceToMoney_MealAllowanceType},
+            {Can_MealAllowanceToMoneyModel.FieldNames.Status, ConstantDisplay.HRM_Can_MealAllowanceToMoney_Status},          
+          {Can_MealAllowanceToMoneyModel.FieldNames.Note, ConstantDisplay.HRM_Can_MealAllowanceToMoney_Notes},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridCan_MealAllowanceToMoney",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Can_Service + "Canteen_GetData/GetMealAllowanceToMoneyList/",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Can_MealAllowanceToMoneyModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

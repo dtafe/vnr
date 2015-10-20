@@ -1,0 +1,537 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Recruitment.Models
+@using HRM.Infrastructure.Security
+@model Rec_RecruitmentCampaignSearchModel
+@{
+    //ViewBag.Title = "Recl Level Index";
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    //string[] valueFields = null;
+    IList<SelectListItem> lstStatus = Enum.GetValues(typeof(RecruitmentCampaignStatus))
+   .Cast<RecruitmentCampaignStatus>()
+   .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+   .ToList();
+}
+@Html.Hidden("Screen", screen)
+@{
+    var windowRecruitmentCampaign = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_grid_Rec_gridRecruitmentCampaign_PopUp_Name,
+        Width = 1000,
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_RecruitmentCampaign/RecruitmentCampaignInfo/",
+    };
+}
+@(Html.VnrWindow(windowRecruitmentCampaign))
+<script>
+    var titleEditPopUpRecruitmentCampaign = '@Html.Raw(ConstantDisplay.HRM_Rec_RecruitmentCampaign_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpRecruitmentCampaign = '@Html.Raw(ConstantDisplay.HRM_Rec_RecruitmentCampaign_PopUp_Create_Title.TranslateString())';
+    var gridName = "gridRecruitmentCampaign";
+    var windowName = "windowRecruitmentCampaign";
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var dataParameter = {
+            RecruitmentCampaignName: $('#SRecruitmentCampaignName').val(),
+            Code: $('#SCode').val(),
+            Status: $('#SStatus').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        selectedIds = [];
+        checkedNodes = [];
+        EditGridNewPage(gridName, '#Hrm_Main_Web/Rec_RecruitmentCampaign/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+        @*var url = '@_hrm_Main_Web' + "Rec_RecruitmentCampaign/RecruitmentCampaignInfo/";
+        EditGridPopUp(gridName, '@ConstantControlName.HRM_grid_Rec_gridRecruitmentCampaign_PopUp_Name', url, '@ConstantPermission.Rec_RecruitmentCampaign', titleEditPopUpRecruitmentCampaign);*@
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        @*PopUpCreate(windowName, titleCreatePopUpRecruitmentCampaign, '@ConstantPermission.Rec_RecruitmentCampaign');*@
+        KendoRouteMapping('#Hrm_Main_Web/Rec_RecruitmentCampaign/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Rec_RecruitmentCampaign/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Rec_RecruitmentCampaign');
+        return false;
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+
+
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportRecruitmentCampaignList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_RecruitmentCampaign');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportRecruitmentCampaignSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Rec_RecruitmentCampaign');
+    });
+    function WaringError() {
+        var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+        notificationWidget.show('@ConstantDisplay.HRM_HR_Contract_PleaseSelect1Row.TranslateString()', 'error');
+    }
+
+    $('#btnApproved').click(function (e) {
+        var permissionNotAllow_Msg_Approved = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())';
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_RecruitmentCampaign_Approved', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg_Approved);
+            return;
+        }
+
+        if (selectedIds == "") {
+            WaringError();
+            return false;
+        }
+        if (selectedIds != '' && selectedIds != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: "@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())",
+                message: "@string.Format(ConstantDisplay.HRM_Message_AreYouSureWantTo.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())",
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+                if (response.button == "OK") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hre_Service' + "Rec_GetData/UpdateRecruitmentCampaignStatus/",
+                        data: { Status: 'E_APPROVED', selectedIds: selectedIds.join(',') },
+                        dataType: 'json',
+                        success: function (e) {
+                            ReadGrid(gridName);
+                            selectedIds = [];
+                        }
+
+
+                    });
+                }
+            })
+
+        }
+
+    });
+
+
+    $('#btnReject').click(function (e) {
+        var permissionNotAllow_Msg_Reject = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Reject.TranslateString())';
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_RecruitmentCampaign_Reject', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg_Reject);
+            return;
+        }
+
+        if (selectedIds == "") {
+            WaringError();
+            return false;
+        }
+        if (selectedIds != '' && selectedIds != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: "@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())",
+                message: "@string.Format(ConstantDisplay.HRM_Message_AreYouSureWantTo.TranslateString(), ConstantAction.HRM_Common_UnHire.TranslateString())",
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+                if (response.button == "OK") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hre_Service' + "Rec_GetData/UpdateRecruitmentCampaignStatus/",
+                        data: { Status: 'E_REJECT', selectedIds: selectedIds.join(',') },
+                        dataType: 'json',
+                        success: function (e) {
+                            ReadGrid(gridName);
+                            selectedIds = [];
+                        }
+
+
+                    });
+                }
+            })
+        }
+
+
+    });
+    $('#btnCancel').click(function (e) {
+        var permissionNotAllow_Msg_Cancel = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Cancel.TranslateString())';
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_RecruitmentCampaign_Cancel', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg_Cancel);
+            return;
+        }
+
+        if (selectedIds == "") {
+            WaringError();
+            return false;
+        }
+        if (selectedIds != '' && selectedIds != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: "@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())",
+                message: "@string.Format(ConstantDisplay.HRM_Message_AreYouSureWantTo.TranslateString(), ConstantAction.HRM_Common_Cancel.TranslateString())",
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+                if (response.button == "OK") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hre_Service' + "Rec_GetData/UpdateRecruitmentCampaignStatus/",
+                        data: { Status: 'E_CANCEL', selectedIds: selectedIds.join(',') },
+                        dataType: 'json',
+                        success: function (e) {
+                            ReadGrid(gridName);
+                            selectedIds = [];
+                        }
+
+                    });
+                }
+            })
+        }
+
+
+    });
+    $('#btnActive').click(function (e) {
+        var permissionNotAllow_Msg_Active = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Active.TranslateString())';
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_RecruitmentCampaign_Active', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(permissionNotAllow_Msg_Active);
+            return;
+        }
+
+        if (selectedIds == "") {
+            WaringError();
+            return false;
+        }
+        if (selectedIds != '' && selectedIds != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: "@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())",
+                message: "@string.Format(ConstantDisplay.HRM_Message_AreYouSureWantTo.TranslateString(), ConstantAction.HRM_Common_Active.TranslateString())",
+                icon: "k-ext-warning"
+            })
+            ).done(function (response) {
+                if (response.button == "OK") {
+                    $.ajax({
+                        type: 'POST',
+                        url: '@_hrm_Hre_Service' + "Rec_GetData/UpdateRecruitmentCampaignActive/",
+                        data: { Value: true, selectedIds: selectedIds.join(',') },
+                        dataType: 'json',
+                        success: function (e) {
+                            ReadGrid(gridName);
+                            selectedIds = [];
+                        }
+
+
+                    });
+                }
+            })
+        }
+
+
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + "Rec_GetData/ExportRecruitmentCampaignListByTemplate", filterFieldInfo(true));
+
+
+    });
+    $("#btnExport").click(function () {
+        //showAjaxLoading()
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_Relatives');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Rec_GetData/ExportRecruitmentCampaignListByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        //hideAjaxLoading()
+    });
+
+</script>
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div14">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.RecruitmentCampaignName)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var txtRecruitmentCampaignName = new TextBoxBuilderInfo()
+                            {
+                                Name = "SRecruitmentCampaignName",
+
+                            };
+                        }
+                        @Html.VnrTextBoxFor(mode => mode.RecruitmentCampaignName, txtRecruitmentCampaignName)
+                    </div>
+                </div>
+                <div id="div14">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var Code = new TextBoxBuilderInfo()
+                            {
+                                Name = "SCode",
+
+                            };
+                        }
+                        @Html.VnrTextBoxFor(mode => mode.Code, Code)
+                    </div>
+                </div>
+                <div id="div14">
+                    <div class="FieldTitle150">
+                        @Html.VnrLabelFor(mode => mode.Status)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var Status = new DropDownListBuilderInfo()
+                            {
+                                Name = "SStatus",
+                                DataTextField = "Text",
+                                DataValueField = "Value",
+                                StyleCss = "width:200px",
+                                BindTo = lstStatus,
+                                OptionLabel = ConstantDisplay.HRM_Category_SelectStatus.TranslateString(),
+                            };
+                        }
+                        @Html.VnrDropDownListFor(mode => mode.Status, Status)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApproved", Content = ConstantAction.HRM_Common_Approved.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCancel", Content = ConstantAction.HRM_Common_Cancel.TranslateString(), ImageUrl = ConstantPath.IconCancelLateEarly })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActive", Content = ConstantAction.HRM_Common_Active.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnRecruitmentCampaign", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Rec_gridRecruitmentCampaign_Grid_Name + "__Rec_RecruitmentCampaign_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Rec_gridRecruitmentCampaign_Grid_Name,
+            ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetRecruitmentCampaignList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+                        {
+                            Rec_RecruitmentCampaignModel.FieldNames.Code,
+                            Rec_RecruitmentCampaignModel.FieldNames.RecruitmentCampaignName,
+                            Rec_RecruitmentCampaignModel.FieldNames.SalaryMaxBudget,
+                            Rec_RecruitmentCampaignModel.FieldNames.SalaryMinBudget,
+                            Rec_RecruitmentCampaignModel.FieldNames.SalaryCampaignBudget,
+                            Rec_RecruitmentCampaignModel.FieldNames.Status,
+                            Rec_RecruitmentCampaignModel.FieldNames.DateStart,
+                            Rec_RecruitmentCampaignModel.FieldNames.DateEnd,
+                            Rec_RecruitmentCampaignModel.FieldNames.SalaryCurrentBudget,
+                            Rec_RecruitmentCampaignModel.FieldNames.Budget,
+                            Rec_RecruitmentCampaignModel.FieldNames.Description,
+                        };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                        {
+                            {Rec_RecruitmentCampaignModel.FieldNames.Code, 110},
+                            {Rec_RecruitmentCampaignModel.FieldNames.RecruitmentCampaignName, 130},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryMaxBudget, 170},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryMinBudget, 180},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryCampaignBudget, 180},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Status, 100},
+                            {Rec_RecruitmentCampaignModel.FieldNames.DateStart, 120},
+                            {Rec_RecruitmentCampaignModel.FieldNames.DateEnd, 140},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryCurrentBudget, 125},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Description, 150},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Budget, 130}
+
+                        };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                        {
+                            {Rec_RecruitmentCampaignModel.FieldNames.Code, ConstantDisplay.HRM_Rec_RecruitmentCampaign_Code},
+                            {Rec_RecruitmentCampaignModel.FieldNames.RecruitmentCampaignName, ConstantDisplay.HRM_Rec_RecruitmentCampaign},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryMaxBudget, ConstantDisplay.HRM_Rec_RecruitmentCampaign_SalaryMaxBudget},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryMinBudget, ConstantDisplay.HRM_Rec_RecruitmentCampaign_SalaryMinBudget},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryCampaignBudget, ConstantDisplay.HRM_Rec_RecruitmentCampaign_SalaryCampaignBudget},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Status, ConstantDisplay.HRM_Rec_RecruitmentCampaign_Status},
+                            {Rec_RecruitmentCampaignModel.FieldNames.DateStart, ConstantDisplay.HRM_Rec_RecruitmentCampaign_DateStart},
+                            {Rec_RecruitmentCampaignModel.FieldNames.DateEnd, ConstantDisplay.HRM_Rec_RecruitmentCampaign_DateEnd},
+                            {Rec_RecruitmentCampaignModel.FieldNames.SalaryCurrentBudget, ConstantDisplay.HRM_Rec_RecruitmentCampaign_SalaryCurrentBudget},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Budget, ConstantDisplay.HRM_Rec_RecruitmentCampaign_Budget},
+                            {Rec_RecruitmentCampaignModel.FieldNames.Description, ConstantDisplay.HRM_Rec_RecruitmentCampaign_Description},
+                        };
+        }
+        defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+
+    //var grid = new GridBuilderInfo
+    //{
+
+    //    Name = "gridRecruitmentCampaign",
+    //    ValueFields = valueFields,
+    //    SizeFields = sizeFields,
+    //    DisplayFields = displayFields,
+    //    ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetRecruitmentCampaignList",
+    //    ReadData = "filterFieldInfo",
+    //    AutoBind = false,
+    //    ShowDeleteButton = true,
+    //};
+    }
+    @(Html.VnrGrid<Rec_RecruitmentCampaignModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnRecruitmentCampaign", "Rec_RecruitmentCampaignModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

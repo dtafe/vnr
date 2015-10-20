@@ -1,0 +1,325 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Presentation.UI.Controls.Kendo;
+
+@model Att_PersonalSubmitOvertimeSearchModel
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_Overtime_List;
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+      .Cast<EnumDropDown.OverTimeStatus>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+      .ToList();
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    var userID = Session[SessionObjects.UserId];
+}
+
+<script type="text/javascript">
+    function filterFieldInfo(isExport) {
+        var UserInfoName = '@Session[SessionObjects.UserId]';
+        var DateStart = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val());
+        var DateEnd = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val());
+        return {
+            UserName: UserInfoName,
+            DateStart: DateStart,
+            DateEnd: DateEnd,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            ExportId: $('#ddlScreenName').val()
+        };
+    }
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#gridAtt_PersonalSubmitOvertime').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+            SetFieldRequired();
+            return false;
+        });
+
+        window.ShowHidePanel();
+        GridCheckbox("gridAtt_PersonalSubmitOvertime");
+    });
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        var UserInfoName = $('#UserInfoName').val();
+        var userId = '@Session[SessionObjects.UserId]';
+        var profileID = '@Session[SessionObjects.ProfileID]';
+      
+        var x = $("#ID").val();
+
+        KendoRouteMapping('#Hrm_Main_Web/Att_Overtime/Analysis/' + profileID, 'Hrm_Hre_Web', '@_hrm_Main_Web', true);
+    });
+
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div>
+                <div class="contendSearchWidge">
+                    <form id="form-search">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.Label(ConstantDisplay.HRM_Attendance_Overtime_WorkDate.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var datepickerDateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.DateStart).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, datepickerDateStart)
+
+                                @{
+                                    var datepickerDateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Value = @Html.DisplayFor(mode => mode.DateEnd).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, datepickerDateEnd)
+
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float: right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })*@
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })*@
+    </div>
+
+</div>
+<script>
+    function clickProfile(id) {
+        KendoRouteMapping('#Hrm_Hre_Web/GeneralProfile/Index/' + id, 'Hrm_Hre_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Attendance.Models
+    @{
+        IList<SelectListItem> overtimeStatus = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+        .Cast<EnumDropDown.OverTimeStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+        IList<SelectListItem> lstMethodPayment = Enum.GetValues(typeof(EnumDropDown.MethodPayment))
+        .Cast<EnumDropDown.MethodPayment>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridAtt_PersonalSubmitOvertime_Grid_Name + "__Att_OvertimeIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridAtt_PersonalSubmitOvertime_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Att_GetData/GetPersonalSubmitOvertime",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ForeignKey = new Dictionary<object, object[]>()
+            {
+
+                {Att_WorkdayModel.FieldNames.Status,new object[]
+                   { "Value", "Text", overtimeStatus, ConstantDisplay.HRM_Attendance_Overtime_Status,""}},
+                      {Att_OvertimeModel.FieldNames.MethodPayment,new object[]
+                   { "Value", "Text", lstMethodPayment, ConstantDisplay.HRM_Attendance_Overtime_MethodPayment,""}},
+            };
+
+
+
+            grid.ValueFields = new string[]
+            {
+                Att_OvertimeModel.FieldNames.CodeEmp,
+                Att_OvertimeModel.FieldNames.ProfileName,
+                //Att_OvertimeModel.FieldNames.OrgStructureName,
+                
+                  Att_OvertimeModel.FieldNames.E_UNIT,
+                   Att_OvertimeModel.FieldNames.E_DIVISION,
+                      Att_OvertimeModel.FieldNames.E_DEPARTMENT,
+                         Att_OvertimeModel.FieldNames.E_SECTION,
+                               Att_OvertimeModel.FieldNames.E_TEAM,
+                
+                
+                Att_OvertimeModel.FieldNames.Status,
+                Att_OvertimeModel.FieldNames.WorkDate,
+                Att_OvertimeModel.FieldNames.InTime,
+                Att_OvertimeModel.FieldNames.OutTime,
+                Att_OvertimeModel.FieldNames.AnalyseHour,
+                Att_OvertimeModel.FieldNames.RegisterHours,
+                Att_OvertimeModel.FieldNames.ApproveHours,
+                Att_OvertimeModel.FieldNames.OvertimeTypeName,
+                Att_OvertimeModel.FieldNames.MethodPayment,
+                Att_OvertimeModel.FieldNames.ReasonOT,
+                Att_OvertimeModel.FieldNames.UserApproveID,
+                Att_OvertimeModel.FieldNames.udHourByMonth,
+                Att_OvertimeModel.FieldNames.udHourByYear,
+                Att_OvertimeModel.FieldNames.udIsNonOvertime,
+                Att_OvertimeModel.FieldNames.UserApproveID2,
+                Att_OvertimeModel.FieldNames.UserApproveName1,
+                Att_OvertimeModel.FieldNames.UserApproveName2,
+                Att_OvertimeModel.FieldNames.DateUpdate,
+                Att_OvertimeModel.FieldNames.UserUpdate
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Att_OvertimeModel.FieldNames.CodeEmp, 70},
+                {Att_OvertimeModel.FieldNames.ProfileName, 135},
+                //{Att_OvertimeModel.FieldNames.OrgStructureName, 100},
+                
+                
+                  {Att_OvertimeModel.FieldNames.E_UNIT, 100},
+                {Att_OvertimeModel.FieldNames.E_DIVISION, 100},
+                {Att_OvertimeModel.FieldNames.E_DEPARTMENT,100},
+                {Att_OvertimeModel.FieldNames.E_SECTION,100},
+                {Att_OvertimeModel.FieldNames.E_TEAM, 100},
+                
+                {Att_OvertimeModel.FieldNames.Status, 90},
+                {Att_OvertimeModel.FieldNames.WorkDate, 85},
+                {Att_OvertimeModel.FieldNames.InTime,65},
+                {Att_OvertimeModel.FieldNames.OutTime,65},
+                {Att_OvertimeModel.FieldNames.AnalyseHour, 95},
+                {Att_OvertimeModel.FieldNames.RegisterHours, 75},
+                {Att_OvertimeModel.FieldNames.ApproveHours, 72},
+                {Att_OvertimeModel.FieldNames.OvertimeTypeName, 90},
+                {Att_OvertimeModel.FieldNames.MethodPayment, 104},
+                {Att_OvertimeModel.FieldNames.ReasonOT, 99},
+                {Att_OvertimeModel.FieldNames.UserApproveName1, 115},
+                {Att_OvertimeModel.FieldNames.DateUpdate, 117},
+                {Att_OvertimeModel.FieldNames.UserUpdate, 105},
+                {Att_OvertimeModel.FieldNames.udHourByMonth, 110},
+                {Att_OvertimeModel.FieldNames.udHourByYear, 105},
+                {Att_OvertimeModel.FieldNames.udIsNonOvertime, 100},
+                {Att_OvertimeModel.FieldNames.UserApproveName2, 115},
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Att_OvertimeModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Att_OvertimeModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                {Att_OvertimeModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Category_OrgStructure_OrgStructureName},
+                
+                
+                
+                       {Att_OvertimeModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                              {Att_OvertimeModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                                     {Att_OvertimeModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                                            {Att_OvertimeModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},     
+                                            {Att_OvertimeModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+                
+                {Att_OvertimeModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_Overtime_Status},
+                {Att_OvertimeModel.FieldNames.WorkDate, ConstantDisplay.HRM_Attendance_Overtime_WorkDate},
+                {Att_OvertimeModel.FieldNames.InTime, ConstantDisplay.HRM_Attendance_Overtime_InTime},
+                {Att_OvertimeModel.FieldNames.OutTime, ConstantDisplay.HRM_Attendance_Overtime_OutTime},
+                {Att_OvertimeModel.FieldNames.AnalyseHour, ConstantDisplay.HRM_Attendance_Overtime_AnalyseHour},
+                {Att_OvertimeModel.FieldNames.RegisterHours, ConstantDisplay.HRM_Attendance_Overtime_RegisterHours},
+                {Att_OvertimeModel.FieldNames.ApproveHours, ConstantDisplay.HRM_Attendance_Overtime_ApproveHours},
+                {Att_OvertimeModel.FieldNames.OvertimeTypeName, ConstantDisplay.HRM_Attendance_Overtime_OvertimeTypeID},
+                {Att_OvertimeModel.FieldNames.MethodPayment, ConstantDisplay.HRM_Attendance_Overtime_MethodPayment},
+                {Att_OvertimeModel.FieldNames.ReasonOT, ConstantDisplay.HRM_Attendance_Overtime_ReasonOT},
+                {Att_OvertimeModel.FieldNames.UserApproveName1, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID},
+                {Att_OvertimeModel.FieldNames.UserApproveName2, ConstantDisplay.HRM_Attendance_Overtime_UserApproveID2},
+                {Att_OvertimeModel.FieldNames.udHourByMonth, ConstantDisplay.HRM_Att_Overtime_udHourByMonth},
+                {Att_OvertimeModel.FieldNames.udHourByYear, ConstantDisplay.HRM_Att_Overtime_udHourByYear},
+                {Att_OvertimeModel.FieldNames.udIsNonOvertime, ConstantDisplay.HRM_Att_Overtime_udIsNonOvertime},
+                {Att_OvertimeModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_Overtime_DateUpdate},
+                {Att_OvertimeModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Attendance_Overtime_UserUpdate}
+            };
+
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Att_OvertimeModel.FieldNames.WorkDate, ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_OvertimeModel.FieldNames.InTime, ConstantFormat.HRM_Format_HourMinSecond},
+                {Att_OvertimeModel.FieldNames.OutTime, ConstantFormat.HRM_Format_HourMinSecond}
+            };
+            grid.HiddenFields = new string[]
+            {
+                Att_OvertimeModel.FieldNames.UserApproveID,
+                Att_OvertimeModel.FieldNames.UserApproveID2
+            };
+
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Att_OvertimeModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Attendance.Models.Att_OvertimeModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeOvertime", "Att_OvertimeModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

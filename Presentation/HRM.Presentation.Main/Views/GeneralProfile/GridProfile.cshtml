@@ -1,0 +1,229 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security
+
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script>
+    var checkedNodes = [];
+    var IsEdit = false;
+    function filterFieldInfo() {
+        if (!IsEdit) {
+            IsEdit = true;
+            var codeEmp = location.href.split('/');
+            return {
+                ProfileID: codeEmp[codeEmp.length - 1],
+                Keyword: $('#searchBox').val(),
+                OrgStructureID: checkedNodes.join(',')
+            };
+        }
+        else {
+            return {
+                ProfileID: null,
+                Keyword: $('#searchBox').val(),
+                OrgStructureID: checkedNodes.join(',')
+            };
+        }
+    }
+
+    function searchButton() {
+        checkedNodes = [];
+        var treeView = $("#ProfileDetail_OrgStructureID").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var grid = $('#HRM_HR_GeneralProfile_GridName').data("kendoGrid");
+        grid.dataSource.read();
+    }
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Profile');
+        if (!isAccess) {
+            return;
+        }
+
+        KendoRouteMapping('#Hrm_Main_Web/Hre_Profile/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web', true);
+    });
+    $("#btnEdit").click(function () {
+        var url = '#Hrm_Main_Web/Hre_Profile/Edit/';
+        KendoRouteMapping(url + SelectID, 'Hrm_Main_Web', '@_hrm_Main_Web', true);
+    });
+    $('#btnDelete').click(function (e) {
+        if (SelectID == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected('@ConstantDisplay.HRM_HR_GeneralProfile_GridName', '@_hrm_Main_Web' + "Hre_Profile/RemoveSelected/", SelectID, '@ConstantPermission.Cat_OrgStructure');
+        return false;
+    });
+    $("#btnRefesh").click(function () {
+
+        var grid = $('#HRM_HR_GeneralProfile_GridName').data("kendoGrid");
+        grid.dataSource.read();
+    });
+
+    $('#searchBox').keypress(function (event) {
+        var keycode = (event.keyCode ? event.keyCode : event.which);
+        if (keycode == '13') {
+            searchButton();
+        }
+    });
+</script>
+
+<div style="width:250px;max-height:100%;">
+   
+    <!--Textbox tìm kiếm, chưa được xử lý-->
+    <div>
+        <span class="k-textbox k-space-right" style="width: 100%">
+            <input type="text" id="searchBox" placeholder="@ConstantDisplay.HRM_HR_Profile_InputNameOrCode.TranslateString()" onkeypress="handleEnter(this.value, event)" />
+            <a id="btnSearchProfile" class="k-icon k-i-search" onclick="searchButton();">&nbsp;</a>
+        </span>
+    </div>
+    @{
+        var valueFields = new[]
+        {
+            Hre_ProfileModel.FieldNames.ProfileName,
+            Hre_ProfileModel.FieldNames.CodeEmp
+        };
+
+        var hiddenFields = new[]
+        {
+            Hre_ProfileModel.FieldNames.IsQuit
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+            {Hre_ProfileModel.FieldNames.ProfileName, 160},
+            {Hre_ProfileModel.FieldNames.CodeEmp, 70}
+        };
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            {Hre_ProfileModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+            {Hre_ProfileModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantDisplay.HRM_HR_GeneralProfile_GridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            HiddenFields = hiddenFields,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetListProfiles/",
+            ReadData = "filterFieldInfo",
+            ShowInputPageNumber = false,
+            ShowNextPrevious = false,
+            ShowPageNumber = false,
+            //ShowPageSize = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Scrollable = true,
+            PageSize = 25,
+            SelectionMode = GridSelectionMode.Single,
+            SelectionType = GridSelectionType.Row,
+            AutoBind = true,
+            EventDataBound = "onDataBound",
+            SelectionHandler = "onSelectRow",
+            GridHeight = 780
+        };
+    }
+
+    <!--Xử lý load dữ liệu cho tabstrip default-->
+    <script>
+
+
+
+        //Khi load grid lên thì default là chọn dòng đầu tiên
+        function onDataBound(e) {
+
+            var grid = $("#" + '@ConstantDisplay.HRM_HR_GeneralProfile_GridName').data("kendoGrid");
+            if (grid == null) {
+                return;
+            }
+            grid.select(e.sender.tbody.find("tr:first"));
+            $("#InfoPersional").click();
+
+
+            //set lại total row của grid
+            setTimeout(function () {
+                var count = grid.dataSource.total();
+                var t = $("#HRM_HR_GeneralProfile_GridName .k-pager-info").prev();
+                $("#HRM_HR_GeneralProfile_GridName .k-pager-info").remove();
+                if (count > 0) {
+                    t.after('<span style="float:right;">' + count + ' item</span>');
+                }
+            }, 1000);
+
+
+
+            // Lấy mã màu
+            $.ajax({
+                url: '@_hrm_Sys_Service' + "Sys_GetData/GetColorConfig_Profile",
+                type: "POST",
+                async: false,
+                error: function () {
+                    ShowNotificationProcessor("Lấy Mã Màu Nhân Viên Lỗi !");//Chưa Dịch
+                },
+                success: function (data) {
+                    var colorF = data.Font != "" ? data.Font : 'red';
+                    var colorBG = data.Background != "" ? data.Background : 'yellow';
+
+                    var field1 = ["IsQuit", true, colorBG, colorF, "="];
+                    var field = [field1];
+                    SetRowColor('@ConstantDisplay.HRM_HR_GeneralProfile_GridName', field);
+
+                    $('#mastercheckbox').prop('checked', false);
+                    var result = $("input[type=checkbox][id!=mastercheckbox][class=checkboxGroups]");
+                    for (var i = 0; i < result.length; i++) {
+                        if (SelectedGuid.indexOf(result[i].parentNode.parentNode.attributes["data-uid"].value) != -1) {
+                            result[i].checked = true;
+                        }
+                    }
+                }
+            });
+        }
+
+        function onSelectRow(e) {
+            //lấy lại tab Index đã lưu trong sự kiện changetab
+            var grid = $("#" + '@ConstantDisplay.HRM_HR_GeneralProfile_GridName').data("kendoGrid");
+            UpdateTabIndex();
+
+            //Xác định row đang select
+            var rowSelected = grid.select();
+            //Lấy được id của row tương ứng khi select
+            SelectID = grid.dataItem(rowSelected).ID;
+
+
+            $("#ProfileNameGenarel").val(grid.dataItem(rowSelected).ProfileName);
+
+            //update select id
+            $("#" + '@ConstantDisplay.HRM_HR_GeneralProfile_H_IdProfile').val(SelectID);
+            LoadForm();
+
+            //Cập nhật lại tên hiển thị trên breadcrumb
+            $("#profileNameView").html(grid.dataItem(rowSelected).ProfileName);
+            $("#ProfileName").val(grid.dataItem(rowSelected).ProfileName);
+        };
+    </script>
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_ProfileModel>(grid))
+ 
+
+</div>
+
+<!--Hidden file main, chứa Id của row khi select 1 row trên lưới-->
+@(Html.TextBox(ConstantDisplay.HRM_HR_GeneralProfile_H_IdProfile, null, new { style = "display: none" }))
+@(Html.TextBox(ConstantDisplay.HRM_HR_GeneralProfile_H_CutOffId, null, new { style = "display: none" }))
+@(Html.TextBox(ConstantDisplay.HRM_HR_GeneralProfile_H_ListActionTab, null, new { style = "display: none" }))
+
+@Html.Hidden("ProfileNameGenarel")
+
+

@@ -1,0 +1,255 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Payroll.Models
+@model Kai_CategorySearchModel
+@{
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowKai_Category",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Kai_Category/Kai_CategoryInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Kai_Category_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Kai_Category_PopUp_Name';
+    var titleEditPopUpCategory = '@Html.Raw(ConstantDisplay.HRM_Kai_Category_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpCategory = '@Html.Raw(ConstantDisplay.HRM_Kai_Category_PopUp_Create_Title.TranslateString())';
+
+    //Tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            CategoryName: $('#CategoryName').val(),
+            Code:$('#Code').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid('grid_Kai_Category');
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Kai_Category/Kai_CategoryInfo/";
+        EditGridPopUp("grid_Kai_Category", "windowKai_Category", url, '@ConstantPermission.Kai_Category', titleEditPopUpCategory);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        PopUpCreate("windowKai_Category", titleCreatePopUpCategory, '@ConstantPermission.Kai_Category');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('grid_Kai_Category', '@_hrm_Main_Web' + "Kai_Category/RemoveSelected/", selectedIds, '@ConstantPermission.Kai_Category');
+        return false;
+    });
+ 
+    $("#btnExportSelected").click(function () {
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Sal_GetData/ExportKaiCategorySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Kai_Category');
+    });
+
+
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        var grid = $('#grid_Kai_Category').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Sal_GetData/ExportAllKaiCategoryList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Kai_Category');
+    });
+
+
+
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.CategoryName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(model => model.CategoryName)
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model=>model.Code)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(model=>model.Code)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath })*@
+
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnTrainCategory", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Kai_Category_Name + "__Cat_TrainCategory_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Kai_Category_Name,
+            ReadActionUrl = _hrm_Hre_Service + "Sal_GetData/GetKai_CategoryList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Kai_CategoryModel.FieldNames.Code,
+                Kai_CategoryModel.FieldNames.CategoryName,
+                 Kai_CategoryModel.FieldNames.CatalogyTypeTranslate,
+                 
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Kai_CategoryModel.FieldNames.Code,100},
+                {Kai_CategoryModel.FieldNames.CategoryName,130},
+                   {Kai_CategoryModel.FieldNames.CatalogyTypeTranslate,130}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Kai_CategoryModel.FieldNames.Code, ConstantDisplay.HRM_Kai_Category_Code},
+                {Kai_CategoryModel.FieldNames.CategoryName,ConstantDisplay.HRM_Kai_Category_CategoryName},
+                   {Kai_CategoryModel.FieldNames.CatalogyTypeTranslate,ConstantDisplay.HRM_Kai_Category_CatalogyType}
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_Kai_Category",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _hrm_Hre_Service + "Sal_GetData/GetKai_CategoryList/",
+        //    ReadData = "filterFieldInfo",
+        //};
+    }
+
+    @(Html.VnrGrid<Kai_CategoryModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnTrainCategory", "Kai_CategoryModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,267 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@model Att_ReportDetailOvertimeModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+}
+
+@Html.Hidden("Screen", screen)
+
+<script>
+
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL, isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var elementPara = {
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            OverTimeTypeID: $('#SOverTimeTypeID').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            IsExport: isExport,
+            UserExport: $('#UserLoginName').val(),
+            IsIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.IsIncludeQuitEmp)').checked,
+            NoDisplay0Data: document.getElementById('@Html.FieldIdFor(model => model.NoDisplay0Data)').checked,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportDetailOvertimeListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        CloseHre_ProgressBar();
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        
+                        $.ajax({
+                            url: '@_hrm_Hr_Service' + "Att_GetData/GetReportDetailOvertimeList",
+                            data: filterFieldInfo(false),
+                            type: 'POST',
+                            datatype: 'json',
+                            success: function (data) {
+                                CloseHre_ProgressBar();
+                                var grid = VnrGridDynamic;
+                                grid.gridName = "gridAtt_ReportDetailOvertime";
+                                grid.DataSource = data.Data;
+                                grid.PageSize = 50;
+                                VnrGridDynamicControl(grid);
+                            }
+                        });
+                        checkedNodes = [];
+                    }
+                }
+            });
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportDetailOvertime');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportDetailOvertimeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportDetailOvertimeList', filterFieldInfo(true));
+    });
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:350px">
+                    <div id="dvCodeEmp">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                            @Html.HiddenFor(model => model.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+                    <div id="dvDateFrom">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                        </div>
+                    </div>
+                    <div id="dvIsIncludeQuitEmp">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue">
+                            <div>
+                                @{
+                                    var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(model => model.IsIncludeQuitEmp, IsIncludeQuitEmp) @Html.VnrLabelForNoneIcon(model => model.IsIncludeQuitEmp)
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+                <div style="display: block; float: left; width: 600px">
+                    <div id="dvOrgStructureID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                    </div>
+                    <div id="dvOverTimeTypeID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.OverTimeTypeID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _OverTimeType = new ComboBoxBuilderInfo()
+                                {
+                                    Name = "SOverTimeTypeID",
+                                    DataTextField = "OvertimeTypeName",
+                                    DataValueField = "ID",
+                                    Url = _hrm_Hr_Service + "Cat_GetData/GetMultiOvertimeType",
+                                    Placeholder = ConstantDisplay.HRM_Attendance_SelectOvertimeType.TranslateString(),
+                                    StyleCss = "width: 200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(mode => mode.OverTimeTypeID, _OverTimeType)
+                        </div>
+                    </div>
+                    <div class="DivContentTitleValue" id="dvNoDisplay0Data">
+                        <div class="FieldTitle">
+                        </div>
+                        <div class="FieldValue">
+                            <div style="float: left">
+                                <div style="float:left">
+                                    @{
+                                        var _NoDisplay0Data = new CheckBoxBuilderInfo()
+                                        {
+                                        };
+                                    }
+                                    @Html.VnrCheckBoxFor(mode => mode.NoDisplay0Data, _NoDisplay0Data)
+                                </div>
+                                <div style="float:left">
+                                    @Html.VnrLabelForNoneIcon(model => model.NoDisplay0Data)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float: left">@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantDisplay.HRM_Common_Search_Button.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })</div>
+    <div style="float:right">
+        <script>
+
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>
+
+
+<div>
+    <div id="gridAtt_ReportDetailOvertime"></div>
+</div>
+

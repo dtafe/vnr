@@ -1,0 +1,472 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+
+@using HRM.Infrastructure.Security
+
+@model Fin_PurchaseRequestModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var ContractID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        ContractID = Model.ID;
+    }
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowPurchaseRequestItem",
+        Visible = false,
+        Title = @ConstantDisplay.HRM_Category_ExportItem.TranslateString(),
+        Width = 700,
+        LoadContentFrom = _hrm_Main_Web + "Fin_PurchaseRequest/PurchaseRequestItemInfo?purchaseID=" + ContractID,
+    };
+}
+@(Html.VnrWindow(window))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo",
+        Content = "Bạn Chưa Tạo Mới Đơn Hàng"
+    };
+}
+@(Html.VnrWindow(windowError))
+<style>
+    .k-footer-template td {
+        text-align:right;
+    }
+</style>
+<script type="text/javascript">
+    SetFieldRequired();
+    var gridName = '@ConstantControlName.HRM_HR_AppendixContract_Grid_Name.TranslateString()';
+    var popUpName = '@ConstantControlName.HRM_HR_AppendixContract_PopUp_Name.TranslateString()';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_HR_AppendixContract_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_HR_AppendixContract_PopUp_Create_Title.TranslateString())';
+    $("#btnCreatePurchaseItem").click(function () {
+        
+
+        var x = $('#@Html.FieldIdFor(model => model.PruchaseRequest_ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+
+            PopUpCreate("windowPurchaseRequestItem", "Tạo Mới Đơn Hàng Chi Tiết", '@ConstantPermission.Hre_AppendixContract')
+        }
+    });
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "Fin_PurchaseRequest/PurchaseRequestItemInfo/";
+        EditGridPopUp("grid_PurchaseRequestItem", "windowPurchaseRequestItem", url, '@ConstantPermission.Hre_Contract', "Cập Nhật Đơn hàng Chi Tiết");
+    });
+
+    function filterFieldInfo() {
+        return {
+            PurchaseRequestID: $("#PruchaseRequest_ID").val()
+        };
+    }
+
+
+
+    GridCheckbox(gridName);
+
+    //Xóa PLHĐ
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_PurchaseRequestItem", '@_hrm_Main_Web' + "Fin_PurchaseRequest/RemoveSelectedPRItem/", selectedIds.join(","));
+    });
+
+</script>
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+
+            <tr><td colspan="3" style=""></td></tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px;">
+                        @Html.HiddenFor(mode => mode.ID)
+                        @Html.HiddenFor(mode => mode.PruchaseRequest_ID)
+                        @Html.HiddenFor(mode => mode.UserCreateID)
+                        <div style="float:left; width:100%">
+                            <div style="float: left; width: 500px">
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Code)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Code)
+                                    </div>
+                                </div>
+
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.FunctionID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var tFunctionID = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "FunctionID",
+                                                StyleCss = "Width: 200px",
+                                                DataTextField = "OwnerName",
+                                                DataValueField = "ID",
+                                                ServerFilter = true,
+                                                FilterType = FilterType.Contains,
+                                                Url = _hrm_Hr_Service + "Cat_GetData/GetMultiFunction",
+                                                Placeholder = "Vui Lòng Chọn ...",
+                                                Value = Model == null ? string.Empty : Model.FunctionID.ToString()
+                                            };
+                                        }
+                                        @Html.VnrComboBoxFor(model => model.FunctionID, tFunctionID).Text(Model == null ? string.Empty : Model.FunctionName)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.BudgetOwnerID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        <script>
+                                            function filterProvinces() {
+                                                
+                                                return {
+                                                    functionID: $("#FunctionID").val(),
+                                                    functionFilter: $("#BudgetOwnerID").data("kendoComboBox").input.val()
+                                                };
+                                            }
+                                        </script>
+                                        @{
+                                            var tProvince = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "BudgetOwnerID",
+                                                StyleCss = "Width: 200px",
+                                                DataTextField = "BudgetOwnerName",
+                                                DataValueField = "ID",
+                                                ServerFilter = true,
+                                                FilterType = FilterType.Contains,
+                                                Url = _hrm_Hr_Service + "Cat_GetData/GetBudgetOwnerCascading/",
+                                                CascadeFrom = "FunctionID",
+                                                Data = "filterProvinces",
+                                                //Autobind = false,
+                                                Placeholder = "Vui Lòng Chọn ...",
+                                                Value = Model == null ? string.Empty : Model.BudgetOwnerID.ToString()
+                                            };
+                                        }
+                                        @Html.VnrComboBoxFor(model => model.BudgetOwnerID, tProvince).Text(Model == null ? string.Empty : Model.BudgetOwnerName)
+
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.ChannelID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        <script>
+                                            function filterProvinces() {
+                                                
+                                                return {
+                                                    budgetOwnerID: $("#BudgetOwnerID").val(),
+                                                    functionFilter: $("#ChannelID").data("kendoComboBox").input.val()
+                                                };
+                                            }
+                                        </script>
+                                        @{
+                                            var tBudgetOwner = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "ChannelID",
+                                                StyleCss = "Width: 200px",
+                                                DataTextField = "ChannelName",
+                                                DataValueField = "ID",
+                                                ServerFilter = true,
+                                                FilterType = FilterType.Contains,
+                                                Url = _hrm_Hr_Service + "Cat_GetData/GetChannelCascading/",
+                                                CascadeFrom = "BudgetOwnerID",
+                                                Data = "filterProvinces",
+                                                //Autobind = false,
+                                                Placeholder = "Vui Lòng Chọn ...",
+                                                Value = Model == null ? string.Empty : Model.ChannelID.ToString()
+                                            };
+                                        }
+                                        @Html.VnrComboBoxFor(model => model.ChannelID, tBudgetOwner).Text(Model == null ? string.Empty : Model.ChannelName)
+
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.SupplierID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var tSupplierID = new ComboBoxBuilderInfo()
+                                            {
+                                                Name = "SupplierID",
+                                                StyleCss = "Width: 200px",
+                                                DataTextField = "SupplierName",
+                                                DataValueField = "ID",
+                                                ServerFilter = true,
+                                                FilterType = FilterType.Contains,
+                                                Url = _hrm_Hr_Service + "Cat_GetData/GetMultiSupplier",
+                                                Placeholder = "Vui Lòng Chọn ...",
+                                                Value = Model == null ? string.Empty : Model.SupplierID.ToString()
+                                            };
+                                        }
+                                        @Html.VnrComboBoxFor(model => model.SupplierID, tSupplierID).Text(Model == null ? string.Empty : Model.FunctionName)
+                                    </div>
+                                </div>
+
+
+                            </div>
+                            <div style="float:left">
+                                @*<div>
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.BudgetChargedIn)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var _BudgetChargedIn = new DatePickerBuilderInfo()
+                                            {
+                                                Name = "PurchaseRequestInfo_DateStart",
+                                                //Format = ConstantFormat.HRM_Format_MonthYear.ToString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.BudgetChargedIn, _BudgetChargedIn).Format(ConstantFormat.HRM_Format_MonthYear.TranslateString())
+                                    </div>
+                                </div>*@
+
+
+
+                                @*<div id="div4">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.BudgetChargedIn)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var _BudgetChargedIn = new DatePickerBuilderInfo()
+                                            {
+                                                Name = "PurchaseRequestInfo_BudgetChargedIn",
+                                                Value = @Html.DisplayFor(mode => mode.BudgetChargedIn).ToString(),
+                                                Placeholder = ConstantDisplay.HRM_Att_Grade_MonthStart.TranslateString(),
+                                                //Format = ConstantFormat.HRM_Format_MonthYear.TranslateString()
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.BudgetChargedIn, _BudgetChargedIn).Format(ConstantFormat.HRM_Format_MonthYear.TranslateString())
+                                    </div>
+                                </div>*@
+
+
+                                <div id="div2">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(mode => mode.From)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var datepickerFrom = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.From).ToString(),
+                                                StyleCss = "width:100px;",
+                                                //Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.From, datepickerFrom) <b>@Html.VnrLabelForNoneIcon(mode => mode.To)</b>
+                                        @{
+                                            var datepickerTo = new DatePickerBuilderInfo()
+                                            {
+                                                Value = @Html.DisplayFor(mode => mode.To).ToString(),
+                                                StyleCss = "width:100px;",
+                                                //Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                            };
+                                        }
+                                        @Html.VnrDatePickerFor(model => model.To, datepickerTo)
+                                    </div>
+                                </div>
+                          
+
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.Description)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextAreaFor(model => model.Description)
+                                    </div>
+                                </div>
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.CurrencyID1)
+                                    </div>
+                                    <div class="FieldValue">
+                                       @{
+                                        var CurrencyName1 = new ComboBoxBuilderInfo()
+                                         {
+                                             DataTextField = "CurrencyName",
+                                             DataValueField = "ID",
+                                             Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrency",
+                                             StyleCss = "width:80px;",
+                                             Value = Model == null ? string.Empty : Model.CurrencyID1.ToString(),
+                                         };
+                                    }
+                                    @(Html.VnrComboBoxFor(mode => mode.CurrencyID1, CurrencyName1).Text(Model == null ? string.Empty : Model.CurrencyName1)) / 
+
+                                        @{
+                                            var CurrencyName2 = new ComboBoxBuilderInfo()
+                                             {
+                                                 DataTextField = "CurrencyName",
+                                                 DataValueField = "ID",
+                                                 Url = _hrm_Hr_Service + "Cat_GetData/GetMultiCurrency",
+                                                 StyleCss = "width:80px;",
+                                                 Value = Model == null ? string.Empty : Model.CurrencyID2.ToString(),
+                                             };
+                                        }
+                                        @(Html.VnrComboBoxFor(mode => mode.CurrencyID2, CurrencyName2).Text(Model == null ? string.Empty : Model.CurrencyName2))
+                                    </div>
+                                </div>
+
+                                <div class="DivContentTitleValue" id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.CurrencyRate1)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+
+                                            var CurrencyRate1 = new NumericTextBoxBuilderInfo<int>()
+                                               {
+                                                   StyleCss = "width:80px"
+                                               };
+                                        }
+                                        @(Html.VnrNumericTextBoxFor(model => model.CurrencyRate1, CurrencyRate1)) / 
+
+                                        @{
+
+                                            var CurrencyRate2 = new NumericTextBoxBuilderInfo<int>()
+                                               {
+                                                   StyleCss = "width:80px"
+                                               };
+                                        }
+                                        @(Html.VnrNumericTextBoxFor(model => model.CurencryRate2, CurrencyRate2))
+                                        
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+
+                    
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreatePurchaseItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        //Thông tin hiển column hiển thị
+        string[] valueFields = new string[]
+                            {
+                                Fin_PurchaseRequestItemModel.FieldNames.Code,
+                                Fin_PurchaseRequestItemModel.FieldNames.CateCodeType,
+                                Fin_PurchaseRequestItemModel.FieldNames.Name,
+                                Fin_PurchaseRequestItemModel.FieldNames.ProjectName,
+                                Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemName,
+                                Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemCost,
+                                Fin_PurchaseRequestItemModel.FieldNames.Quantity,
+                                Fin_PurchaseRequestItemModel.FieldNames.UnitPrice,
+                                Fin_PurchaseRequestItemModel.FieldNames.Amount,
+                                Fin_PurchaseRequestItemModel.FieldNames.AmountConvert,
+                                
+                            };
+
+        //Set độ rộng cho từng column
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Fin_PurchaseRequestItemModel.FieldNames.Code, 150},
+                                {Fin_PurchaseRequestItemModel.FieldNames.CateCodeType, 150},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Name, 100},
+                                {Fin_PurchaseRequestItemModel.FieldNames.ProjectName, 130},
+                                {Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemName, 150},
+                                {Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemCost, 150},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Quantity, 70},
+                                {Fin_PurchaseRequestItemModel.FieldNames.UnitPrice, 120},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Amount, 120},
+                                {Fin_PurchaseRequestItemModel.FieldNames.AmountConvert, 120}
+                            };
+
+        //Thông tin hiển thị được dịch
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Fin_PurchaseRequestItemModel.FieldNames.Code, ConstantDisplay.HRM_Fin_PurchaseRequest_Code},
+                                {Fin_PurchaseRequestItemModel.FieldNames.CateCodeType, ConstantDisplay.HRM_Fin_PurchaseRequest_Code},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Name,  ConstantDisplay.HRM_Fin_PurchaseRequest_Name},
+                                {Fin_PurchaseRequestItemModel.FieldNames.ProjectName,ConstantDisplay.HRM_Fin_PurchaseRequest_ProjectID},
+                                {Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemName, ConstantDisplay.HRM_Category_PurchaseItem_PurchaseItemName},
+                                {Fin_PurchaseRequestItemModel.FieldNames.PurchaseItemCost, ConstantDisplay.HRM_Category_PurchaseItem_PurchaseItemCost},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Quantity, ConstantDisplay.HRM_Fin_PurchaseRequest_Quantity},
+                                {Fin_PurchaseRequestItemModel.FieldNames.UnitPrice, ConstantDisplay.HRM_Fin_PurchaseRequest_UnitPrice},
+                                {Fin_PurchaseRequestItemModel.FieldNames.Amount,ConstantDisplay.FIN_ClaimItem_Amount},
+                                {Fin_PurchaseRequestItemModel.FieldNames.AmountConvert,ConstantDisplay.HRM_Fin_PurchaseRequest_AmountConvert},
+                                   
+                            };
+        string[] sumFields = new string[]
+        {
+            Fin_PurchaseRequestItemModel.FieldNames.Amount,
+            Fin_PurchaseRequestItemModel.FieldNames.AmountConvert,
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_PurchaseRequestItem",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            GridHeight = 200,
+            AutoBind = true,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetPurchaseRequestItemByPurchaseRequestID?PurchaseRequestID=" + ContractID,
+            ReadData = "filterFieldInfo",
+            SumFields = sumFields,
+            FormatSum = "n2",
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Fin_PurchaseRequestItemModel>(grid))
+</div>

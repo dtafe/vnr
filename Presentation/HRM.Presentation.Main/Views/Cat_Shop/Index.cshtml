@@ -1,0 +1,280 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Category.Models;
+@model Cat_ShopModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_Shop_Title.TranslateString();
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Category_Shop_PopUp_Name,
+        Visible = false,
+        Width = 1000,
+        LoadContentFrom = @_hrm_Main_Web + "Cat_Shop/Cat_ShopInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script src="~/Scripts/knockout-3.2.0.js"></script>
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+    var selectedIds = [];
+    var gridName = '@ConstantControlName.HRM_Category_Shop_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Category_Shop_PopUp_Name';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Shop_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Shop_PopUp_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            ReadGrid(gridName);
+        });
+
+        EditGridPopUp(gridName, popUpName, '@_hrm_Main_Web' + "Cat_Shop/Cat_ShopInfo/", '@ConstantPermission.Cat_Shop', titleEditPopUp);
+        
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            ShopName: $('#ShopName1').val(),
+            Code: $('#ShopCode1').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox(gridName);
+    //Tạo mới ngân hàng
+    $("#btnCreateCat_Shop").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Cat_Shop');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(popUpName, titleCreatePopUp);
+    });
+    //Chỉnh sửa ngân hàng
+    
+    //Xóa ngân hàng
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Cat_Shop');
+        if (!isAccess) {
+            return;
+        }
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Cat_Shop/RemoveSelected/", selectedIds);
+    });
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#grid_Cat_Shop').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportAllCat_ShopList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Cat_Shop');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Cat_GetData/ExportCat_ShopSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Cat_Shop');
+    });
+
+</script>
+<div id="idControl" class="k-content"></div>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ShopName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var txtShopName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "ShopName1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtShopName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.Code)
+                        </div>
+                        <div class="FieldValue" id="aaa">
+                            @{
+                                var txtShopCode = new TextBoxBuilderInfo()
+                                {
+                                    Name = "ShopCode1"
+                                };
+                            }
+                            @Html.VnrTextBox(txtShopCode)
+                            
+                        </div>
+                    </div>
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCat_Shop", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeShop", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Category_Shop_Grid_Name + "__Cat_Shop_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_Category_Shop_Grid_Name,
+            ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetShopList/",
+            ReadData = "filterFieldInfo",
+            ShowCommand = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Cat_ShopModel.FieldNames.Code,
+                Cat_ShopModel.FieldNames.ShopName,
+                Cat_ShopModel.FieldNames.OrgStructureName,
+                Cat_ShopModel.FieldNames.Rank,
+                Cat_ShopModel.FieldNames.NoShiftLeader,
+                Cat_ShopModel.FieldNames.MainLineProduct,
+                Cat_ShopModel.FieldNames.PromoteProduct,
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Cat_ShopModel.FieldNames.Code,100},
+                {Cat_ShopModel.FieldNames.ShopName,100},
+                {Cat_ShopModel.FieldNames.OrgStructureName,100},
+                {Cat_ShopModel.FieldNames.Rank,100},
+                {Cat_ShopModel.FieldNames.NoShiftLeader,140},
+                {Cat_ShopModel.FieldNames.MainLineProduct,150},
+                {Cat_ShopModel.FieldNames.PromoteProduct,125},
+            };
+
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Cat_ShopModel.FieldNames.ShopName,true}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Cat_ShopModel.FieldNames.Code,ConstantDisplay.HRM_Category_Shop_Code},
+                {Cat_ShopModel.FieldNames.ShopName,ConstantDisplay.HRM_Category_Shop_ShopName},
+                {Cat_ShopModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Category_Shop_OrgStructureID},
+                {Cat_ShopModel.FieldNames.Rank,ConstantDisplay.HRM_Category_Shop_Rank},
+                {Cat_ShopModel.FieldNames.NoShiftLeader,ConstantDisplay.HRM_Category_Shop_NoShiftLeader},
+                {Cat_ShopModel.FieldNames.MainLineProduct,ConstantDisplay.HRM_Category_Shop_MainLineProduct},
+                {Cat_ShopModel.FieldNames.PromoteProduct,ConstantDisplay.HRM_Category_Shop_PromoteProduct},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = ConstantControlName.HRM_Category_Shop_Grid_Name,
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    Filterable = filterable,
+        //    ShowCommand = false,
+        //    ReadActionUrl = @_hrm_Hr_Service + "Cat_GetData/GetShopList/",
+        //    ReadData = "filterFieldInfo",
+        //};
+    }
+
+    @(Html.VnrGrid<Cat_ShopModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeShop", "Cat_ShopModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

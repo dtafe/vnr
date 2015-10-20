@@ -1,0 +1,797 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Infrastructure.Security
+@model Eva_PerformanceGeneralSearchModel
+@{
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    IList<SelectListItem> PerformaceStatus = Enum.GetValues(typeof(PerformaceEvaStatus))
+        .Cast<PerformaceEvaStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+<script>
+    var userLG = $('#UserLoginId').val();
+    var gridName = 'gridPerformance';
+    var popUpName = '@ConstantControlName.HRM_Evaluation_Performance_PopUp_Name';
+
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        debugger;
+        var _strOrg = checkedNodes.join(',');
+        
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        var dataParameter = {
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            JobTitleID: $('#@Html.FieldIdFor(model => model.JobTitleID)').val() ? $('#@Html.FieldIdFor(model => model.JobTitleID)').val()[0] : null,
+            PositionID: $('#@Html.FieldIdFor(model => model.PositionID)').val() ? $('#@Html.FieldIdFor(model => model.PositionID)').val()[0] : null,
+            PerformanceTypeID: $('#@Html.FieldIdFor(model => model.PerformanceTypeID)').val() ? $('#@Html.FieldIdFor(model => model.PerformanceTypeID)').val()[0] : null,
+            PerformancePlanID: $('#@Html.FieldIdFor(model => model.PerformancePlanID)').val() ? $('#@Html.FieldIdFor(model => model.PerformancePlanID)').val()[0] : null,
+            WorkPlaceID: $('#WorkPlaceID').val(),
+            RankID: $('#RankID').val(),
+            Year: $('#Year').val(),
+            Level1ID: $('#Level1ID').val(),
+            TotalMarkFrom: $('#TotalMarkFrom').val(),
+            TotalMarkTo: $('#TotalMarkTo').val(),
+            LevelID: $("#LevelID").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserID: '@Session[SessionObjects.ProfileID]'
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            ReadGrid("gridPerformance");
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        ShowHidePanel();
+        EditGridNewPage(gridName, '#Hrm_Main_Web/Eva_Performance/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //tao moi
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Eva_Performance/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử Lý grid
+    GridCheckbox("gridPerformance");
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridPerformance", '@_hrm_Main_Web' + "Eva_Performance/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Eva_Performance');
+        return false;
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+        var grid = $('#gridPerformance').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportPerformanceGeneralList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_Performance');
+    });
+
+    $("#btnExportExcelByTemplate").click(function () {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Eva_Performance');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportGetPerformanceGeneralByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Eva_Performance');
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_Hrm_Hre_Service' + "Eva_GetData/ExportGetPerformanceGeneralByTemplate", filterFieldInfo(true));
+    });
+
+    $('#btnApplyPerformance').click(function (e) {
+        debugger;
+        e.preventDefault();
+        var grid = $('#gridPerformance').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        var IsActive = true;
+        var currentSource = grid.dataSource.data();
+        for (var i = 0; i < currentSource.length; i++) {
+            if (selectedIds.indexOf(currentSource[i].id) != -1) {
+                if (currentSource[i].StatusView != "Duyệt" || currentSource[i].Status != "E_APPROVED") {
+                        ErrorMessages('@ConstantDisplay.HRM_Message_RecordStatusApproved.TranslateString()');
+                        IsActive = false;
+                        return IsActive;
+                }
+            }
+        }
+        if (IsActive == false)
+            return;
+
+        var x = selectedIds.join(",");
+        if (selectedItem != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(ConstantDisplay.HRM_Common_ChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                   ).done(function (response) {
+                       if (response.button == "OK") {
+                           DoActionData("gridPerformance", '@_Hrm_Hre_Service' + "Eva_GetData/ApplyPerformance/", x);
+                           selectedIds = [];
+                       }
+                       else if (response.button == "Cancel") {
+                           CloseHre_ProgressBar();
+                           return false;
+                       }
+                   });
+        }
+        else {
+            ErrorMessages('@Html.Raw(ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+            CloseHre_ProgressBar();
+        }
+        return false;
+    });
+
+    function DoActionData(gridName, actionURL, parameter) {
+        ShowHre_ProgressBar();
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                if (data == "Hrm_Succeed") {
+                    CloseHre_ProgressBar();
+                    selectedIds = [];
+                    ReadGrid(gridName);
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Succeed.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+                else if (data == '@ConstantDisplay.HRM_Common_ProfileNotHaveContract.ToString()') {
+                    CloseHre_ProgressBar();
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(@ConstantDisplay.HRM_Common_ProfileNotHaveContract.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+                else if (data == '@ConstantDisplay.HRM_Common_ProfileNotHaveNextContract.ToString()') {
+                    CloseHre_ProgressBar();
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(@ConstantDisplay.HRM_Common_ProfileNotHaveNextContract.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+                else {
+                    CloseHre_ProgressBar();
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                    return;
+                }
+            },
+            error: function (data) {
+                CloseHre_ProgressBar();
+                ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', '@Html.Raw(ConstantMessages.Fail.TranslateString())', "k-block k-info-colored");
+                return;
+            }
+        });
+    }
+    $("#btnImportData").click(function () {
+        debugger;
+        SetTempData('@_hrm_Main_Web' + "Home/SetTempData", 'Eva_Performance');
+        debugger;
+        KendoRouteMapping('#Hrm_Main_Web/Cat_Import/Import_List#NewTab', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    // Nút export selected
+    $("#btnExportByTemplate").click(function () {
+        if (selectedIds == "") {
+            ErrorMessages('@ConstantDisplay.HRM_HR_Contract_PleaseSelectData.TranslateString()');
+            return;
+        }
+        var _ExportWordID = $('#ddlScreenNameWord').val();
+        var urlGetData = '@_Hrm_Hre_Service' + "Eva_GetData/ExportPerformanceGeneralByTemplate/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds;
+        ExportSelected(urlGetData, listIds, _ExportWordID, urlDownload, '@ConstantPermission.Hre_Profile');
+    });
+
+    $('#btnApprove').click(function (e) {
+        debugger;
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Eva_PerformanceGeneral_Approve', false);
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())');
+            return;
+        }
+        if (selectedIds.length == 0) {
+            ErrorMessages('@ConstantDisplay.HRM_Message_NoDataStreamsSelected.TranslateString()');
+            return false;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Service' + 'Sys_GetData/GetPermissionApproved',
+            data: { userID: userLG, permissionCheck: '@ApproveType.E_EVA_PERFORMANCEGENERAL.ToString()' },
+            success: function (data) {
+                debugger;
+                if (data == '@Boolean.TrueString') {
+                    $.when(kendo.ui.ExtOkCancelDialog.show({
+                        title: 'Thông Báo',
+                        message: '@ConstantDisplay.HRM_Message_AreYouSureWantChangeStatus.TranslateString()' + " " + +selectedIds.length + " " + '@ConstantDisplay.HRM_Message_RecordSelected.TranslateString()',
+                        icon: "k-ext-warning",
+                        width: "355px",
+                        height: "105px"
+                    })
+                         ).done(function (response) {
+
+                           e.preventDefault();
+                           if (response.button == "OK") {
+                               SetStatusSelectedWithPermission("gridPerformance", '@_Hrm_Hre_Service' + "Eva_GetData/SetStatusSelected/", selectedIds, '@PerformaceEvaStatus.E_APPROVED.ToString()', userLG, '@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString()');
+                               selectedIds = [];
+                               IsActive = false;
+                               return IsActive;
+                           }
+                           if (response.button == "Cancel") {
+                               IsActive = false;
+                               return IsActive;
+                    }
+            });
+                }
+                else {
+                    ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Approve.TranslateString())');
+                    return;
+                }
+            }
+        });
+        var message = validateStatus("btnApprove");
+        if (message == "") {
+
+           
+        }
+        else {
+            ShowNotificationProcessor(message);
+        }
+        if (!isAccess) {
+            return;
+        }
+
+    });
+
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue" id="test">
+                            @Html.VnrTextBoxFor(model => model.ProfileName, "width:200px")
+                        </div>
+                    </div>
+                    <div id="dropdownlist"></div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp, "width:200px")
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @ConstantDisplay.HRM_Evaluation_Tag.TranslateString()
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var multiSelectTagID = new MultiSelectBuilderInfo()
+                                {
+                                    Name = "PerformanceTypeID",
+                                    DataTextField = "PerformanceTypeName",
+                                    DataValueField = "ID",
+                                    MaxSelectedItems = 1,
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiPerformanceType",
+                                    Placeholder = ConstantDisplay.HRM_Evaluation_SelectTagEva.TranslateString(),
+                                    Width = 200
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(p => p.PerformanceTypeID, multiSelectTagID)
+                        </div>
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.JobTitleID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var JobTitleName = new MultiSelectBuilderInfo
+                                {
+                                    DataTextField = "JobTitleName",
+                                    DataValueField = "ID",
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiJobTitle",
+                                    MaxSelectedItems = 1,
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectJobTitle.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.JobTitleID, JobTitleName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.PositionID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var PositionName = new MultiSelectBuilderInfo
+                                {
+                                    DataTextField = "PositionName",
+                                    DataValueField = "ID",
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiPosition",
+                                    MaxSelectedItems = 1,
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectPosition.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.PositionID, PositionName)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model=>model.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _WorkPlaceID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "WorkPlaceName",
+                                    DataValueField="ID",
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                                    StyleCss="width:200px"
+                                    
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.WorkPlaceID, _WorkPlaceID)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model=>model.RankID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _RankID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "SalaryClassName",
+                                    DataValueField="ID",
+                                    Url = _Hrm_Hre_Service + "Cat_GetData/GetMultiSalaryRankClassList",
+                                    Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.RankID, _RankID)
+                        </div>
+                    </div>
+                    
+               
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.Year)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _Year = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Format = ConstantFormat.HRM_Format_Number_Integer
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.Year, _Year)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model=>model.LevelID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _LevelID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "LevelName",
+                                    DataValueField="ID",
+                                    Url = _Hrm_Hre_Service + "Eva_GetData/GetMultiLevel",
+                                    Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.LevelID, _LevelID)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model=>model.Level1ID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _Level1ID = new ComboBoxBuilderInfo()
+                                {
+                                    DataTextField = "LevelName",
+                                    DataValueField = "ID",
+                                    Url = _Hrm_Hre_Service + "Eva_GetData/GetMultiLevel",
+                                    Placeholder = ConstantDisplay.HRM_Common_PleaseSelect.TranslateString(),
+                                    StyleCss = "width:200px"
+                                };
+                            }
+                            @Html.VnrComboBoxFor(model => model.Level1ID, _Level1ID)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.TotalMarkFrom)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _TotalMarkFrom = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_From.TranslateString(),
+                                    StyleCss = "width:98px",
+                                    Format = ConstantFormat.HRM_Format_Number_Integer
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.TotalMarkFrom, _TotalMarkFrom)
+                            @{
+                                var _TotalMarkTo = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Common_To.TranslateString(),
+                                    StyleCss = "width:98px",
+                                    Format = ConstantFormat.HRM_Format_Number_Integer
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.TotalMarkTo, _TotalMarkTo)
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnImportData", Content = ConstantAction.HRM_Common_ImportData.TranslateString(), ImageUrl = ConstantPath.IconCopyPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApplyPerformance", Content = ConstantAction.HRM_Common_Apply.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+
+        @{
+            var screenNameWord = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenNameWord",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = _Hrm_Hre_Service + "Cat_GetData/GetScreenNameWord",
+                Data = "GetScreenName"
+            };
+        }
+        @Html.VnrDropDownList(screenNameWord)
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportByTemplate", Content = ConstantAction.HRM_Common_ExportByTemplate.TranslateString(), ImageUrl = ConstantPath.IconWord })
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_Hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                StyleCss = "width:200px;",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportExcelByTemplate", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnPerformance", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<script>
+    function clickProfile(ProfileID) {
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + ProfileID, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridPerformance_Name + "__Eva_Performance_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridPerformance_Name,
+            ReadActionUrl = _Hrm_Hre_Service + "Eva_GetData/GetPerformanceGeneralList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Eva_EvaluatorModel.FieldNames.ProfileName,"clickProfile, ProfileID"},
+            };
+            grid.HiddenFields = new[]
+            {
+                Eva_PerformanceModel.FieldNames.ProfileID,
+            };
+            grid.ValueFields = new string[]
+                            {
+                                Eva_PerformanceModel.FieldNames.CodeEmp,
+                                Eva_PerformanceModel.FieldNames.ProfileName,
+                                Eva_PerformanceModel.FieldNames.E_UNIT,
+                                Eva_PerformanceModel.FieldNames.E_DIVISION,
+                                Eva_PerformanceModel.FieldNames.E_DEPARTMENT,
+                                Eva_PerformanceModel.FieldNames.E_TEAM,
+                                Eva_PerformanceModel.FieldNames.E_SECTION,
+                                Eva_PerformanceModel.FieldNames.JobTitleName,
+                                Eva_PerformanceModel.FieldNames.PositionName,
+                                Eva_PerformanceModel.FieldNames.PerformanceTypeName,
+                                Eva_PerformanceModel.FieldNames.TotalMark,
+                                Eva_PerformanceModel.FieldNames.DateEffect,
+                                Eva_PerformanceModel.FieldNames.LevelName,
+                                Eva_PerformanceModel.FieldNames.PerformanceTime,
+                                //Eva_PerformanceModel.FieldNames.Status,
+                                Eva_PerformanceModel.FieldNames.StatusView,
+                                Eva_PerformanceModel.FieldNames.Level1Name,
+                                Eva_PerformanceModel.FieldNames.Level2Name,
+                                Eva_PerformanceModel.FieldNames.SalaryClassName,
+                                Eva_PerformanceModel.FieldNames.SalaryRankName,
+                                Eva_PerformanceModel.FieldNames.BasicGrossAmount,
+                                Eva_PerformanceModel.FieldNames.Allowance1,
+                                Eva_PerformanceModel.FieldNames.Allowance2,
+                                Eva_PerformanceModel.FieldNames.Allowance3,
+                                Eva_PerformanceModel.FieldNames.Allowance4,
+                                Eva_PerformanceModel.FieldNames.Allowance5,
+                                Eva_PerformanceModel.FieldNames.Allowance6,
+                                Eva_PerformanceModel.FieldNames.Allowance7,
+
+                                Eva_PerformanceModel.FieldNames.Birthday,
+                                Eva_PerformanceModel.FieldNames.PAddress,
+                                Eva_PerformanceModel.FieldNames.IDNo,
+                                Eva_PerformanceModel.FieldNames.IDDateOfIssue,
+                                Eva_PerformanceModel.FieldNames.IDPlaceOfIssue,
+                                Eva_PerformanceModel.FieldNames.DateSigned,
+                                Eva_PerformanceModel.FieldNames.SalaryStandard
+
+
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Eva_PerformanceModel.FieldNames.CodeEmp, 100},
+                                {Eva_PerformanceModel.FieldNames.ProfileName, 180},
+                        {Eva_PerformanceModel.FieldNames.E_DEPARTMENT,135},
+                {Eva_PerformanceModel.FieldNames.E_DIVISION,135},
+                {Eva_PerformanceModel.FieldNames.E_SECTION,135},
+                {Eva_PerformanceModel.FieldNames.E_TEAM,135},
+                {Eva_PerformanceModel.FieldNames.E_UNIT,135},
+
+                                {Eva_PerformanceModel.FieldNames.JobTitleName,150},
+                                {Eva_PerformanceModel.FieldNames.PositionName, 150},
+                                {Eva_PerformanceModel.FieldNames.PerformanceTypeName, 150},
+                                {Eva_PerformanceModel.FieldNames.LevelName,130},
+                                {Eva_PerformanceModel.FieldNames.PerformanceTime, 180},
+                                //{Eva_PerformanceModel.FieldNames.Status, 100},
+                                    {Eva_PerformanceModel.FieldNames.StatusView, 100},
+                                {Eva_PerformanceModel.FieldNames.TotalMark, 120},
+                                              {Eva_PerformanceModel.FieldNames.DateEffect, 120},
+                                {Eva_PerformanceModel.FieldNames.Level1Name, 100},
+                                {Eva_PerformanceModel.FieldNames.Level2Name, 100},
+                                {Eva_PerformanceModel.FieldNames.SalaryClassName,80},
+                                {Eva_PerformanceModel.FieldNames.SalaryRankName,126},
+                                {Eva_PerformanceModel.FieldNames.BasicGrossAmount,100},
+                                {Eva_PerformanceModel.FieldNames.Allowance1, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance2, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance3, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance4, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance5, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance6, 100},
+                                {Eva_PerformanceModel.FieldNames.Allowance7, 100},
+                                
+                                 {Eva_PerformanceModel.FieldNames.Birthday, 100},
+                                 {Eva_PerformanceModel.FieldNames.PAddress, 100},
+                                 {Eva_PerformanceModel.FieldNames.IDNo, 100},
+                                 {Eva_PerformanceModel.FieldNames.IDDateOfIssue, 100},
+                                 {Eva_PerformanceModel.FieldNames.IDPlaceOfIssue, 100},
+                                 {Eva_PerformanceModel.FieldNames.DateSigned, 100},
+                                 {Eva_PerformanceModel.FieldNames.SalaryStandard, 100}
+                                
+                            };
+            grid.Filterable = new Dictionary<string, bool>()
+            {
+                {Eva_PerformanceModel.FieldNames.CodeEmp,true},
+                {Eva_PerformanceModel.FieldNames.ProfileName,true},
+                {Eva_PerformanceModel.FieldNames.E_DEPARTMENT,true},
+                {Eva_PerformanceModel.FieldNames.E_DIVISION,true},
+                {Eva_PerformanceModel.FieldNames.E_SECTION,true},
+                {Eva_PerformanceModel.FieldNames.E_TEAM,true},
+                {Eva_PerformanceModel.FieldNames.E_UNIT,true},
+
+                {Eva_PerformanceModel.FieldNames.JobTitleName,true},
+                {Eva_PerformanceModel.FieldNames.PositionName,true},
+                {Eva_PerformanceModel.FieldNames.PerformanceTypeName,true},
+                {Eva_PerformanceModel.FieldNames.TotalMark,true},
+                {Eva_PerformanceModel.FieldNames.LevelName,true},
+                //{Eva_PerformanceModel.FieldNames.Status,true},
+                {Eva_PerformanceModel.FieldNames.StatusView,true},
+                
+                                 {Eva_PerformanceModel.FieldNames.Birthday, true},
+                                 {Eva_PerformanceModel.FieldNames.PAddress, true},
+                                 {Eva_PerformanceModel.FieldNames.IDNo, true},
+                                 {Eva_PerformanceModel.FieldNames.IDDateOfIssue, true},
+                                 {Eva_PerformanceModel.FieldNames.IDPlaceOfIssue, true},
+                                 {Eva_PerformanceModel.FieldNames.DateSigned, true},
+                                 {Eva_PerformanceModel.FieldNames.SalaryStandard, true}
+            };
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Eva_PerformanceModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Eva_PerformanceModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+
+                                 {Eva_PerformanceModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Eva_PerformanceModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Eva_PerformanceModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Eva_PerformanceModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Eva_PerformanceModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+
+                                {Eva_PerformanceModel.FieldNames.JobTitleName, ConstantDisplay.HRM_HR_Profile_JobTitleName},
+                                {Eva_PerformanceModel.FieldNames.PositionName, ConstantDisplay.HRM_HR_Profile_PositionName},
+                                {Eva_PerformanceModel.FieldNames.PerformanceTypeName, ConstantDisplay.HRM_Evaluation_Tag},
+                                {Eva_PerformanceModel.FieldNames.PerformancePlanName, ConstantDisplay.HRM_Evaluation_PerformancePlan_PerformancePlanName},
+                                {Eva_PerformanceModel.FieldNames.PerformanceTemplateName, ConstantDisplay.HRM_Evaluation_PerformanceTemplate},
+                                //{Eva_PerformanceModel.FieldNames.Status, ConstantDisplay.HRM_Evaluation_Performance_Status},
+                                {Eva_PerformanceModel.FieldNames.StatusView, ConstantDisplay.HRM_Evaluation_Performance_Status},
+                                {Eva_PerformanceModel.FieldNames.TotalMark, ConstantDisplay.HRM_Evaluation_Performance_TotalMark},
+                                    {Eva_PerformanceModel.FieldNames.DateEffect, ConstantDisplay.HRM_Sal_InsuranceSalry_DateEffect},
+                                {Eva_PerformanceModel.FieldNames.LevelName, ConstantDisplay.HRM_Evaluation_Level},
+                                {Eva_PerformanceModel.FieldNames.PerformanceTime, ConstantDisplay.HRM_Evaluation_Performance_PerformanceTime},
+                                {Eva_PerformanceModel.FieldNames.Level1Name, ConstantDisplay.HRM_Evaluation_PerformanceEva_LevelID},
+                                {Eva_PerformanceModel.FieldNames.Level2Name, ConstantDisplay.HRM_Evaluation_PerformanceEva_Level1ID},
+                                {Eva_PerformanceModel.FieldNames.SalaryClassName,ConstantDisplay.HRM_Evaluation_PerformanceEva_SalaryClassName},
+                                {Eva_PerformanceModel.FieldNames.SalaryRankName,ConstantDisplay.HRM_Evaluation_PerformanceEva_SalaryRankName},
+                                {Eva_PerformanceModel.FieldNames.BasicGrossAmount, ConstantDisplay.HRM_Evaluation_PerformanceEva_GrossAmount},
+                                {Eva_PerformanceModel.FieldNames.Allowance1, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance1},
+                                {Eva_PerformanceModel.FieldNames.Allowance2, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance2},
+                                {Eva_PerformanceModel.FieldNames.Allowance3, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance3},
+                                {Eva_PerformanceModel.FieldNames.Allowance4, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance4},
+                                {Eva_PerformanceModel.FieldNames.Allowance5, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance5},
+                                {Eva_PerformanceModel.FieldNames.Allowance6, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance6},
+                                {Eva_PerformanceModel.FieldNames.Allowance7, ConstantDisplay.HRM_Evaluation_PerformanceEva_Allowance7},
+                                
+                                 {Eva_PerformanceModel.FieldNames.Birthday, ConstantDisplay.HRM_HR_Dependant_DateOfBirth},
+                                 {Eva_PerformanceModel.FieldNames.PAddress, ConstantDisplay.HRM_HR_Profile_PAAddress},
+                                 {Eva_PerformanceModel.FieldNames.IDNo, ConstantDisplay.HRM_HR_Profile_IDNo},
+                                 {Eva_PerformanceModel.FieldNames.IDDateOfIssue, ConstantDisplay.HRM_HR_Profile_IDDateOfIssue},
+                                 {Eva_PerformanceModel.FieldNames.IDPlaceOfIssue, ConstantDisplay.HRM_HR_Profile_IDPlaceOfIssue},
+                                 {Eva_PerformanceModel.FieldNames.DateSigned, ConstantDisplay.HRM_HR_Contract_DateSigned},
+                                 {Eva_PerformanceModel.FieldNames.SalaryStandard, ConstantDisplay.HRM_Category_SalaryRank_SalaryStandard}
+
+                            };
+            
+            //grid.ForeignKey = new Dictionary<object, object[]>()
+            //{
+            //       {Eva_PerformanceModel.FieldNames.Status,new object[]
+            //       { "Value", "Text", PerformaceStatus, ConstantDisplay.HRM_Evaluation_Performance_Status,""}},
+            //};
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+    }
+    @(Html.VnrGrid<Eva_PerformanceModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnPerformance", "Eva_PerformanceModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

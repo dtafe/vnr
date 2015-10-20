@@ -1,0 +1,299 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models
+@using HRM.Infrastructure.Security
+
+@model Sal_LineItemForShopSearchModel
+@{
+    //ViewBag.Title = "Salary CostCentre Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowSal_LineItemForShop",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_LineItemForShop/Sal_LineItemForShopInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script>
+    var gridName = '@ConstantControlName.HRM_Sal_LineItemForShop_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Sal_LineItemForShop_PopUp_Name';
+    var titleEditPopUpLineItemForShop = '@Html.Raw(ConstantDisplay.HRM_Sal_LineItemForShop_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpLineItemForShop = '@Html.Raw(ConstantDisplay.HRM_Sal_LineItemForShop_PopUp_Create_Title.TranslateString())';
+
+    //Tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            ShopID: $('#SShopID').val(),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateTo").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        jumpAnchor("anchor");
+        $("#btnSearch").click(function () {
+            ReadGrid('grid_Sal_LineItemForShop');
+        });
+
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Sal_LineItemForShop/Sal_LineItemForShopInfo/";
+        EditGridPopUp("grid_Sal_LineItemForShop", "windowSal_LineItemForShop", url, '@ConstantPermission.Sal_LineItemForShop', titleEditPopUpLineItemForShop);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreateCostCentre").click(function () {
+        PopUpCreate("windowSal_LineItemForShop", titleCreatePopUpLineItemForShop, '@ConstantPermission.Sal_LineItemForShop');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('grid_Sal_LineItemForShop', '@_hrm_Main_Web' + "Sal_LineItemForShop/RemoveSelected/", selectedIds, '@ConstantPermission.Sal_LineItemForShop');
+        return false;
+    });
+
+    $("#btnExportAll").click(function () {
+        @*var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_ProfileQuit');
+        if (!isAccess) {
+            return;
+        }*@
+        @*var grid = $('#@ConstantControlName.HRM_Category_CostCentre_Grid_Name').data("kendoGrid");*@
+        var grid = $('#grid_Sal_LineItemForShop').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportAllSal_LineItemForShopList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sal_LineItemForShop');
+    });
+
+    $("#btnExportSelected").click(function () {
+     @*var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_SoftSkill');
+        if (!isAccess) {
+            return;
+        }*@
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Sal_GetData/ExportSal_LineItemForShopSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sal_LineItemForShop');
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.ShopID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var _ShopID = new ComboBoxBuilderInfo()
+                            {
+                                Name = "SShopID",
+                                DataTextField = "ShopName",
+                                DataValueField = "ID",
+                                Url = _hrm_Cat_Service + "Cat_GetData/GetMultiShop",
+                                StyleCss = "width:204px;",
+                                ServerFilter = true
+                            };
+                        }
+                        @(Html.VnrComboBoxFor(mode => mode.ShopID, _ShopID))
+                    </div>
+                </div>
+                <div>
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.DateFrom)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var dateFrom = new DatePickerBuilderInfo()
+                            {
+                                Name = "SDateFrom",
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                        @{
+                            var dateTo = new DatePickerBuilderInfo()
+                            {
+                                Name = "SDateTo",
+                                StyleCss = "width:100px;",
+                                Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                            };
+                        }
+                        @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateCostCentre", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnLineItemForShop", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+         var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_grid_Sal_LineItemForShop_Name + "__Sal_LineItemForShop_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_grid_Sal_LineItemForShop_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSal_LineItemForShopList/",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Sal_LineItemForShopModel.FieldNames.ShopName,
+                Sal_LineItemForShopModel.FieldNames.LineItemName,
+                Sal_LineItemForShopModel.FieldNames.Target,
+                Sal_LineItemForShopModel.FieldNames.Actual,
+                Sal_LineItemForShopModel.FieldNames.DateFrom,
+                Sal_LineItemForShopModel.FieldNames.DateTo
+            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Sal_LineItemForShopModel.FieldNames.ShopName,130},
+                {Sal_LineItemForShopModel.FieldNames.LineItemName,100},
+                {Sal_LineItemForShopModel.FieldNames.Target,140},
+                {Sal_LineItemForShopModel.FieldNames.Actual,120},
+                {Sal_LineItemForShopModel.FieldNames.DateFrom,100},
+                {Sal_LineItemForShopModel.FieldNames.DateTo,100}
+            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Sal_LineItemForShopModel.FieldNames.ShopName,ConstantDisplay.HRM_Sal_LineItemForShop_ShopID},
+                {Sal_LineItemForShopModel.FieldNames.LineItemName,ConstantDisplay.HRM_Sal_LineItemForShop_LineItemID},
+                {Sal_LineItemForShopModel.FieldNames.Target,ConstantDisplay.HRM_Sal_LineItemForShop_Target},
+                {Sal_LineItemForShopModel.FieldNames.Actual,ConstantDisplay.HRM_Sal_LineItemForShop_Actual},
+                {Sal_LineItemForShopModel.FieldNames.DateFrom,ConstantDisplay.HRM_Sal_LineItemForShop_DateFrom},
+                {Sal_LineItemForShopModel.FieldNames.DateTo,ConstantDisplay.HRM_Sal_LineItemForShop_DateTo}
+            };
+            grid.FormatFields = new Dictionary<string, string>()
+            {
+                {Sal_LineItemForShopModel.FieldNames.Target, ConstantFormat.HRM_Format_Int},
+                {Sal_LineItemForShopModel.FieldNames.Actual, ConstantFormat.HRM_Format_Int},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "grid_Sal_LineItemForShop",
+        //    ValueFields = valueFields,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _hrm_Hr_Service + "Sal_GetData/GetSal_LineItemForShopList/",
+        //    ReadData = "filterFieldInfo",
+        //    FormatFields = formatFields
+        //};
+    }
+
+    @(Html.VnrGrid<Sal_LineItemForShopModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnLineItemForShop", "Sal_LineItemForShopModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

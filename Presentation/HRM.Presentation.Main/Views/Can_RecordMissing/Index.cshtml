@@ -1,0 +1,564 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.Canteen.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Can_RecordMissingSearchModel
+@{
+    Layout = null;
+    var _hrm_Can_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Can_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+
+    Layout = null;
+
+    IList<SelectListItem> listStatus = Enum.GetValues(typeof(MealRecord_Status))
+         .Cast<AttendanceDataStatus>()
+         .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+         .ToList();
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowRecordMissing",
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Can_Web + "Can_RecordMissing/RecordMissingInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script type="text/javascript">
+
+
+
+    function onSave(e) {
+        
+        //If current value is null (replace EmployeeId with your property name)
+        if (e.model.TamScanReasonMissID == '[object Object]') {
+            //change the model value
+            e.model.TamScanReasonMissID = null;
+            //get the currently selected value from the DDL
+            var currentlySelectedValue = $(e.container.find('[data-role=dropdownlist]')[1]).data().kendoDropDownList.value();
+            //set the value to the model
+            e.model.set('TamScanReasonMissID', currentlySelectedValue);
+        }
+        if (e.model.MealAllowanceTypeSettingID == '[object Object]') {
+            //change the model value
+            e.model.MealAllowanceTypeSettingID = null;
+            //get the currently selected value from the DDL
+            var currentlySelectedValue1 = $(e.container.find('[data-role=dropdownlist]')[0]).data().kendoDropDownList.value();
+            //set the value to the model
+            e.model.set('MealAllowanceTypeSettingID', currentlySelectedValue1);
+        }
+    };
+
+    </script>
+
+
+
+<script type="text/javascript">
+    var checkedNodes = [];
+    var submitNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString())';
+    var approveNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Common_Approve_Button.TranslateString())';
+
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Canteen_MealRecordMissing_UpdateData.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_Canteen_MealRecordMissing_AddNew.TranslateString())';
+    //Data khi tìm kiếm
+    function filterFieldInfo(isExport) {
+        
+        var _TamScanReasonMissIDs = $('#STAMScanReasonMissName').val() != null ? $('#STAMScanReasonMissName').val().join(',') : $('#STAMScanReasonMissName').val();
+        
+        var _ProfileIDs = $('#SProfileIDS').val() != null ? $('#SProfileIDS').val().join(',') : $('#SProfileIDS').val();
+        var elementPara = {
+            
+            //OrgStructureID: UpdateValueTreeDropdown().join(','),
+            OrgStructureID: checkedNodes.join(','),
+            ProfileIDSearch: _ProfileIDs,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#SDateTo").val()),
+            TamScanReasonMissID: _TamScanReasonMissIDs,
+            SrcType: $('#STamScanLogStatus').val(),
+            Status: $('#SStatus').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+
+        return elementPara;
+    }
+    var data = SetCharacteFieldRequired();
+
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+                filterFieldInfo(true);
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+                var grid = $('#gridCan_RecordMissing').data("kendoGrid");
+                grid.dataSource.read();
+                checkedNodes = [];
+            return false;
+        });
+
+    });
+
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+    GridCheckbox('gridCan_RecordMissing');
+
+    $("#btnCreate").click(function () {
+         
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_RecordMissing');
+        if (!isAccess) {
+            return;
+        }
+        
+        PopUpCreate("windowRecordMissing", titleCreatePopUp);
+    });
+
+    //Chỉnh sửa
+    $('#gridCan_RecordMissing').on("click", ".gridEditImgButton", function (e) {
+        var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Can_RecordMissing');
+        if (!isAccess) {
+            return;
+        }
+         
+        var grid = $('#gridCan_RecordMissing').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var url = '@_hrm_Can_Web' + "Can_RecordMissing/RecordMissingInfo/";
+            PopUpEdit('windowRecordMissing', url, selectedItem, Id, titleEditPopUp);
+
+        } else {
+            alert('Không Thể Chỉnh Sửa Dữ Liệu Đang Ở Trạng Thái Duyệt!');
+            return;
+        }
+    });
+
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Can_RecordMissing');
+        if (!isAccess) {
+            return;
+        }
+         
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridCan_RecordMissing", '@_hrm_Can_Web' + "Can_RecordMissing/RemoveSelected/", selectedIds.join(","));
+    });
+
+    $(document).ready(function () {
+        ShowHidePanel();
+    });
+
+    $("#btnExportAll").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Can_RecordMissing');
+        if (!isAccess) {
+            return;
+        }
+        var urlGetData = '@_hrm_Can_Service' + "Canteen_GetData/GetRecordMissingList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+    $('#btnActionSubmit').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_RecordMissingSubmit', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(submitNotAllow_Msg);
+            return;
+        }
+
+        e.preventDefault();
+        var grid = $('#gridCan_RecordMissing').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var r = confirm("Bạn Có Chắc Chắn Muốn Thay Đổi Trạng Thái?");
+            if (r == true) {
+                DoActionData("gridCan_RecordMissing", '@_hrm_Can_Service' + "Canteen_ActionData/SubmitMealRecordMissing/", selectedIds.join(","), "E_WAITING");
+            }
+        }
+        else {
+            ErrorMessages("Ngày Công Đã Duyệt Không Được Phép Chỉnh Sửa!");
+        }
+        return false;
+    });
+
+    $('#btnActionApproved').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Can_RecordMissingApproved', false);
+        if (!isAccess) {
+            ShowNotificationProcessor(approveNotAllow_Msg);
+            return;
+        }
+
+        e.preventDefault();
+        var grid = $('#gridCan_RecordMissing').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var r = confirm("Bạn Có Chắc Chắn Muốn Thay Đổi Trạng Thái?");
+            if (r == true) {
+                DoActionData("gridCan_RecordMissing", '@_hrm_Can_Service' + "Canteen_ActionData/SubmitMealRecordMissing/", selectedIds.join(","), "E_APPROVED");
+            }
+        }
+        else {
+            ErrorMessages("Ngày Công Đã Duyệt Không Được Phép Chỉnh Sửa!");
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter,status) {
+         
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status:status },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div style="float:left; width:700px">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Can_MealAllowanceToMoney_DateFromTo.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "SDateFrom",
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "SDateTo",
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.ProfileIDSearch)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var Profile = new MultiSelectBuilderInfo()
+                                    {
+                                        Name = "SProfileIDS",
+                                        DataTextField = Can_TamScanLogModel.FieldNames.ProfileName,
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(model => model.ProfileIDSearch,Profile))
+                            </div>
+
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                @*@{
+                                        var buildInfo = new VnrOrgStructureInfo()
+                                        {
+
+                                        };
+                                    }
+                                    @Html.VnrOrgStructure(buildInfo)*@
+                            </div>
+                        </div>
+                    </div>
+                    <div style="float:left; width:700px">
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.TamScanReasonMissID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var tamScanReasonMissID = new MultiSelectBuilderInfo()
+                                    {
+                                        Name = "STAMScanReasonMissName",
+                                        DataTextField = "TAMScanReasonMissName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Cat_Service + "Cat_GetData/GetMultiTamScanReasonMiss",
+                                        MaxSelectedItems = 1,
+                                        Value = new string[] { @Html.DisplayFor(mode => mode.TamScanReasonMissID).ToString() }
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.TamScanReasonMissID, tamScanReasonMissID))
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.Status)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dropdownStatus = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "SStatus",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listStatus,
+                                        OptionLabel = @ConstantDisplay.HRM_Category_SelectStatus.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.Status, dropdownStatus))
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionApproved", Content = ConstantDisplay.HRM_Common_Approve_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+
+    <script type="text/javascript">
+
+        //function onSave(e) {
+        //    //If current value is null (replace EmployeeId with your property name)
+        //    if (!e.model.TamScanReasonMissID) {
+        //        //change the model value
+        //        e.model.TamScanReasonMissID = 0;
+        //        //get the currently selected value from the DDL
+        //        var currentlySelectedValue = $(e.container.find('[data-role=dropdownlist]')[0]).data().kendoDropDownList.value();
+        //        //set the value to the model
+        //        e.model.set('TamScanReasonMissID', currentlySelectedValue);
+        //    }
+        //    if (!e.model.MealAllowanceTypeSettingID) {
+        //        //change the model value
+        //        e.model.MealAllowanceTypeSettingID = 0;
+        //        //get the currently selected value from the DDL
+        //        var currentlySelectedValue1 = $(e.container.find('[data-role=dropdownlist]')[1]).data().kendoDropDownList.value();
+        //        //set the value to the model
+        //        e.model.set('MealAllowanceTypeSettingID', currentlySelectedValue1);
+        //    }
+        //}
+
+
+        //function savechange(e)
+        //{
+        //    alert("asdasd");
+        //}
+
+
+        function ondataBound(e) {
+
+
+            //var grid = $("#gridCan_RecordMissing").data("kendoGrid");
+            //$(grid.tbody).on("dblclick", "td", function (e) {
+            //    var row = $(this).closest("tr");
+            //    var rowIdx = $("tr", grid.tbody).index(row);
+            //    var colIdx = $("td", row).index(this);
+            //    alert(rowIdx);
+            //    rowIdx += 1;
+            //    grid.editRow($("#gridCan_RecordMissing tr:eq(" + rowIdx + ")"));
+            //});
+
+            var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Can_RecordMissing', false);
+            if (!isAccess) {
+                $("#" + this.wrapper.attr('id')).data("kendoGrid").hideColumn(1);
+                return;
+            }
+
+
+            $("#gridCan_RecordMissing tbody tr").on("dblclick", function (e) {
+                if (!$(this).hasClass('k-grid-edit-row')) {
+                    $("#gridCan_RecordMissing").data("kendoGrid").editRow($(this));
+                    //grid.tbody.find(" >td:eq(11)")
+                }
+            });
+        }
+
+        //var index = 0;
+        //$("#gridCan_RecordMissing").on("focus", "td", function (e) {
+        //    $("a").on("keydown", function (event) {
+        //        if (event.keyCode == 13) {
+
+        //            var grid = $("#gridCan_RecordMissing").data("kendoGrid");
+        //            var dataRows = grid.items();
+        //            var rowindex = dataRows.index(grid.select());
+        //            dataRows.index().next();
+        //            if (rowindex != -1) {
+        //                rowindex += 2;
+        //                index = rowindex;
+        //            }
+        //            alert(index);
+        //            //if (rowindex == -1) {
+        //            //    rowindex = index;
+        //            //}
+        //            //else {
+        //            //    rowindex += 2;
+        //            //    index = rowindex;
+        //            //}
+        //            grid.editRow($("#gridCan_RecordMissing tr:eq(" + index + ")"));
+        //        }
+        //    });
+        //});
+        //function edt(e) {
+
+        //    var input = e.container.find("input");
+        //    input.select();
+        //}
+
+
+</script>
+
+    <!--Khai báo các thông tin cho Grid-->
+        @{
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+            {"MealAllowanceTypeSettingID",new object[] { "ID", "MealAllowanceTypeSettingName",  (System.Collections.IEnumerable) ViewData["MealAllowanceTypeSetting"], ConstantDisplay.HRM_Can_MealAllowanceToMoney_MealAllowanceTypeSettingID,""}},
+            {"TamScanReasonMissID",new object[] { "ID", "TAMScanReasonMissName",  (System.Collections.IEnumerable) ViewData["TamScanReasonMiss"], ConstantDisplay.HRM_Canteen_MealRecordMissing_TamScanReasonMissName,"MealAllowanceTypeSetting"}}
+        };
+
+
+        string[] valueFields = new string[]
+        {
+            Can_MealRecordMissingModel.FieldNames.ProfileName,
+            Can_MealRecordMissingModel.FieldNames.EmpCode,
+            Can_MealRecordMissingModel.FieldNames.OrgStructureName,
+            Can_MealRecordMissingModel.FieldNames.WorkDate,
+            Can_MealRecordMissingModel.FieldNames.Type,
+            Can_MealRecordMissingModel.FieldNames.Status,
+            Can_MealRecordMissingModel.FieldNames.IsFullPay,
+            //Can_MealRecordMissingModel.FieldNames.TamScanReasonMissID,
+           // Can_MealRecordMissingModel.FieldNames.TamScanReasonMissName,
+            //Can_MealRecordMissingModel.FieldNames.MealAllowanceTypeSettingID,
+            Can_MealRecordMissingModel.FieldNames.Amount,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+           {Can_MealRecordMissingModel.FieldNames.ProfileName,150},
+            {Can_MealRecordMissingModel.FieldNames.EmpCode,80},
+            {Can_MealRecordMissingModel.FieldNames.OrgStructureName,120},
+            {Can_MealRecordMissingModel.FieldNames.WorkDate,120},
+            {Can_MealRecordMissingModel.FieldNames.Type,100},
+            {Can_MealRecordMissingModel.FieldNames.Status,100},
+            {Can_MealRecordMissingModel.FieldNames.IsFullPay,100},
+           // {Can_MealRecordMissingModel.FieldNames.TamScanReasonMissName,150},
+            //{Can_MealRecordMissingModel.FieldNames.MealAllowanceTypeSettingID,150},
+            {Can_MealRecordMissingModel.FieldNames.Amount,100}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Can_MealRecordMissingModel.FieldNames.ProfileName, ConstantDisplay.HRM_Canteen_MealRecordMissing_ProfileName},
+            {Can_MealRecordMissingModel.FieldNames.EmpCode, ConstantDisplay.HRM_Canteen_MealRecordMissing_EmpCode},
+            {Can_MealRecordMissingModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_Canteen_MealRecordMissing_OrgStructureName},
+            {Can_MealRecordMissingModel.FieldNames.WorkDate, ConstantDisplay.HRM_Canteen_MealRecordMissing_WorkDate},
+            {Can_MealRecordMissingModel.FieldNames.Type, ConstantDisplay.HRM_Canteen_MealRecordMissing_Type},
+            {Can_MealRecordMissingModel.FieldNames.Status, ConstantDisplay.HRM_Canteen_MealRecordMissing_Status},
+            {Can_MealRecordMissingModel.FieldNames.IsFullPay, ConstantDisplay.HRM_Canteen_MealRecordMissing_IsFullPay},
+          //  {Can_MealRecordMissingModel.FieldNames.TamScanReasonMissName, ConstantDisplay.HRM_Canteen_MealRecordMissing_TamScanReasonMissName},
+            //{Can_MealRecordMissingModel.FieldNames.MealAllowanceTypeSettingName, ConstantDisplay.HRM_Can_MealAllowanceToMoney_MealAllowanceTypeSettingID},
+            {Can_MealRecordMissingModel.FieldNames.Amount, ConstantDisplay.HRM_Canteen_MealRecordMissing_Amount}
+        };
+
+        string[] disableFields = new string[]
+        {
+            Can_MealRecordMissingModel.FieldNames.ProfileName,
+            Can_MealRecordMissingModel.FieldNames.EmpCode,
+            Can_MealRecordMissingModel.FieldNames.OrgStructureName,
+            Can_MealRecordMissingModel.FieldNames.WorkDate,
+            Can_MealRecordMissingModel.FieldNames.Type,
+            Can_MealRecordMissingModel.FieldNames.Status,
+            Can_MealRecordMissingModel.FieldNames.IsFullPay,
+            Can_MealRecordMissingModel.FieldNames.Amount,
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridCan_RecordMissing",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowEditIcon = false,
+            ShowCommand = true,
+            ShowCreateButton = false,
+            ForeignKey = foreignKey,
+            ShowEditButton = true,
+            ShowDeleteButton = false,
+            EditMode = GridEditMode.InLine,
+            EditActionUrl = _hrm_Can_Web + "/Can_RecordMissing/Create/",
+            DisableFields = disableFields,
+            EventCustomEdit="onEdit",
+            ReadActionUrl = @_hrm_Can_Service + "Canteen_GetData/GetRecordMissingList/",
+            ReadData = "filterFieldInfo",
+            Navigatable = true,
+            EventDataBound = "ondataBound",
+        };
+}
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Can_MealRecordMissingModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+<script type="text/javascript">
+
+    function filterMealAllowanceTypeSetting() {
+            
+            return {
+                MealAllowanceTypeSettingID: $("#MealAllowanceTypeSettingID").data("kendoDropDownList").value()
+        };
+    }
+   
+</script>

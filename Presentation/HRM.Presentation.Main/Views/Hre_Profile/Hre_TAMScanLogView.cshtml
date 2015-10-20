@@ -1,0 +1,257 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.Hr.Models
+
+@using HRM.Infrastructure.Security;
+@model Hre_ProfileModel
+           
+@{
+    Layout = null;
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_TAMScanLog.TranslateString();
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var profileID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+        
+    }
+
+    IList<SelectListItem> ListManual = Enum.GetValues(typeof(EnumDropDown.TamScanLogSrcType))
+        .Cast<EnumDropDown.TamScanLogSrcType>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+        
+    IList<SelectListItem> listInOut = Enum.GetValues(typeof(EnumDropDown.TamScanLogType))
+   .Cast<EnumDropDown.TamScanLogType>()
+   .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+   .ToList();
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Att_TAMScanLog_PopUp_Name,
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_Profile/TAMScanLogInfo?profileID=" + profileID + "&ProfileName=" + ProfileName
+    };
+}
+@(Html.VnrWindow(window))
+
+@{
+    var windowCompute = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_Att_ComputeWorkday_PopUp_Name,
+        Visible = false,
+        Width=700,
+        LoadContentFrom = @_hrm_Main_Web + "Hre_Profile/ComputeWorkdayPopUp"
+    };
+}
+@(Html.VnrWindow(windowCompute))
+
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>Chưa Có Nhân Viên!!!</b></center>"
+    };
+}
+<script type="text/javascript">
+
+    var gridName = '@ConstantControlName.HRM_Att_TAMScanLog_Grid_Name';
+    var popUpName = '@ConstantControlName.HRM_Att_TAMScanLog_PopUp_Name';
+    var ComputeWorkdaypopUpName = '@ConstantControlName.HRM_Att_ComputeWorkday_PopUp_Name';
+    var titleComputeWorkdayPopUp = '@Html.Raw(ConstantDisplay.HRM_Attendance_ComputeWorkDay.TranslateString())';
+    var titleEditPopUpTAMScanLog = '@Html.Raw(ConstantDisplay.HRM_Att_TAMScanLog_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpTAMScanLog = '@Html.Raw(ConstantDisplay.HRM_Att_TAMScanLog_PopUp_Create_Title.TranslateString())';
+
+    //$("#tabselect").val("reloadTSLV");
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        resizeControl('gridTab_TAMScanLogView', 200);
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid("gridTab_TAMScanLogView");
+        });
+        EditGridPopUp('gridTab_TAMScanLogView', popUpName, '@_hrm_Main_Web' + "Hre_Profile/TAMScanLogInfo/", '@ConstantPermission.Att_TAMScanLog', titleEditPopUpTAMScanLog);
+    });
+
+    //Xử Lý grid
+    GridCheckbox("gridTab_TAMScanLogView");
+
+    $("#btnExportTAMScanLog").click(function () {
+        var grid = $('#gridTab_TAMScanLogView').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetTAMScanLogByProfileID/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo_Reload(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_TAMScanLog');
+    });
+
+    $("#btnComputeWorkday").click(function () {
+        
+        var isAccess=checkPermission(PrivilegeType.Create,'@ConstantPermission.GeneralProfile_ComputeWorkday',false )
+        if (!isAccess)
+        {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Compute.TranslateString())');
+            return;
+        }
+        if (SelectID == '@Guid.Empty') {
+            //PopUpCreate("windowError");
+            ErrorMessages("Chưa Chọn Nhân Viên Nào!");
+        }
+        else {
+            PopUpCreate('@ConstantControlName.HRM_Att_ComputeWorkday_PopUp_Name', titleComputeWorkdayPopUp, '@ConstantPermission.GeneralProfile_ComputeWorkday');
+        }
+    });
+
+    $("#btnCreate_TAMScanLog").click(function () {
+
+        var x = '@profileID';
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+            var url = '@_hrm_Main_Web' + "Hre_Profile/TAMScanLogInfo/";
+            PopUpEdit('@ConstantControlName.HRM_Att_TAMScanLog_PopUp_Name', url, SelectID, titleCreatePopUpTAMScanLog);
+
+        }
+    });
+
+    //Xử Lý button delete
+    $('#btnDelete_TAMScanLog').click(function (e) {
+        //  e.preventDefault();
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        
+        var grid = $('#gridTab_TAMScanLogView').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("gridTab_TAMScanLogView", '@_hrm_Main_Web' + "Att_TAMScanLog/RemoveSelected/", selectedIds, '@ConstantPermission.Att_TAMScanLog');
+        
+        @*DeleteSelected("gridTab_TAMScanLogView", '@_hrm_Main_Web' + "Att_TAMScanLog/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Att_TAMScanLog');*@
+        @*DeleteSelected("gridHre_Contract", '@_hrm_Main_Web' + "Hre_Contract/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Contract');*@
+        return false;
+    })
+</script>
+<div>
+    @{
+        if (Model != null)
+        {
+            @Html.HiddenFor(m => m.ID)
+            @Html.HiddenFor(m => m.ProfileName)
+        }
+        else
+        {
+          
+            @Html.Hidden("ProfileName", ProfileName)
+        }
+
+    }
+</div>
+
+<div class="clear"></div>
+<div style="margin-top:3px">
+    <div class="commandToolBarWidge">
+        <div class="GridTitle">
+            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_TAMScanLog.TranslateString())
+        </div>
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeWorkday", Content = ConstantDisplay.HRM_Attendance_ComputeWorkDay_Compute.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_TAMScanLog", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportTAMScanLog", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_TAMScanLog", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        @{
+            valueFields = new string[]
+        {
+            Att_TAMScanLogModel.FieldNames.CardCode,
+            Att_TAMScanLogModel.FieldNames.Type,
+            Att_TAMScanLogModel.FieldNames.Status,
+            Att_TAMScanLogModel.FieldNames.TimeLog,
+            Att_TAMScanLogModel.FieldNames.MachineNo,
+        };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_TAMScanLogModel.FieldNames.CardCode, 120},
+            {Att_TAMScanLogModel.FieldNames.Type, 100},
+            {Att_TAMScanLogModel.FieldNames.Status, 90},
+            {Att_TAMScanLogModel.FieldNames.TimeLog, 120},
+            {Att_TAMScanLogModel.FieldNames.MachineNo, 110},
+        };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_TAMScanLogModel.FieldNames.CardCode, ConstantDisplay.HRM_Attendance_TAMScanLog_CardCode},
+            {Att_TAMScanLogModel.FieldNames.Type, ConstantDisplay.HRM_Attendance_TAMScanLog_Type},
+            {Att_TAMScanLogModel.FieldNames.Status, ConstantDisplay.HRM_Attendance_TAMScanLog_Status},
+            {Att_TAMScanLogModel.FieldNames.TimeLog, ConstantDisplay.HRM_Attendance_TAMScanLog_TimeLog},
+            {Att_TAMScanLogModel.FieldNames.MachineNo, ConstantDisplay.HRM_Attendance_TAMScanLog_MachineNo},
+        };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Att_TAMScanLogModel.FieldNames.TimeLog, ConstantFormat.HRM_Format_DayMonthYear_HoursMin.TranslateString() }
+        };
+
+            Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_TAMScanLogModel.FieldNames.Type,new object[]
+               { "Value", "Text", listInOut, ConstantDisplay.HRM_Attendance_TAMScanLog_SrcType,""}},
+                  {Att_TAMScanLogModel.FieldNames.Status,new object[]
+               { "Value", "Text", ListManual, ConstantDisplay.HRM_Attendance_TAMScanLog_Status,""}},
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridTab_TAMScanLogView",
+                ForeignKey = foreignKey,
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetTAMScanLogByProfileID",
+                ReadData = "filterFieldInfo_Reload",
+                ShowDeleteButton = true,
+                ShowEditIcon = true,
+                ShowCheckbox = true,
+                ShowCheckAll = false,
+                AutoBind = true
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_TAMScanLogModel>(grid))
+
+    </div>
+
+</div>
+@{
+    var valueFields1 = ",ProfileName,CodeEmp";
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+<script>
+    $(document).ready(function () {
+        $("#valueFieldsGrid").val('@valueFields1');
+    });
+</script>

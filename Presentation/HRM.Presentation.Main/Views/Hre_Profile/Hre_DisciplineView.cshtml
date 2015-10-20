@@ -1,0 +1,195 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+@{
+    var profileID = Guid.Empty;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+    }
+}
+<div style="padding-top:3px">
+    <!--Kỹ luật-->
+    <div>
+        @{
+            var windowDisc = new WindowBuilderInfo
+            {
+                Name = "windowDiscipline",
+                Visible = false,
+                LoadContentFrom = @_hrm_Main_Web + "Hre_Discipline/CreateOrUpdateProfile?profileID=" + profileID,
+            };
+        }
+        @(Html.VnrWindow(windowDisc))
+        <script>
+            var titleEditPopUpDiscipline = '@Html.Raw(ConstantDisplay.HRM_HR_Discipline_Edit.TranslateString())';
+            var titleCreatePopUpDiscipline = '@Html.Raw(ConstantDisplay.HRM_HR_Discipline_AddNew.TranslateString())';
+            var selectedIds = [];
+
+            //Xử lý sự kiện click button tìm kiếm
+            $(document).ready(function () {
+
+                $("#btnSearchDiscipline").click(function () {
+                    ReadGrid("gridDiscipline");
+                });
+
+                //Show Hide Panel
+                ShowHidePanel();
+
+                //Xử lý Edit
+                var url = '@_hrm_Main_Web' + "Hre_Discipline/CreateOrUpdateProfile/";
+                EditGridPopUp("gridDiscipline", "windowDiscipline", url, '@ConstantPermission.Hre_Discipline', titleEditPopUpDiscipline);
+            });
+
+            //Xử lý tạo mới
+            $("#btnCreateDiscipline").click(function () {
+                
+                var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Discipline');
+                if (!isAccess) {
+                    return;
+                }
+                var x = '@profileID';
+                if (x == '') {
+                    PopUpCreate("windowError");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + "Hre_Discipline/CreateOrUpdateProfile/";
+                    PopUpEdit("windowDiscipline", url, SelectID, titleCreatePopUpDiscipline);
+                }
+            });
+
+            //Xử Lý grid
+            GridCheckbox("gridDiscipline");
+
+            //Xử lý delete
+            $('#btnDeleteDiscipline').click(function (e) {
+                if (selectedIds == "") {
+                    DeleteFail();
+                    return;
+                }
+                e.preventDefault();
+                DeleteSelected("gridDiscipline", '@_hrm_Main_Web' + "Hre_Discipline/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Discipline');
+                return false;
+            });
+
+            //Expoprt
+            $("#btnExportAllDiscipline").click(function () {
+                var grid = $('#gridDiscipline').data("kendoGrid");
+                if (grid.dataSource.total() == 0) {
+                    ExportAllFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                var urlDownload = '@_hrm_Main_Web';
+                var dataParameter = filterFieldInfo(true);
+                ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Discipline');
+            });
+
+            $("#btnExportSelectedDiscipline").click(function () {
+                if (selectedIds == "") {
+                    ExportSelectedFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                var urlDownload = '@_hrm_Main_Web';
+                var listIds = selectedIds.join(",");
+                var listFields = $('#valueFieldsGridDisc').val();
+                ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Discipline');
+            });
+
+        </script>
+
+        <div class="commandToolBarWidge">
+            <div class="GridTitle">
+                @Html.VnrLabel(ConstantDisplay.HRM_HR_Discipline.TranslateString())
+            </div>
+            <div style="float:right">
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateDiscipline", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelectedDiscipline", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })*@
+                @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAllDiscipline", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })*@
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteDiscipline", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+            </div>
+            <div class="clear"></div>
+        </div>
+
+        <div style="width:100%; height:580px">
+            <!--Khai báo các thông tin cho Grid-->
+            @{
+                var valueFieldsDiscipline = new[]
+                        {
+                            Hre_DisciplineModel.FieldNames.ContentOfDiscipline,
+                            Hre_DisciplineModel.FieldNames.DateOfViolation,
+                            Hre_DisciplineModel.FieldNames.DateEndOfViolation,
+                            Hre_DisciplineModel.FieldNames.DateOfEffective,
+                            Hre_DisciplineModel.FieldNames.UserUpdate,
+                            Hre_DisciplineModel.FieldNames.DateUpdate,
+                        };
+
+                var sizeFieldsDiscipline = new Dictionary<string, int>()
+                        {
+                            {Hre_DisciplineModel.FieldNames.ContentOfDiscipline, 150},
+                            {Hre_DisciplineModel.FieldNames.DateOfViolation, 100},
+                            {Hre_DisciplineModel.FieldNames.DateEndOfViolation, 100},
+                            {Hre_DisciplineModel.FieldNames.DateOfEffective, 100},
+                            {Hre_DisciplineModel.FieldNames.UserUpdate, 110},
+                            {Hre_DisciplineModel.FieldNames.DateUpdate, 110}
+                        };
+
+                var filterableDiscipline = new Dictionary<string, bool>()
+                {
+
+                };
+
+                var displayFieldsDiscipline = new Dictionary<string, string>()
+                        {
+                            {Hre_DisciplineModel.FieldNames.ContentOfDiscipline, ConstantDisplay.HRM_HR_Discipline_ContentOfDiscipline},
+                            {Hre_DisciplineModel.FieldNames.DateOfViolation, ConstantDisplay.HRM_HR_Discipline_DateOfViolation},
+                            {Hre_DisciplineModel.FieldNames.DateEndOfViolation, ConstantDisplay.HRM_HR_Discipline_DateEndOfViolation},
+                            {Hre_DisciplineModel.FieldNames.DateOfEffective, ConstantDisplay.HRM_HR_Discipline_DateOfEffective},
+                            {Hre_DisciplineModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Attendance_Overtime_UserUpdate},
+                            {Hre_DisciplineModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_Overtime_DateUpdate},
+                        };
+
+                var gridDiscipline = new GridBuilderInfo
+                {
+
+                    Name = "gridDiscipline",
+                    ValueFields = valueFieldsDiscipline,
+                    SizeFields = sizeFieldsDiscipline,
+                    DisplayFields = displayFieldsDiscipline,
+                    ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetDisciplineProID?profileID=" + profileID,
+                    // ReadData = "filterFieldInfo",
+                    GridHeight = 580,
+                    AutoBind = true,
+                    ShowCheckAll = false,
+                };
+            }
+            @(Html.VnrGrid<Hre_DisciplineModel>(gridDiscipline))
+        </div>
+        @{
+            var sizeFieldsDis = string.Empty;
+            for (int i = 0; i < valueFieldsDiscipline.Count(); i++)
+            {
+                sizeFieldsDis += "," + valueFieldsDiscipline[i];
+            }
+        }
+        @Html.Hidden("valueFieldsGridDisc", sizeFieldsDis)
+    </div>
+</div>
+@*<script>
+    $("#gridReWard .k-grid-pager").css('display', 'none');
+    $("#gridDiscipline .k-grid-pager").css('display', 'none');
+    $("#gridAccident .k-grid-pager").css('display', 'none');
+    $("#gridWorkHistory .k-grid-pager").css('display', 'none');
+    $("#@ConstantControlName.HRM_HR_CandidateHistory_Grid_Name .k-grid-pager").css('display', 'none');
+
+    $(document).ready(function () {
+        $("#panelbar").kendoPanelBar();
+    });
+</script>*@

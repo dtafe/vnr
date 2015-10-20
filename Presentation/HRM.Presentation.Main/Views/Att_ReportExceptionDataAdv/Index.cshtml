@@ -1,0 +1,418 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Attendance.Models.Att_ReportExceptionDataAdvModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Attendance_ReportDetailShift;
+    Layout = null;
+
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    IList<SelectListItem> lstStatusEmp = Enum.GetValues(typeof(EnumDropDown.StatusEmployee))
+         .Cast<EnumDropDown.StatusEmployee>()
+         .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p=>p.Text)
+         .ToList();
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        document.getElementById('MissInOut').checked = true;
+        $('#@Html.FieldIdFor(model => model.MissInOut)').val(true);
+        var radioItem = $("input[type=radio]");
+        radioItem.change(function () {
+            for (var i = 0; i < radioItem.length; i++) {
+                if (radioItem[i].checked) {
+                    radioItem[i].value = true;
+                }
+                else {
+                    radioItem[i].value = false;
+                }
+            }
+        });
+    });
+    var checkedNodes = [];
+    function filterFieldInfo(isExportDDL) {
+        
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _PayrollGroup = $('#@Html.FieldIdFor(model => model.PayrollGroup)').val() != null ? $('#@Html.FieldIdFor(model => model.PayrollGroup)').val().join(',') : $('#@Html.FieldIdFor(model => model.PayrollGroup)').val();
+        var _StatusEmployee = $('#@Html.FieldIdFor(model => model.StatusEmployee)').val() != "" ? $('#@Html.FieldIdFor(model => model.StatusEmployee)').val().join(',') : $('#@Html.FieldIdFor(model => model.StatusEmployee)').val();
+        var elementPara = {
+            DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd").val()),
+            PayrollGroup: _PayrollGroup,
+            StatusEmployee: _StatusEmployee,
+            OrgStructureID: checkedNodes.join(','),
+            ExcludeManagerStaff: $('#@Html.FieldIdFor(model => model.ExcludeManagerStaff )').val(),
+            ShowListLeaveDay: $('#@Html.FieldIdFor(model => model.ShowListLeaveDay)').val(),
+            NoShift: $('#@Html.FieldIdFor(model => model.NoShift)').val(),
+            LessHours: $('#@Html.FieldIdFor(model => model.LessHours)').val(),
+            DifferenceMoreRoster: $('#@Html.FieldIdFor(model => model.DifferenceMoreRoster)').val(),
+            OTDuplicate: $('#@Html.FieldIdFor(model => model.OTDuplicate)').val(),
+            NoScan: $('#@Html.FieldIdFor(model => model.NoScan)').val(),
+            MissInOut: $('#@Html.FieldIdFor(model => model.MissInOut)').val(),
+            More: $('#@Html.FieldIdFor(model => model.More)').val(),
+            Less: $('#@Html.FieldIdFor(model => model.Less)').val(),
+            ValueFields: $('#valueFieldsGrid').val(),
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnSearch").click(function () {
+        var grid = $('#gridAtt_ReportExceptionDataAdv').data("kendoGrid");
+        grid.dataSource.read();
+        checkedNodes = [];
+    });
+
+    $("#btnExport").click(function () {
+        ShowHre_ProgressBar();
+        
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportExceptionDataAdv');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportExceptionDataAdvList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportExceptionDataAdvList', filterFieldInfo(true));
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div class="hrm_box">
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    StyleCss = "width:122px;",
+                                    Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateStart, DateStart)
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    StyleCss = "width:122px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateEnd, DateEnd)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                    <div id="div4">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.PayrollGroup)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _PayrollGroup = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "PayrollGroupName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectGroupPayroll.TranslateString(),
+                                    Width = 250
+                                };
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.PayrollGroup, _PayrollGroup))
+                        </div>
+                    </div>
+                    <div id="div3">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.StatusEmployee)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var _sttEmp = new DropDownListBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstStatusEmp,
+                                    OptionLabel = ConstantDisplay.HRM_Category_SelectEmployeeType.TranslateString(),
+                                    StyleCss = "width:250px"
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.StatusEmployee, _sttEmp)
+                        </div>
+                    </div>
+
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.LessHours, "groupType")
+                            @Html.VnrLabelFor(mode => mode.LessHours)
+                            @{
+                                var _Less = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Format = ConstantFormat.HRM_Format_Number_Double.ToString(),
+                                    Value = 1.0,
+                                    StyleCss = "width:60px"
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(mode => mode.Less, _Less)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.DifferenceMoreRoster, "groupType")
+                            @Html.VnrLabelFor(mode => mode.DifferenceMoreRoster)
+                            @{
+                                var _More = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Format = ConstantFormat.HRM_Format_Number_Double.ToString(),
+                                    Value = 5.0,
+                                    StyleCss = "width:60px"
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(mode => mode.More, _More)
+                        </div>
+
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.NoScan, "groupType")
+                            @Html.VnrLabelFor(mode => mode.NoScan)
+                        </div>
+
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.MissInOut, "groupType")
+                            @Html.VnrLabelFor(mode => mode.MissInOut)
+                        </div>
+
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrRadioButtonFor(mode => mode.OTDuplicate, "groupType")
+                            @Html.VnrLabelFor(mode => mode.OTDuplicate)
+                        </div>
+
+                    </div>
+                </div>
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var ExcludeManagerStaff = new CheckBoxBuilderInfo() { };
+                            }
+                            @(Html.VnrCheckBoxFor(mode => mode.ExcludeManagerStaff, ExcludeManagerStaff))@Html.VnrLabelFor(mode => mode.ExcludeManagerStaff)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var ShowListLeaveDay = new CheckBoxBuilderInfo() { };
+                            }
+                            @(Html.VnrCheckBoxFor(mode => mode.ShowListLeaveDay, ShowListLeaveDay))@Html.VnrLabelFor(mode => mode.ShowListLeaveDay)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle150">
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var NoShift = new CheckBoxBuilderInfo() { };
+                            }
+                            @(Html.VnrCheckBoxFor(mode => mode.NoShift, NoShift))@Html.VnrLabelFor(mode => mode.NoShift)
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @using HRM.Presentation.UI.Controls.Kendo
+        @{
+            string[] valueFields = new string[]
+            {
+               Att_ReportExceptionDataAdvModel.FieldNames.CodeEmp,
+               Att_ReportExceptionDataAdvModel.FieldNames.ProfileName,
+               Att_ReportExceptionDataAdvModel.FieldNames.OrgStructureName,
+               Att_ReportExceptionDataAdvModel.FieldNames.PositionName,
+               Att_ReportExceptionDataAdvModel.FieldNames.JobTitleName,
+               Att_ReportExceptionDataAdvModel.FieldNames.WorkDate,
+               Att_ReportExceptionDataAdvModel.FieldNames.InTime,
+               Att_ReportExceptionDataAdvModel.FieldNames.InHour,
+               Att_ReportExceptionDataAdvModel.FieldNames.OutTime,
+               Att_ReportExceptionDataAdvModel.FieldNames.OutHour,
+                   Att_ReportExceptionDataAdvModel.FieldNames.UserExport,
+               Att_ReportExceptionDataAdvModel.FieldNames.DateExport
+            };
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+            {
+                {Att_ReportExceptionDataAdvModel.FieldNames.CodeEmp,75},
+                {Att_ReportExceptionDataAdvModel.FieldNames.ProfileName,135},
+                {Att_ReportExceptionDataAdvModel.FieldNames.PositionName,110},
+                {Att_ReportExceptionDataAdvModel.FieldNames.JobTitleName,110},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OrgStructureName,96},
+                {Att_ReportExceptionDataAdvModel.FieldNames.WorkDate,80},
+                {Att_ReportExceptionDataAdvModel.FieldNames.InTime,80},
+                {Att_ReportExceptionDataAdvModel.FieldNames.InHour,65},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OutTime,80},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OutHour,62},
+                        {Att_ReportExceptionDataAdvModel.FieldNames.UserExport,80},
+                {Att_ReportExceptionDataAdvModel.FieldNames.DateExport,62},
+            };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+            {
+                {Att_ReportExceptionDataAdvModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+                {Att_ReportExceptionDataAdvModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+                {Att_ReportExceptionDataAdvModel.FieldNames.PositionName,ConstantDisplay.HRM_Attendance_Position},
+                {Att_ReportExceptionDataAdvModel.FieldNames.JobTitleName,ConstantDisplay.HRM_Attendance_JobTitle},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Attendance_DepartmentCode},
+                {Att_ReportExceptionDataAdvModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDay_WorkDate},
+                {Att_ReportExceptionDataAdvModel.FieldNames.InTime,ConstantDisplay.HRM_Attendance_InDate},
+                {Att_ReportExceptionDataAdvModel.FieldNames.InHour,ConstantDisplay.HRM_Attendance_InTime},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OutTime,ConstantDisplay.HRM_Attendance_OutDate},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OutHour,ConstantDisplay.HRM_Attendance_OutTime},
+                         {Att_ReportExceptionDataAdvModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+                {Att_ReportExceptionDataAdvModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport},
+            };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+            {
+                {Att_ReportExceptionDataAdvModel.FieldNames.WorkDate, ConstantFormat.HRM_Format_DayMonthYear.ToString()},
+                {Att_ReportExceptionDataAdvModel.FieldNames.InTime, ConstantFormat.HRM_Format_DayMonthYear.ToString()},
+                {Att_ReportExceptionDataAdvModel.FieldNames.OutTime, ConstantFormat.HRM_Format_DayMonthYear.ToString()},
+            };
+            string[] hiddenFields = new string[]
+            {
+                 Att_ReportExceptionDataAdvModel.FieldNames.UserExport,
+               Att_ReportExceptionDataAdvModel.FieldNames.DateExport
+            };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_ReportExceptionDataAdv",
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                FormatFields = formatFields,
+                ShowCommand = false,
+                ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportExceptionDataAdvList",
+                ServerOperation = false,
+                ShowEditIcon = false,
+                ShowCheckbox = false,
+                ReadData = "filterFieldInfo",
+                HiddenFields = hiddenFields
+            };
+        }
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Att_ReportExceptionDataAdvModel>(grid))
+    </div>
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)

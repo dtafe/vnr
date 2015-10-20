@@ -1,0 +1,698 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Evaluation.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.Window
+
+@using HRM.Infrastructure.Utilities
+
+@model Eva_PerformanceModel
+@{
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    string gridName = "gridKPIBuilding";
+    IEnumerable valueTemplate = new string[] { };
+    IEnumerable valueProfile = new string[] { };
+    IEnumerable valuePerformancePlan = new string[] { };
+    string valuePerformanceTemplateName = string.Empty;
+    var valuePerfromanceTemplateId = string.Empty;
+    IEnumerable valuePerformanceType = new string[] { };
+    IEnumerable valueEvaluator = new string[] { };
+    string valueLevel = string.Empty;
+    string attatchFile = string.Empty;
+    string valuePerformanceTypeName = string.Empty;
+    bool isModify = false;
+    var performanceID = Guid.Empty;
+    var attachFile = string.Empty;
+    var profileId = Guid.Empty;
+    var isEnabled = true;
+    var performanceTypeId = Guid.Empty;
+    var isView = false;//cap danh gia 1 đã đánh giá
+    if (Model != null && Model.ID != Guid.Empty)
+    {
+        profileId = Model.ProfileID ?? Guid.Empty;
+        valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+        valuePerformancePlan = new[] { new { PerformancePlanName = Model.PerformancePlanName, ID = Model.PerformancePlanID } };
+        valuePerformanceTemplateName = Model.PerformanceTemplateName;
+        valuePerfromanceTemplateId = Model.PerformanceTemplateID.ToString();
+        valueLevel = Model.LevelID.ToString();
+        valueEvaluator = new[] { new { PerformancePlanName = "Test", ID = Model.EvaluatorID } };
+        attatchFile = Model.AttachFileLast ?? string.Empty;
+        isModify = true;
+        performanceID = Model.ID;
+        performanceTypeId = Model.PerformanceTypeID ?? Guid.Empty;
+        valuePerformanceTypeName = Model.PerformanceTypeName;
+        attachFile = Model.AttachFileLast;
+        isView = Model.PerformanceEvaStatus == null ? false : true;
+        isEnabled = false;
+    }
+}
+@{
+    var windowPerformanceForDetail = new WindowBuilderInfo
+    {
+        Name = "Eva_windowPerformanceForDetailInfo",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Eva_KPIBuilding/AddPerformanceForDetail?is360="+false,
+    };
+}
+@(Html.VnrWindow(windowPerformanceForDetail))
+
+<script language="javascript">
+    var evaluatorId = "#EvaluatorID";
+    var performanceTemplateID1 = "#PerformanceTemplateID1";
+    var gridName = '@gridName';
+    var isView = '@isView';
+    var selectedIds = [];
+
+
+    $(document).ready(function () {
+        $("#Status").attr("disabled", "disabled");
+        $("#SupervisorName").attr("disabled", "disabled");
+        $("#NationalityName").attr("disabled", "disabled");
+        $("#HighSupervisorName").attr("disabled", "disabled");
+        $("#JobTitleName").attr("disabled", "disabled");
+        $("#OrgStructureName").attr("disabled", "disabled");
+
+        var isEnable = window.location.href.split("Create").length == 2;
+        //$("#ResultNote").attr("disabled", "disabled");
+        //$("#Strengths").attr("disabled", "disabled");
+        //$("#Weaknesses").attr("disabled", "disabled");
+        //$("#LevelID").attr("disabled", "disabled");
+        var data = [];
+
+        var dataTemplate = [{ TemplateName: '@Html.Raw(valuePerformanceTemplateName)', ID: '@valuePerfromanceTemplateId' }];
+        var cmbPerformanceTemplate = $(performanceTemplateID1).kendoComboBox({
+            dataTextField: "TemplateName",
+            dataValueField: "ID",
+            enable: isEnable,
+            value: '@Html.Raw(valuePerformanceTemplateName)',
+            change: template_Changing,
+            dataSource: dataTemplate
+        });
+
+        $(evaluatorId).kendoMultiSelect({
+            dataTextField: "ProfileName",
+            dataValueField: "ID",
+            enable: false,
+            dataSource: data
+        });
+
+        var profileId = '@profileId';
+        if (profileId != '@Guid.Empty') {
+            setMultiSelectEvaluator();
+        }
+
+        //kt neu chi cho view
+        if (isView == 'True') {
+            $("#DueDate").attr("disabled", "disabled");
+            $("#PeriodFromDate").attr("disabled", "disabled");
+            $("#PeriodToDate").attr("disabled", "disabled");
+            $("#PerformancePlanID").attr("disabled", "disabled");
+            $("#Proportion").attr("disabled", "disabled");
+            $('#UploadAttachFile').css('display', 'none');
+            $("#save").attr("disabled", "disabled");
+            $("#save-new").attr("disabled", "disabled");
+        }
+
+        if ($("#Status").val() == "Approve") {
+            $("#btnSubmit").hide();
+        }
+        else {
+            $("#btnSubmit").show();
+        }
+        // setTimeout(function () { Getprofile(); }, 300);
+    });
+
+
+
+    function template_Changing() {
+        var performanceTemplateID = $("#PerformanceTemplateID1").data("kendoComboBox");
+        var performanceTemplateValue = performanceTemplateID.value();
+        $("#PerformanceTemplateID").val(performanceTemplateValue);
+        ReadGrid(gridName);
+    };
+
+    function setMultiSelectEvaluator() {
+
+        var isEdit = window.location.href.split("Edit").length == 2;
+        var profile = $("#ProfileID").data("kendoMultiSelect");
+        var profileId = '';
+        if (profile == undefined) {
+            profileId = '@profileId';
+        } else {
+            profileId = profile.value().join(',');
+        }
+        var multiEvaluator = $("#EvaluatorID").data("kendoMultiSelect");
+        multiEvaluator.value(null);//clear selected value
+        var evaluatorData = [];
+        multiEvaluator.setDataSource(evaluatorData);
+        var performanceTypeID = $("#PerformanceTypeID").val();
+        if (isEdit) {
+            performanceTypeID = '@performanceTypeId';
+        }
+
+        if (profileId == null || profileId == '') {
+            return;
+        }
+        if (performanceTypeID == null || performanceTypeID == '') {
+            return;
+        }
+
+
+        debugger;
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Eva_GetData/GetMultiEvaluator",
+            data: { profileID: profileId, performanceTypeID: performanceTypeID },
+            type: 'POST',
+            asyn: false,
+            success: function (data) {
+                var kendoData = [];
+                var kendoDataId = [];
+                for (var i = 0; i < data.length; i++) {
+                    kendoData[i] = data[i].ProfileName;
+                    kendoDataId[i] = data[i].ID;
+                    debugger;
+                    // alert(data[i].ProfileName);
+                }
+                var profileNames = kendoData.join(',');
+                var multi = $("#EvaluatorID").data("kendoMultiSelect");
+                multi.setDataSource(data);
+                multi.value(kendoDataId);
+            }
+        });
+    };
+
+
+    function Getprofile() {
+
+        var profile = $("#ProfileID").data("kendoMultiSelect");
+        var profileID = profile.value();
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Hre_GetData/GetProfileInfo/",
+            data: { profileId: profileID.join(',') },
+            type: 'POST',
+            success: function (data) {
+
+                $("#SupervisorName").val(data.SupervisorName);
+                $("#NationalityName").val(data.NationalityName);
+                $("#HighSupervisorName").val(data.HighSupervisorName);
+                $("#JobTitleName").val(data.JobTitleName);
+                $("#OrgStructureName").val(data.OrgStructureName);
+
+            }
+        });
+    };
+
+    //Xóa
+    $('#btnDelete1').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Eva_Performance');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_Performance/RemoveSelected/", selectedIds.join(","));
+    });
+
+    function UrlExists(url) {
+        var http = new XMLHttpRequest();
+        http.open('HEAD', url, false);
+        http.send();
+        return http.status == 404;
+    };
+
+
+    function download() {
+        var attachFileName = '@attachFile';
+        if (attachFileName != undefined) {
+            var url = "/Templates/" + attachFileName;
+            if (UrlExists(url)) {
+                window.location = url;
+            } else {
+                ShowNotificationProcessor("Không tìm thấy tập tin");
+            }
+
+        }
+    };
+
+
+    function changePageGird() {
+        // Lấy mã màu khi vượt mức
+        debugger;
+        var field1 = ["KPIColor", "", 'white', 'black', "="];
+        var field = [field1];
+        SetRowColorNoCondition(gridName, field);
+        var SelectedGuid = [];
+        $('#mastercheckbox').prop('checked', false);
+        var result = $("input[type=checkbox][id!=mastercheckbox][class=checkboxGroups]");
+        for (var i = 0; i < result.length; i++) {
+            if (SelectedGuid.indexOf(result[i].parentNode.parentNode.attributes["data-uid"].value) != -1) {
+                result[i].checked = true;
+            }
+        }
+    };
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        debugger;
+        var _PerformanceID = $("#PerformanceID").val();
+        if (_PerformanceID == '@Guid.Empty') {
+            ShowNotificationProcessor('@ConstantDisplay.YouMustSaveFirst.TranslateString()');
+        }
+        else
+            PopUpCreate("Eva_windowPerformanceForDetailInfo", '@Html.Raw(ConstantDisplay.HRM_Evaluation_KPIBuilding_KPIGrid.TranslateString())', '@ConstantPermission.Eva_PerformanceDetail');
+    });
+
+    //Xử lý delete
+    $('#btnDeletePerDetail').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Eva_KPIBuilding/RemoveEva_PerformanceForDetailSelected/", selectedIds.join(","), '@ConstantPermission.Eva_PerformanceDetail');
+        debugger;
+        var grid = $("#gridKPIBuilding").data("kendoGrid");
+        grid.dataSource.read();
+    });
+
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        var performanceTemplateID = $("#PerformanceTemplateID1").data("kendoComboBox");
+        var performanceTemplateValue = performanceTemplateID.value();
+
+        return {
+            PerformanceTemplateID: performanceTemplateValue,
+            PerformanceID: '@performanceID'
+        };
+
+        //todo: kiet chung : load du lieu tren luoi de tao moi va xoa cac tieu chi
+        //debugger;
+        ////var performanceTemplateID = $("#PerformanceTemplateID1").data("kendoComboBox");
+        ////var performanceTemplateValue = performanceTemplateID.value();
+        //var _PerformanceID = $("#PerformanceID").val();
+        //return {
+        //    //PerformanceTemplateID: performanceTemplateValue,
+        //    PerformanceID: _PerformanceID
+        //};
+    };
+
+    function performancePlan_Changing() {
+
+        var performancePlanID = $("#PerformancePlanID").val();
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Eva_GetData/GetPerformancePlanInfo",
+            data: { id: performancePlanID },
+            type: 'POST',
+            success: function (data) {
+
+                var endDate = new Date(parseInt(data.EndDate.substr(6)));
+                var startDate = new Date(parseInt(data.StartDate.substr(6)));
+                $('#PeriodFromDate').data('kendoDatePicker').value(startDate);
+                $('#PeriodToDate').data('kendoDatePicker').value(endDate);
+            }
+        });
+    };
+
+    function performanceType_Changing() {
+        var performanceTypeID = $("#PerformanceTypeID").val();
+        debugger;
+        var profile = $("#ProfileID").data("kendoMultiSelect");
+        var profileID = '@Guid.Empty';
+        if (profile.value().length > 0) {
+            profileID = profile.value();
+        }
+
+        $(performanceTemplateID1).data("kendoComboBox").value(null); //clear selected value
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Eva_GetData/GetMultiPerformanceTemplateWithJobTitle",
+            type: 'POST',
+            traditional: true,
+            data: { performanceTypeID: performanceTypeID, profileID: profileID },
+            success: function (data) {
+                //  alert(data);
+                debugger;
+                $(performanceTemplateID1).kendoComboBox({
+                    dataTextField: "TemplateName",
+                    dataValueField: "ID",
+                    change: template_Changing,
+                    dataSource: data
+                });
+            }
+        });
+
+        //load ds người đánh giá tương ứng với profileId và performanceTypeId
+        setMultiSelectEvaluator();
+    };
+
+    function profile_Changing() {
+
+        Getprofile();
+        //load ds người đánh giá tương ứng với profileId và performanceTypeId
+        setMultiSelectEvaluator();
+
+
+    };
+
+</script>
+
+@*Đánh Giá Của Nhân Viên*@
+<div>
+    @Html.Hidden("PerformanceID", Model.ID)
+    <table style="width:100%">
+        <tbody>
+            <tr>
+                <td valign="top">
+                    <div>
+                        <div style="display: block; padding-top: 10px;">
+                            <fieldset>
+                                <legend>
+                                    @ConstantDisplay.HRM_Evaluation_Performance_List.TranslateString()
+                                </legend>
+                                <div style="float:left;">
+
+                                    <div id="dvPerformancePlanID">
+                                        <div class="FieldTitle150">
+                                            @Html.HiddenFor(model => model.PerformanceExtendID)
+                                            @Html.VnrLabelFor(mode => mode.PerformancePlanID)
+                                            @Html.HiddenFor(model => model.PerformanceID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var cmbPerformancePlanID = new DropDownListBuilderInfo()
+                                                {
+                                                    Name = "PerformancePlanID",
+                                                    DataTextField = "PerformancePlanName",
+                                                    DataValueField = "ID",
+                                                    Url = _hrm_Hre_Service + "Eva_GetData/GetMultiPerformancePlan",
+                                                    OptionLabel = ConstantDisplay.HRM_Evaluation_SelectPerformancePlan.TranslateString(),
+                                                    Value = @Html.DisplayFor(mode => mode.PerformancePlanID).ToString(),
+                                                    EventChange = "performancePlan_Changing",
+                                                    StyleCss = "width:200px"
+                                                    //Value = valuePerformancePlan,
+
+
+                                                };
+                                            }
+                                            @Html.VnrDropDownListFor(mode => mode.PerformancePlanID, cmbPerformancePlanID)
+                                            <script>
+                                                $(document).ready(function () {
+                                                    var dropdownlist = $("#PerformancePlanID").data("kendoDropDownList");
+                                                    dropdownlist.value('@Html.DisplayFor(mode => mode.PerformancePlanID).ToString()');
+                                                });
+                                            </script>
+                                        </div>
+                                    </div>
+
+
+                                    <div id="dvProfileID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                                {
+                                                    DataTextField = "ProfileName",
+                                                    DataValueField = "ID",
+                                                    MaxSelectedItems = 1,
+                                                    Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                                    EventChange = "profile_Changing",
+                                                    Enable = isEnabled,
+                                                    Value = valueProfile,
+
+                                                };
+                                            }
+                                            @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.JobTitleName)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.JobTitleName)
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.OrgStructureName)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.OrgStructureName)
+                                        </div>
+                                    </div>
+
+
+                                </div>
+
+                                <div style="float:left; ">
+
+                                    <div id="dvTagID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.PerformanceTypeID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var cmbPerformanceType = new ComboBoxBuilderInfo
+                                                {
+
+                                                    Name = "PerformanceTypeID",
+                                                    DataTextField = "PerformanceTypeName",
+                                                    DataValueField = "ID",
+                                                    EventChange = "performanceType_Changing",
+                                                    Url = _hrm_Hre_Service + "Cat_GetData/GetMultiPerformanceType",
+                                                    Placeholder = ConstantDisplay.HRM_Evaluation_SelectTagEva.TranslateString(),
+                                                    StyleCss = "width:200px",
+                                                    Enable = isEnabled,
+                                                    Value = valuePerformanceTypeName
+                                                };
+                                            }
+                                            @Html.VnrComboBoxFor(p => p.PerformanceTypeID, cmbPerformanceType)
+                                        </div>
+                                    </div>
+
+                                    <div id="dvPerformanceTemplateID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.PerformanceTemplateID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            <input id="PerformanceTemplateID1" style="width:200px"></input>
+                                            @Html.HiddenFor(p => p.PerformanceTypeID)
+                                        </div>
+                                    </div>
+
+                                    @*<div id="dvProportion">
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelFor(mode => mode.Proportion)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @{
+                                                    var _DoubleTextBoxBuilder = new NumericTextBoxBuilderInfo<double>()
+                                                    {
+                                                        Format = ConstantFormat.HRM_Format_Number_Double.ToString(),
+                                                        StyleCss = "width:70px"
+                                                    };}
+
+                                                @Html.VnrNumericTextBoxFor(m => m.Proportion, _DoubleTextBoxBuilder)
+                                            </div>
+                                        </div>*@
+
+                                    <div id="dvEvaluatorID">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.EvaluatorID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            <input id="EvaluatorID" style="width:200px" />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.Status)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.Status)
+                                        </div>
+                                    </div>
+                                </div>
+                                <div style="float:left;">
+                                    <div>
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.SupervisorName)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.SupervisorName)
+                                        </div>
+                                    </div>
+                                    @*<div>
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.HighSupervisorName)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrTextBoxFor(mode => mode.HighSupervisorName)
+                                        </div>
+                                    </div>*@
+                                    <div id="dvDueDate">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.DueDate)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var dueDate = new DatePickerBuilderInfo() { Name = "DueDate", StyleCss = "width:100px" };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.DueDate, dueDate)
+                                        </div>
+                                    </div>
+
+                                    <div id="dvPeriodFromDate">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.PeriodFromDate)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var periodFromDate = new DatePickerBuilderInfo() { Name = "PeriodFromDate", StyleCss = "width:100px" };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.PeriodFromDate, periodFromDate)
+                                            @{
+                                                var periodToDate = new DatePickerBuilderInfo() { Name = "PeriodToDate", StyleCss = "width:100px" };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.PeriodToDate, periodToDate)
+                                        </div>
+                                    </div>
+
+                                </div>
+                                <div style="float:left;">
+
+                                    @*<div>
+                                            <div class="FieldTitle150">
+                                                @Html.VnrLabelFor(mode => mode.NationalityName)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.VnrTextBoxFor(mode => mode.NationalityName)
+                                            </div>
+                                        </div>*@
+
+
+                                </div>
+                            </fieldset>
+                        </div>
+                    </div>
+
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+@*Các Tiêu Chí Tự Đánh Giá Của Nhân Viên*@
+<fieldset>
+    <legend>@ConstantDisplay.HRM_Evaluation_KPIBuilding_KPIGrid.TranslateString() </legend>
+    <div class="commandToolBarWidge" style="margin-top:3px">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeletePerDetail", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+            string[] valueFields = new[]
+            {
+             Eva_PerformanceForDetailModel.FieldNames.PerformanceForDetailID,
+             Eva_PerformanceForDetailModel.FieldNames.Stt,
+             Eva_PerformanceForDetailModel.FieldNames.KPIName,
+             Eva_PerformanceForDetailModel.FieldNames.Rate,
+             Eva_PerformanceForDetailModel.FieldNames.DescriptionKPIFix,
+             Eva_PerformanceForDetailModel.FieldNames.IsKPIFix,
+             Eva_PerformanceForDetailModel.FieldNames.DescriptionKP,
+             Eva_PerformanceForDetailModel.FieldNames.KPIColor,
+             Eva_PerformanceForDetailModel.FieldNames.NameEntityName,             
+            };
+            
+             string[] groupFields = new[]
+            {
+             Eva_PerformanceForDetailModel.FieldNames.NameEntityName,
+            };
+
+            string[] hiddenFields = new[]
+            {
+             Eva_PerformanceForDetailModel.FieldNames.PerformanceForDetailID,
+             Eva_PerformanceForDetailModel.FieldNames.KPIColor,
+             Eva_PerformanceForDetailModel.FieldNames.NameEntityName             
+            };
+
+            var sizeFields = new Dictionary<string, int>()
+            {
+                {Eva_PerformanceForDetailModel.FieldNames.Stt,50},
+                {Eva_PerformanceForDetailModel.FieldNames.KPIName,150},
+                {Eva_PerformanceForDetailModel.FieldNames.DescriptionKPIFix,300},
+                {Eva_PerformanceForDetailModel.FieldNames.DescriptionKP,500},
+                {Eva_PerformanceForDetailModel.FieldNames.IsKPIFix,90},
+                {Eva_PerformanceForDetailModel.FieldNames.KPIColor,50},
+                {Eva_PerformanceForDetailModel.FieldNames.NameEntityName,150},
+            };
+
+            var filterable = new Dictionary<string, bool>()
+            {
+                {Eva_KPIModel.FieldNames.KPIName,true},
+            };
+
+            string[] disabledFields = new string[] { };
+            if (Model == null || Model.ID == Guid.Empty)
+            {
+                disabledFields = new[]
+                {
+                 Eva_PerformanceForDetailModel.FieldNames.KPIName,
+                };
+            }
+            else
+            {
+                disabledFields = new[]{
+                     Eva_PerformanceForDetailModel.FieldNames.KPIName,
+                     //Eva_KPIModel.FieldNames.DescriptionKPIFix,
+                     Eva_PerformanceForDetailModel.FieldNames.IsKPIFix
+               };
+            }
+            var displayFields = new Dictionary<string, string>()
+            {
+                {Eva_PerformanceForDetailModel.FieldNames.Stt,ConstantDisplay.HRM_Category_Element_OrderNumber},
+                {Eva_PerformanceForDetailModel.FieldNames.KPIName,ConstantDisplay.HRM_Evaluation_KPIBuilding_KPIName},
+                {Eva_PerformanceForDetailModel.FieldNames.Rate,ConstantDisplay.HRM_Evaluation_Rate},
+                {Eva_PerformanceForDetailModel.FieldNames.DescriptionKPIFix,ConstantDisplay.HRM_Evaluation_KPIBuilding_DescriptionKPIFix},
+                {Eva_PerformanceForDetailModel.FieldNames.IsKPIFix,ConstantDisplay.HRM_Evaluation_KPIBuilding_IsKPIFix},
+                {Eva_PerformanceForDetailModel.FieldNames.DescriptionKP,ConstantDisplay.HRM_Evaluation_KPIBuilding_DescriptionKP},
+                {Eva_PerformanceForDetailModel.FieldNames.NameEntityName,ConstantDisplay.HRM_Evaluation_NameEntityObject},
+                
+                   //{Eva_KPIModel.FieldNames.KPIColor,ConstantDisplay.HRM_Evaluation_KPI_KPIColor},
+            };
+
+            var grid = new GridBuilderInfo
+            {
+                Name = gridName,
+                ValueFields = valueFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                Filterable = filterable,
+                HiddenFields = hiddenFields,
+                GroupFields=groupFields,
+                //ServerOperation = false,
+                ShowEditIcon = false,
+                ShowCheckbox = true,
+                AutoBind = true,
+                ReadActionUrl = @_hrm_Hre_Service + "Eva_GetData/GetKPIByPerformanceIDList/",
+               // ReadActionUrl = @_hrm_Hre_Service + "Eva_GetData/GetPerformanceForDetailByPerformanceID/",
+                ReadData = "filterFieldInfo",
+                //GridHeight = 200,
+                EditMode = GridEditMode.InCell,
+                DisableFields = disabledFields,
+                EventDataBound = "changePageGird"
+            };
+        }
+
+        @(Html.VnrGrid<Eva_PerformanceForDetailModel>(grid))
+    </div>
+</fieldset>
+

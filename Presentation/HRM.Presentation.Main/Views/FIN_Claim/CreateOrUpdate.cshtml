@@ -1,0 +1,957 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Utilities
+
+@using System.Collections
+@using HRM.Infrastructure.Security
+
+@model FIN_ClaimModel
+@{
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    //var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    //var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var ContractID = Guid.Empty;
+    var ProfileName = string.Empty;
+    if (Model != null)
+    {
+        ContractID = Model.ID;
+    }
+
+    IList<SelectListItem> lstExpensesType = Enum.GetValues(typeof(ExpensesType))
+   .Cast<ExpensesType>()
+   .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+   .ToList();
+   
+    IList<SelectListItem> claimType = Enum.GetValues(typeof(EnumDropDown.ClaimType))
+.Cast<EnumDropDown.ClaimType>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+.ToList();
+}
+ 
+
+@{
+    var windowClaim = new WindowBuilderInfo
+    {
+        Name = "windowClaimItem",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "FIN_Claim/FIN_ClaimItemInfo/",
+    };
+}
+@(Html.VnrWindow(windowClaim))
+@{
+    var windowError = new WindowBuilderInfo
+    {
+        Name = "windowError",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = ConstantDisplay.Hrm_Notification.TranslateString(),
+        Content = ConstantDisplay.PleaseSaveClaim.TranslateString()
+    };
+}
+@(Html.VnrWindow(windowError))
+@*bỏ thành cuộn trong popup*@
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<script type="text/javascript">
+    SetFieldRequired();
+    var gridName = '@ConstantControlName.HRM_FIN_TravelRequestItem_Grid_Name.TranslateString()';
+    var popUpName = '@ConstantControlName.HRM_FIN_TravelRequestItem_PopUp_Name.TranslateString()';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_FIN_TravelRequestItem_Create_Title.TranslateString())';
+
+    //Truyền nhiều id trên lưới
+    function PopData1(idWindow, url, parameter1, parameter2, titlePopUp) {
+
+        var window = $("#" + idWindow).data("kendoWindow");
+        window.refresh({
+            url: url,
+            data: { TravelRequestID: parameter1, ProfileID: parameter2 }
+        }).center().open().title(titlePopUp);
+    }
+  $("#btnCreateClaimItem").click(function () {
+
+      debugger;
+        var x = $('#@Html.FieldIdFor(model => model.Claim_ID)').val();
+
+        if (x == '') {
+            PopUpCreate("windowError");
+        }
+        else {
+
+            PopUpCreate("windowClaimItem", titleCreatePopUp, '@ConstantPermission.Hre_AppendixContract')
+        }
+    });
+
+    $(document).ready(function () {
+        document.getElementById("JobTitleName").readOnly = true;
+        document.getElementById("OrgStructureName").readOnly = true;
+        document.getElementById("Channel").readOnly = true;
+        document.getElementById("Region").readOnly = true;
+        document.getElementById("Area").readOnly = true;
+        document.getElementById("OrgStructureCode").readOnly = true;
+        document.getElementById("SupervisorName").readOnly = true;
+        document.getElementById("WorkPlaceName").readOnly = true;
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //Xử lý Edit popup
+        var url = '@_hrm_Main_Web' + "FIN_Claim/FIN_ClaimItemInfo/";
+        EditGridPopUp("grid_ClaimItem", "windowClaimItem", url, '@ConstantPermission.Hre_Contract', titleEditPopUp);
+      
+    });
+
+    function filterFieldInfo() {
+        debugger;
+        return {
+            ClaimID: $("#Claim_ID").val()
+        };
+    }
+
+
+
+
+    GridCheckbox('grid_ClaimItem');
+
+    //Xóa PLHĐ
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_ClaimItem", '@_hrm_Main_Web' + "FIN_Claim/RemoveSelectedItem/", selectedIds.join(","));
+    });
+    $('#btnDeleteClaim').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.FIN_Claim');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected("grid_ClaimItem", '@_hrm_Main_Web' + "FIN_TravelRequest/RemoveFIN_ClaimSelected/", selectedIds.join(","));
+    });
+
+    function ProfileSelect(e) {
+
+
+        var dataItem = this.dataSource.view()[e.item.index()];
+
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataByProfileID",
+            data: { ProfileID: dataItem.ID },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                debugger;
+                if (data != null) {
+                    $("#JobTitleName").val(data.JobTitleName);
+                    $("#OrgStructureName").val(data.OrgStructureName);
+                    $("#Channel").val(data.Channel);
+                    $("#Region").val(data.Region);
+                    $("#Area").val(data.Area);
+                    $("#OrgStructureCode").val(data.OrgStructureCode);
+                    $("#SupervisorName").val(data.SupervisorName);
+                    $("#WorkPlaceName").val(data.WorkPlaceName);
+                }
+            }
+
+        });
+    }
+    function onDataBoundGrid() {
+        debugger;
+        var grid = $("#grid_ClaimItem").data("kendoGrid");
+        if (grid._data[0] != undefined)
+        {
+            var sumQuantity = grid._data[0].TotalAmount;
+            var sumQuantityNumberTextBox = $("#TotalAmount").data("kendoNumericTextBox");
+            sumQuantityNumberTextBox.value(sumQuantity);
+        }
+        
+    }
+
+
+    function CashAdvanceSelect(e) {
+        debugger;
+        var dataItem = e.sender._old;
+
+        $.ajax({
+            url: '@_hrm_Hr_Service' + "Hre_GetData/GetCashAdvanceItemByCashAdvanceID",
+            data: { CashAdvanceID: dataItem },
+            type: 'POST',
+            datatype: 'json',
+            success: function (data) {
+                debugger;
+                if (data != null) {
+                    var grid = $("#grid_ClaimItem").data("kendoGrid");
+                    var sumQuantity = grid._data[0].TotalAmount;
+
+                    var sumQuantityNumberTextBox = $("#TotalAmountCashAdvance").data("kendoNumericTextBox");
+                    sumQuantityNumberTextBox.value(data.Data[0].TotalAmount);
+
+                    var amount = data.Data[0].TotalAmount - sumQuantity ;
+
+                    var sumTotalAmountNumberTextBox = $("#TotalAll").data("kendoNumericTextBox");
+                    sumTotalAmountNumberTextBox.value(amount);
+                }
+            }
+
+        });
+    }
+
+
+    $('#btnApproved').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#grid_ClaimItem').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("grid_ClaimItem", '@_hrm_Hr_Service' + "Hre_GetData/ActionApprovedClaimItem/", selectedIds, 'E_APPROVED');
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    $('#btnSubmit').click(function (e) {
+        var userId = '@Session[SessionObjects.UserId]';
+        e.preventDefault();
+        var grid = $('#grid_ClaimItem').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("grid_ClaimItem", '@_hrm_Hr_Service' + "Hre_GetData/ActionSubmitClaimItem/", selectedIds, 'E_SUBMIT', userId);
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter, status, userId) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status: status, userId: userId },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');//Chưa dịch
+            }
+        });
+    };
+
+    function onChanged(e) {
+        debugger;
+
+        var type = e.sender._old;
+        if (type == "FIN_Claim_Profile")
+        {
+                 $("#contentPaymentType").show();
+                $("#contentTotalCashAdvance").show();
+                $("#contenTotalAll").show();
+                $("#contentType").show();
+                $("#contentOther").hide();
+                $("#Other").val("");
+        }
+        if (type == "FIN_Claim_Manufacture")
+        {
+                    $("#contentOther").show();
+                    $("#contentType").hide();
+                    $("#contentPaymentType").hide();
+                    $("#contentTotalCashAdvance").hide();
+                    $("#contenTotalAll").hide();
+        }
+    }
+
+</script>
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr><td colspan="3" style=""></td></tr>
+            @Html.HiddenFor(mode => mode.ID)
+            @Html.HiddenFor(mode => mode.Claim_ID)
+            @Html.HiddenFor(mode => mode.UserCreateID)
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div style="display: block; padding-top: 10px;">
+                      <fieldset>
+                          <legend>
+                              Thông Tin Người Yêu Cầu
+                          </legend>
+                      </fieldset>
+                        <div style="width:100%">
+                            <div style="float:left;">
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        @Html.HiddenFor(mode => mode.ID)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            IEnumerable valueProfile = new string[] { };
+                                            if (Model != null)
+                                            {
+                                                valueProfile = new[] { new { ProfileName = Model.ProfileName, ID = Model.ProfileID } };
+                                            }
+                                        }
+                                        @{
+                                            var Profile = new MultiSelectBuilderInfo()
+                                            {
+                                                // Name = "ProfileID",
+                                                DataTextField = Hre_ContractModel.FieldNames.ProfileName,
+                                                DataValueField = Hre_ContractModel.FieldNames.ID,
+                                                Url = @_hrm_Hr_Service + "Hre_GetData/GetMultiProfile",
+                                                Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                                MaxSelectedItems = 1,
+                                                Value = valueProfile,
+                                                EventSelect = "ProfileSelect",
+
+
+                                            };
+                                        }
+                                        @(Html.VnrMultiSelectFor(mode => mode.ProfileID, Profile))
+                                    </div>
+                                </div>
+
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.JobTitleName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.JobTitleName)
+                                    </div>
+                                </div>
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.OrgStructureName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.OrgStructureName)
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div style="float:left">
+                                <div  id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Channel)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Channel)
+                                    </div>
+                                </div>
+                                <div  id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Region)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Region)
+                                    </div>
+                                </div>
+                                <div  id="div13">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelForNoneIcon(model => model.Area)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.Area)
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="float:left">
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.OrgStructureCode)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.OrgStructureCode)
+                                    </div>
+                                </div>
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.SupervisorName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.SupervisorName)
+                                    </div>
+                                </div>
+                                <div  id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.WorkPlaceName)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrTextBoxFor(mode => mode.WorkPlaceName)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div style="display: block; padding-top: 10px;">
+                        <fieldset>
+                            <legend>
+                                Thông Tin Chung
+                            </legend>
+                        </fieldset>
+                        <div class="DivContentTitleValue" id="div13">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Type)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _type = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "ClaimInfo_Type",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = claimType,
+                                       // StyleCss = "Width:250px",
+                                        EventChange = "onChanged"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(mode => mode.Type, _type)
+                            </div>
+                        </div>
+                        @*<div id="div13">
+                            <div class="FieldValue">
+                                <div id="div13">
+                                    <div class="FieldTitle150">
+                                        @Html.VnrLabelForNoneIcon(model => model.PayTo)
+                                    </div>
+                                    <div class="FieldValue">
+                                        @Html.VnrRadioButtonFor(mode => mode.IsProfile, "IsProfile")
+                                        @Html.VnrLabelFor(mode => mode.IsProfile)
+
+                                        @Html.VnrRadioButtonFor(mode => mode.IsManufactureName, "IsProfile")
+                                        @Html.VnrLabelFor(mode => mode.IsManufactureName)
+                                    </div>
+                                </div>
+                            </div>
+                        </div>*@
+                        <div id="contentType" hidden="hidden">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.ExpensesType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _ExpensesType = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = lstExpensesType
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.ExpensesType, _ExpensesType)
+                            </div>
+                        </div>
+
+                            <div  id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabelForNoneIcon(model => model.ClaimName)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrTextBoxFor(mode => mode.ClaimName)
+                                </div>
+                            </div>
+                        <div id="contentOther" hidden="hidden">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelForNoneIcon(model => model.Other)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(mode => mode.Other)
+                            </div>
+
+                        </div>
+                       
+                            
+                            @*<div  id="div13">
+                                <div class="FieldTitle150">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_FIN_Claim_PaymentType_Title.TranslateString())
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrRadioButtonFor(mode => mode.IsPaymentType, "IsPaymentType")
+                                    @Html.VnrLabelFor(mode => mode.IsPaymentType)
+
+                                    @Html.VnrRadioButtonFor(mode => mode.IsOther, "IsPaymentType")
+                                    @Html.VnrLabelFor(mode => mode.IsOther)
+                                </div>
+                            </div>*@
+
+                            <div  id="contentPaymentType" >
+                                <div class="FieldTitle150">
+                                    @*@Html.VnrLabel(ConstantDisplay.HRM_FIN_Claim_CashAdvance_Title.TranslateString())*@
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrRadioButtonFor(mode => mode.IsCashAdvance, "IsCashAdvance")
+                                    @Html.VnrLabelFor(mode => mode.IsCashAdvance)
+
+                                    @Html.VnrRadioButtonFor(mode => mode.IsNoneCashAdvance, "IsCashAdvance")
+                                    @Html.VnrLabelFor(mode => mode.IsNoneCashAdvance)
+                                </div>
+                                <div  id="contentCashAdvance" >
+                                   
+                                    <div id="cashAdvance" hidden="hidden">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.CashAdvanceID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _CashAdvanceID = new ComboBoxBuilderInfo()
+                                                {
+                                                    // Name = "TraCourseInfo_TrainCategoryID",
+                                                    DataTextField = "CashAdvanceName",
+                                                    DataValueField = "ID",
+                                                    Url = _hrm_Hr_Service + "Hre_GetData/GetMultiCashAdvance",
+                                                    ServerFilter = true,
+                                                    StyleCss = "width:200px",
+                                                    EventChange = "CashAdvanceSelect"
+
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.CashAdvanceID, _CashAdvanceID).Text(Model != null ? Model.CashAdvanceName : string.Empty))
+                                        </div>
+                                    </div>
+
+                                    <div id="noneCashAdvance" hidden="hidden">
+                                        <div class="FieldTitle150">
+                                            @Html.VnrLabelFor(mode => mode.TravelRequestID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+                                                var _TravelRequestID = new ComboBoxBuilderInfo()
+                                                {
+                                                    // Name = "TraCourseInfo_TrainCategoryID",
+                                                    DataTextField = "TravelRequestName",
+                                                    DataValueField = "ID",
+                                                    Url = _hrm_Hr_Service + "Hre_GetData/GetMultiTravelRequest",
+                                                    ServerFilter = true,
+                                                    StyleCss = "width:200px"
+                                                };
+                                            }
+                                            @(Html.VnrComboBoxFor(mode => mode.TravelRequestID, _TravelRequestID).Text(Model != null ? Model.TravelRequestName : string.Empty))
+                                        </div>
+                                    </div>
+
+                                </div>
+                            </div>
+
+                            
+
+                            
+                        <div id="contentTotalCashAdvance">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.TotalAmountCashAdvance)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _TotalAmountCashAdvance = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        StyleCss = "width:150px",
+                                        Format = ConstantFormat.HRM_Format_Money,
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(model => model.TotalAmountCashAdvance, _TotalAmountCashAdvance)
+                            </div>
+                        </div>
+                        <div id="div13">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.TotalAmount)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _TotalAmount = new NumericTextBoxBuilderInfo<int>()
+                                    {
+                                        StyleCss = "width:150px",
+                                        Format = ConstantFormat.HRM_Format_Money,
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(model => model.TotalAmount, _TotalAmount)
+                            </div>
+                        </div>
+
+                        <div id="contenTotalAll">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.TotalAll)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Total = new NumericTextBoxBuilderInfo<double>()
+                                    {
+                                        StyleCss = "width:150px",
+                                        Min = Int32.MinValue,
+                                        Format = ConstantFormat.HRM_Format_Money,
+                 
+                                      //  Format = ConstantFormat.HRM_Format_Money,
+                                    };
+                                }
+                                @Html.VnrNumericTextBoxFor(model => model.TotalAll, _Total)
+                            </div>
+                        </div>
+                      
+                    </div>
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateClaimItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+   @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSubmit", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Category.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        //Thông tin hiển column hiển thị
+        string[] valueFields = new string[]
+                            {
+                                FIN_ClaimItemModel.FieldNames.ClaimItemName,
+                                FIN_ClaimItemModel.FieldNames.DocumentNumber,
+                                FIN_ClaimItemModel.FieldNames.Date,
+                                FIN_ClaimItemModel.FieldNames.Amount,
+                                FIN_ClaimItemModel.FieldNames.CurrencyName,
+                                FIN_ClaimItemModel.FieldNames.Description,
+                                FIN_ClaimItemModel.FieldNames.StatusView,
+                               
+                                
+                            };
+
+        //Set độ rộng cho từng column
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {FIN_ClaimItemModel.FieldNames.ClaimItemName, 130},
+                                {FIN_ClaimItemModel.FieldNames.DocumentNumber, 100},
+                                {FIN_ClaimItemModel.FieldNames.Date, 130},
+                                {FIN_ClaimItemModel.FieldNames.Amount, 100},
+                                {FIN_ClaimItemModel.FieldNames.CurrencyName, 100},
+                                {FIN_ClaimItemModel.FieldNames.Description, 100},
+                                {FIN_ClaimItemModel.FieldNames.StatusView, 100},
+                            };
+
+        //Thông tin hiển thị được dịch
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {FIN_ClaimItemModel.FieldNames.ClaimItemName, ConstantDisplay.FIN_ClaimItem_ClaimItemName},
+                                {FIN_ClaimItemModel.FieldNames.DocumentNumber, ConstantDisplay.FIN_ClaimItem_DocumentNumber},
+                                {FIN_ClaimItemModel.FieldNames.Date, ConstantDisplay.FIN_ClaimItem_Date},
+                                {FIN_ClaimItemModel.FieldNames.Amount, ConstantDisplay.FIN_ClaimItem_Amount},
+                                {FIN_ClaimItemModel.FieldNames.Description, ConstantDisplay.FIN_ClaimItem_Description},
+                                {FIN_ClaimItemModel.FieldNames.StatusView, ConstantDisplay.HRM_FIN_Claim_Status},
+                                   
+                            };
+        Dictionary<string, string> FormatFields = new Dictionary<string, string>()
+            {
+                //{Sal_BasicSalaryModel.FieldNames.GrossAmount, ConstantFormat.HRM_Format_Int},
+                {FIN_ClaimItemModel.FieldNames.Amount, ConstantFormat.HRM_Format_Int},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_ClaimItem",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = false,
+            GridHeight = 350,
+            AutoBind = true,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetClaimItemByClaimID?ClaimID=" + ContractID,
+            ReadData = "filterFieldInfo",
+            FormatFields = FormatFields,
+            EventDataBound = "onDataBoundGrid"
+
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<FIN_ClaimItemModel>(grid))
+</div>
+
+<div>
+    @{
+        if (Model != null)
+        {
+            <script>
+                $(document).ready(function () {
+                    debugger;
+                    var sumQuantityNumberTextBox = $("#TotalAmountCashAdvance").data("kendoNumericTextBox");
+                    sumQuantityNumberTextBox.readonly();
+                    var sumTotalAmountNumberTextBox = $("#TotalAmount").data("kendoNumericTextBox");
+                    sumTotalAmountNumberTextBox.readonly();
+                    var sumTotalNumberTextBox = $("#TotalAll").data("kendoNumericTextBox");
+                    sumTotalNumberTextBox.readonly();
+
+                    var ddl = $("#ClaimInfo_Type").data("kendoDropDownList");
+
+                    if (ddl._old == "FIN_Claim_Profile")
+                    {
+                        $("#contentPaymentType").show();
+                        $("#contentTotalCashAdvance").show();
+                        $("#contenTotalAll").show();
+                        $("#contentType").show();
+                        $("#contentOther").hide();
+                        $("#Other").val("");
+                    }
+                    if (ddl._old == "FIN_Claim_Manufacture")
+                    {
+                        $("#contentOther").show();
+                        $("#contentType").hide();
+                        $("#contentPaymentType").hide();
+                        $("#contentTotalCashAdvance").hide();
+                        $("#contenTotalAll").hide();
+                    }
+                    @*var _isPaymentTypeValue = '@Model.IsPaymentType';
+                     var _isOtherValue = '@Model.IsOther';*@
+
+                    @*var _isProfileValue = '@Model.IsProfile';
+                    var _isManufactureValue = '@Model.IsManufactureName';*@
+
+                    var _isCashAdvanceValue = '@Model.IsCashAdvance';
+                    var _isNoneCashAdvanceValue = '@Model.IsNoneCashAdvance';
+
+
+                    //var _isProfile = document.getElementById("IsProfile");
+                    //var _isManufacture = document.getElementById("IsManufactureName");
+                 //   var _isPaymentType = document.getElementById("IsPaymentType");
+                   // var _isOther = document.getElementById("IsOther");
+
+                    var _isCashAdvance = document.getElementById("IsCashAdvance");
+                    var _isNoneCashAdvance = document.getElementById("IsNoneCashAdvance");
+
+                    //if (_isPaymentTypeValue == "False") {
+                    //    $("#contentOther").show();
+                    //    $("#cashAdvance").hide();
+                    //    $("#noneCashAdvance").hide();
+                    //    $("#contentPaymentType").hide();
+                    //    _isPaymentType.checked = false;
+                    //} else {
+                    //    $("#cashAdvance").hide();
+                    //    $("#noneCashAdvance").hide();
+                    //    $("#contentPaymentType").show();
+                    //    $("#contentOther").hide();
+                    //    _isPaymentType.checked = true;
+                    //}
+
+                    //if (_isOtherValue != "")
+                    //{
+                    //    if (_isOtherValue == "False") {
+
+                    //        _isOther.checked = false;
+                    //    } else {
+                    //        $("#cashAdvance").hide();
+                    //        $("#noneCashAdvance").hide();
+                    //        $("#contentPaymentType").hide();
+                    //        $("#contentOther").show();
+                    //        _isOther.checked = true;
+                    //    }
+                    //}
+
+                    //if (_isProfileValue == "False") {
+                    //    $("#contentOther").show();
+                    //    $("#contentType").hide();
+                      
+                    //    _isProfile.checked = false;
+                    //} else {
+                    //    $("#contentPaymentType").show();
+                    //    $("#contentTotalCashAdvance").show();
+                    //    $("#contenTotalAll").show();
+                    //    $("#contentType").show();
+                    //    $("#contentOther").hide();
+                    //    _isProfile.checked = true;
+
+                    //}
+
+                    //if (_isManufactureValue != "")
+                    //{
+                    //    if (_isManufactureValue == "False") {
+                    //        _isManufacture.checked = false;
+                    //    } else {
+                    //        $("#contentOther").show();
+                    //        $("#contentType").hide();
+                    //        $("#contentPaymentType").hide();
+                    //        $("#contentTotalCashAdvance").hide();
+                    //        $("#contenTotalAll").hide();
+                    //        _isManufacture.checked = true;
+
+                    //    }
+                    //}
+                    
+
+
+                    if (_isCashAdvanceValue == "False") {
+                        $("#cashAdvance").hide();
+                        $("#noneCashAdvance").show();
+                        $("#contentTotalCashAdvance").hide();
+                        $("#contenTotalAll").hide();
+                        _isCashAdvance.checked = false;
+                    } else {
+                        $("#contentTotalCashAdvance").show();
+                        $("#contenTotalAll").show();
+                        $("#cashAdvance").show();
+                        $("#noneCashAdvance").hide();
+                        _isCashAdvance.checked = true;
+                    }
+
+                    if (_isNoneCashAdvanceValue == "False") {
+                        $("#cashAdvance").show();
+                        $("#noneCashAdvance").hide();
+                        $("#contentTotalCashAdvance").show();
+                        $("#contenTotalAll").show();
+                        _isNoneCashAdvance.checked = false;
+                    } else {
+                        $("#cashAdvance").hide();
+                        $("#noneCashAdvance").show();
+                        $("#contentTotalCashAdvance").hide();
+                        $("#contentTotalCashAdvance").hide();
+                        $("#contenTotalAll").hide();
+                        _isNoneCashAdvance.checked = true;
+                    }
+
+                  
+                    setTimeout(function myfunction() {
+                        if ($("#CashAdvanceID").val() != "") {
+                            $.ajax({
+                                url: '@_hrm_Hr_Service' + "Hre_GetData/GetCashAdvanceItemByCashAdvanceID",
+                                data: { CashAdvanceID: $("#CashAdvanceID").val() },
+                                type: 'POST',
+                                datatype: 'json',
+                                success: function (data) {
+                                    debugger;
+                                    if (data != null) {
+                                        var grid = $("#grid_ClaimItem").data("kendoGrid");
+                                        var sumQuantity = grid._data[0].TotalAmount;
+
+                                        var sumQuantityNumberTextBox = $("#TotalAmountCashAdvance").data("kendoNumericTextBox");
+                                        sumQuantityNumberTextBox.value(data.Data[0].TotalAmount);
+
+                                        var amount =data.Data[0].TotalAmount - sumQuantity    ;
+
+                                        var sumTotalAmountNumberTextBox = $("#TotalAll").data("kendoNumericTextBox");
+                                        sumTotalAmountNumberTextBox.value(amount);
+
+                                    }
+                                }
+
+                            });
+                        } else {
+                            var grid = $("#grid_ClaimItem").data("kendoGrid");
+                            var sumQuantity = grid._data[0].TotalAmount;
+                            var sumTotalAmountNumberTextBox = $("#TotalAll").data("kendoNumericTextBox");
+                            sumTotalAmountNumberTextBox.value(sumQuantity);
+                        }
+                    }, 2000);
+
+                    
+
+               
+                });
+            </script>
+        }
+    }
+</div>
+
+
+<div>
+    @if (Model == null)
+    {
+        <script>
+            $(document).ready(function () {
+                var profileId = '@Session[SessionObjects.ProfileID]';
+                $.ajax({
+                    url: '@_hrm_Hr_Service' + "Hre_GetData/GetDataByProfileID",
+                    data: { ProfileID: profileId },
+                    type: 'POST',
+                    datatype: 'json',
+                    success: function (data) {
+                        debugger;
+                        if (data != null) {
+                            var dataSource = new kendo.data.DataSource();
+                            var ItemsSelect = [];
+                            dataSource.add({ ID: data.ID, ProfileName: data.ProfileName });
+                            ItemsSelect.push(data.ID);
+                            var multiProfile = $("#ProfileID").data("kendoMultiSelect");
+
+                            multiProfile.setDataSource(dataSource);
+                            multiProfile.value(ItemsSelect);
+
+
+                            $("#JobTitleName").val(data.JobTitleName);
+                            $("#OrgStructureName").val(data.OrgStructureName);
+                            $("#Channel").val(data.Channel);
+                            $("#Region").val(data.Region);
+                            $("#Area").val(data.Area);
+                            $("#OrgStructureCode").val(data.OrgStructureCode);
+                            $("#SupervisorName").val(data.SupervisorName);
+                            $("#WorkPlaceName").val(data.WorkPlaceName);
+                        }
+                    }
+
+                });
+            });
+        </script>
+    }
+</div>

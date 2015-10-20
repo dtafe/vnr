@@ -1,0 +1,332 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Security;
+@using HRM.Presentation.HrmSystem.Models;
+@using HRM.Presentation.Category.Web.Controllers;
+
+@model Sys_AutoBackupSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category_Bank_Title.TranslateString();
+    var hrm_Cat_Web = ConstantPathWeb.Hrm_Cat_Web;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Sys_Services = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowAutoBackup",
+        Visible = false,
+        Width = 700,
+        LoadContentFrom = @_hrm_Sys_Web + "Sys_AutoBackup/AutoBackupInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+
+
+<script src="~/Scripts/knockout-3.2.0.js"></script>
+<script>
+    //Biến để lưu id của các dòng đã check chọn
+    var selectedIds = [];
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_Category_Bank_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_System_AutoBackup_Create_Title.TranslateString())';
+
+    $(document).ready(function () {
+       
+        //Ẩn hiện div chứa các input tìm kiếm
+        ShowHidePanel();
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            ReadGrid('grid_AutoBackup');
+        });
+    
+
+        
+    });
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            
+            AutoBackupName: $('#SAutoBackupName').val(),
+            //Gán tạm vì các Cat chưa xử lý Export
+           
+        };
+    }
+    //Xử lý khi check chọn các dòng trên lưới thì lưu id của các dòng đó cào biến selectedIds ở trên
+
+    //Tạo mới ngân hàng
+    $("#btnCreateAutoBackup").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_AutoBackup');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate('windowAutoBackup', titleCreatePopUp);
+    });
+
+    //Chỉnh sửa ngân hàng
+    
+    //Xóa ngân hàng
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Sys_AutoBackup');
+        if (!isAccess) {
+            return;
+        }
+        
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected('grid_AutoBackup', '@_hrm_Sys_Web' + "Sys_AutoBackup/RemoveSelected/", selectedIds.join(","));
+    });
+
+    $("#btnRun").click(function () {
+        if (selectedIds == "") {
+            var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+
+            notificationWidget.show('Không Có Dữ Liệu Nào Được Chọn Để Chạy', 'warning');
+            return;
+        }
+        var _Ids = selectedIds.join(",");
+        ShowHre_ProgressBar();
+        $.when(kendo.ui.ExtOkCancelDialog.show({
+            title: "Thông Báo",
+            message: "Bạn Có Chắc Chắn Muốn Chạy Dữ Liệu Đã Chọn?",
+            icon: "k-ext-warning"
+        })
+        ).done(function (response) {
+            debugger;
+            if (response.button == "OK") {
+                $.ajax({
+                    traditional: true,
+                    type: 'POST',
+                    url: '@_hrm_Sys_Services' + "Sys_GetData/RunScheuleTasks",
+                    dataType: 'html',
+                    data: { id: _Ids },
+                    success: function (data) {
+                        debugger;
+                        CloseHre_ProgressBar();
+
+                        debugger;
+                        selectedIds = [];
+                        ReadGrid('grid_AutoBackup');
+                        window.ShowNotificationProcessor("Success");
+                    },
+                    error: function (data) {
+                        window.ShowNotificationProcessor(data.responseText);
+
+                    }
+                });
+            }
+        });
+       
+        @*$.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Services' + "Sys_GetData/RunScheuleTasks",
+            data: { id: _Ids },
+            dataType: 'json',
+            success: function (returnValue) {
+                debugger;
+                if (returnValue == "Success") {
+                    ReadGrid('grid_AutoBackup');
+                }
+            }
+        });*@
+
+    });
+
+    $("#btnStart").click(function () {
+        if (selectedIds == "") {
+            var notificationWidget = $("#popupNotification").kendoNotification().data("kendoNotification");
+
+            notificationWidget.show('Không Có Dữ Liệu Nào Được Chọn Để Chạy', 'warning');
+            return;
+        }
+        var _Ids = selectedIds.join(",");
+        ShowHre_ProgressBar();
+        $.when(kendo.ui.ExtOkCancelDialog.show({
+            title: "Thông Báo",
+            message: "Bạn Có Chắc Chắn Muốn Chạy Dữ Liệu Đã Chọn?",
+            icon: "k-ext-warning"
+        })
+        ).done(function (response) {
+            debugger;
+            if (response.button == "OK") {
+                $.ajax({
+                    traditional: true,
+                    type: 'POST',
+                    url: '@_hrm_Sys_Services' + "Sys_GetData/StartScheuleTasks",
+                    dataType: 'html',
+                    data: { id: _Ids },
+                    success: function (data) {
+
+                        CloseHre_ProgressBar();
+
+                        debugger;
+                        selectedIds = [];
+                        ReadGrid('grid_AutoBackup');
+                        window.ShowNotificationProcessor("Success");
+                    },
+                    error: function (data) {
+                        window.ShowNotificationProcessor(data.responseText);
+
+                    }
+                });
+            }
+        });
+
+        @*var _Ids = selectedIds.join(",");
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Sys_Services' + "Sys_GetData/StartScheuleTasks",
+            data: { id: _Ids },
+            dataType: 'json',
+            success: function (returnValue) {
+                debugger;
+                if (returnValue == "Success") {
+                    ReadGrid('grid_AutoBackup');
+                }
+            }
+        });*@
+
+    });
+
+</script>
+<div id="idControl" class="k-content"></div>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.AutoBackupName)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var AutoBackupName = new TextBoxBuilderInfo()
+                                {
+                                    Name = "SAutoBackupName"
+                                };
+                            }
+                            @Html.VnrTextBox(AutoBackupName)
+                        </div>
+                    </div>
+                    
+                </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateAutoBackup", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+        
+     
+    </div>
+    <div style="float:right">
+        <div class="HideExportCate">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnStart", Content = ConstantAction.HRM_Common_Start_ScheduleTask.TranslateString(), ImageUrl = ConstantPath.IconStartPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnRun", Content = ConstantAction.HRM_Common_Run_ScheduleTask.TranslateString(), ImageUrl = ConstantPath.IconRunPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        IList<SelectListItem> List_ScheduleTask = Enum.GetValues(typeof(ScheduleTaskType))
+      .Cast<ScheduleTaskType>()
+      .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+      .ToList();
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+       {
+         //  {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+            { Sys_AutoBackupModel.FieldNames.Type,new object[] { "Value", "Text", List_ScheduleTask, "",""}},};
+        
+        string[] valueFields = new[]
+        {
+            Sys_AutoBackupModel.FieldNames.Code,
+            Sys_AutoBackupModel.FieldNames.AutoBackupName,
+            Sys_AutoBackupModel.FieldNames.ProcedureName,
+            Sys_AutoBackupModel.FieldNames.Email,
+            Sys_AutoBackupModel.FieldNames.IsActivate,
+            Sys_AutoBackupModel.FieldNames.TimeWaiting,
+            Sys_AutoBackupModel.FieldNames.Type,
+            Sys_AutoBackupModel.FieldNames.DateStart,
+            Sys_AutoBackupModel.FieldNames.DateExpired,
+            Sys_AutoBackupModel.FieldNames.LastStart,
+            Sys_AutoBackupModel.FieldNames.Description,
+        };
+
+        var sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AutoBackupModel.FieldNames.Code,100},
+            {Sys_AutoBackupModel.FieldNames.AutoBackupName,130},
+            {Sys_AutoBackupModel.FieldNames.ProcedureName,200},
+            {Sys_AutoBackupModel.FieldNames.Email,140},
+            {Sys_AutoBackupModel.FieldNames.IsActivate,80},
+            {Sys_AutoBackupModel.FieldNames.Type,100},
+            {Sys_AutoBackupModel.FieldNames.TimeWaiting,100},
+            {Sys_AutoBackupModel.FieldNames.DateStart,140},
+            {Sys_AutoBackupModel.FieldNames.DateExpired,115},
+            {Sys_AutoBackupModel.FieldNames.LastStart,130},
+            {Sys_AutoBackupModel.FieldNames.Description,200},
+        };
+
+
+        var displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AutoBackupModel.FieldNames.Code,ConstantDisplay.HRM_System_AutoBackup_Code},
+            {Sys_AutoBackupModel.FieldNames.AutoBackupName,ConstantDisplay.HRM_System_AutoBackup_AutoBackupName},
+            {Sys_AutoBackupModel.FieldNames.ProcedureName,ConstantDisplay.HRM_System_AutoBackup_ProcedureName},
+            {Sys_AutoBackupModel.FieldNames.Email,ConstantDisplay.HRM_System_AutoBackup_Email},
+            {Sys_AutoBackupModel.FieldNames.IsActivate,ConstantDisplay.HRM_System_AutoBackup_IsActivate},
+            {Sys_AutoBackupModel.FieldNames.TimeWaiting,ConstantDisplay.HRM_System_AutoBackup_TimeWaiting},
+            {Sys_AutoBackupModel.FieldNames.Type,ConstantDisplay.HRM_System_AutoBackup_Type},
+            {Sys_AutoBackupModel.FieldNames.DateStart,ConstantDisplay.HRM_System_AutoBackup_DateStart},
+            {Sys_AutoBackupModel.FieldNames.DateExpired,ConstantDisplay.HRM_System_AutoBackup_DateExpired},
+            {Sys_AutoBackupModel.FieldNames.LastStart,ConstantDisplay.HRM_System_AutoBackup_LastStart},
+            {Sys_AutoBackupModel.FieldNames.Description,ConstantDisplay.HRM_System_AutoBackup_Description},
+        };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AutoBackupModel.FieldNames.DateStart, ConstantFormat.HRM_Format_MonthDayYear_HoursMin_TT},
+            {Sys_AutoBackupModel.FieldNames.DateExpired, ConstantFormat.HRM_Format_MonthDayYear_HoursMin_TT},
+            {Sys_AutoBackupModel.FieldNames.LastStart, ConstantFormat.HRM_Format_MonthDayYear_HoursMin_TT},
+        };
+        
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_AutoBackup",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            EditMode = GridEditMode.InCell,
+            ShowCheckbox = true,
+            ShowEditIcon = false,
+            EditActionUrl = _hrm_Sys_Web + "Sys_AutoBackup/CreateList",
+            ReadActionUrl = _hrm_Sys_Services + "Sys_GetData/GetAutoBackupList/",
+            ReadData = "filterFieldInfo",
+            FormatFields = formatFields,
+            ForeignKey = foreignKey,
+            ShowSaveButton = true,
+            Batch = true,
+        };
+    }
+
+    @(Html.VnrGrid<Sys_AutoBackupModel>(grid))
+</div>

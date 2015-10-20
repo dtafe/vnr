@@ -1,0 +1,254 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo;
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Attendance.Models.Att_ReportSumaryShiftMonthModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+<script>
+    checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+       
+ 
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        
+        var _shiftIDs = $('#@Html.FieldIdFor(model=>model.ShiftID)').val() != "" ? $('#@Html.FieldIdFor(model=>model.ShiftID)').val().join(',') : $('#@Html.FieldIdFor(model=>model.ShiftID)').val();
+        var _ProfileIDs = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+        var elementPara = {
+            ProfileIDs: _ProfileIDs,
+            OrgStructureID: checkedNodes.join(','),
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ShiftID: _shiftIDs,
+            UserExport: $('#UserLoginName').val(),
+            isIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeQuitEmp)').checked,
+            NoDisplay0Data: document.getElementById('@Html.FieldIdFor(model => model.NoDisplay0Data)').checked,
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            ShowHre_ProgressBar();
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportSumaryShiftMonthList',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    var grid = VnrGridDynamic;
+                    grid.GridName = "gridAtt_ReportSumaryShiftMonth";
+                    grid.DataSource = data.Data;
+                    grid.PageSize = 50;
+                    
+                    VnrGridDynamicControl(grid);
+                    CloseHre_ProgressBar();
+                }
+            });
+        });
+    });
+
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportMonthly');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportSumaryShiftMonthList';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportSumaryShiftMonthList', filterFieldInfo(true));
+
+    });
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                                @Html.HiddenFor(m => m.UserExport)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Value = new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1).ToShortDateString(),
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                                @{
+                                    var DateTo = new DatePickerBuilderInfo()
+                                    {
+                                        Value = DateTime.Today.ToShortDateString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                            </div>
+                        </div>
+                        <div id="div3">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+
+                        </div>
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ProfileName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ShiftID)
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var dropdownMonShiftID = new DropDownListBuilderInfo()
+                                        {
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            StyleCss = "width:200px",
+                                            OptionLabel = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrDropDownListFor(mode => mode.ShiftID, dropdownMonShiftID))
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div5">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue" style="font-weight:bold">
+                                @{
+                                    var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp)
+                                @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue" style="font-weight:bold">
+                                @{
+                                    var _NoDisplay0Data = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(mode => mode.NoDisplay0Data, _NoDisplay0Data)
+                                @Html.VnrLabelFor(mode => mode.NoDisplay0Data)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<div class="commandToolBarWidge">
+    <div style="float: left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantDisplay.HRM_Common_Search_Button.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString() , ImageUrl = ConstantPath.IconExportPath })
+        </div>
+
+
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <div id="gridAtt_ReportSumaryShiftMonth"></div>
+</div>

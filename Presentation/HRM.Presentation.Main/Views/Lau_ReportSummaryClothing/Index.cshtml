@@ -1,0 +1,262 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.Laundry.Models;
+@using HRM.Infrastructure.Security
+
+@model Lau_ReportSearchModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Laundry_ReportSummaryClothing.TranslateString();
+    Layout = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    string[] valueFields = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+
+<script>
+    var checkedNodes = [];
+     
+    function filterFieldInfo(isExport) {
+        
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _shift = $('#@Html.FieldIdFor(model => model.ShiftID)').val() != null ? $('#@Html.FieldIdFor(model => model.ShiftID)').val().join(',') : $('#@Html.FieldIdFor(model => model.ShiftID)').val();
+        var elementPara = {
+            DateFrom:ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo:ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            ShiftID: _shift,
+            isIncludeQuitEmp: $('#@Html.FieldIdFor(model => model.isIncludeQuitEmp)').val(),
+            OrgStructureID: checkedNodes.join(","),
+            selectedIds: selectedIds.join(",")
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    var data = SetCharacteFieldRequired();
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        //
+        $("#btnSearch").click(function () {
+            
+            if (CheckValidate(data)) {
+                checkedNodes = [];
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+                var grid = $('#grid_ReportSummaryClothing').data("kendoGrid");
+                grid.dataSource.read();
+            }
+        });
+
+        $('input[type=radio]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+
+    });
+
+    //Xử Lý Grid
+    GridCheckbox("grid_ReportSummaryClothing");
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Lau_ReportSumaryExceptClothing');
+        if (!isAccess) {
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Lau_GetData/GetReportSummaryClothing/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+        selectedIds = [];
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form id="form-search">
+                    <div style="width:550px; display:block; float:left">
+                        <div id="div1">
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(@ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                            </div>
+                        </div>
+                        
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ShiftID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var Shift = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = Lau_ReportExceptClothingModel.FieldNames.ShiftName,
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiShift",
+                                        Placeholder = ConstantDisplay.HRM_Att_SelectShift.TranslateString(),
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ShiftID, Shift))
+                            </div>
+                        </div>
+                        <div id="div8">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrRadioButtonFor(mode => mode.isIncludeQuitEmp)
+                                @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                            </div>
+                        </div>
+                    </div>
+                    <div style="width:550px; display:block; float:left">
+                       
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                    StyleCss = "width:200px"
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+    <div class="clear"></div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new string[]
+        {
+           Lau_ReportSummaryClothingModel.FieldNames.TimeLog,
+           Lau_ReportSummaryClothingModel.FieldNames.ShiftName,
+           Lau_ReportSummaryClothingModel.FieldNames.Total,
+           Lau_ReportSummaryClothingModel.FieldNames.DateFrom,
+           Lau_ReportSummaryClothingModel.FieldNames.DateTo,
+      };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Lau_ReportSummaryClothingModel.FieldNames.TimeLog,120},
+            {Lau_ReportSummaryClothingModel.FieldNames.ShiftName,120},
+            {Lau_ReportSummaryClothingModel.FieldNames.Total,120},
+            {Lau_ReportSummaryClothingModel.FieldNames.DateFrom,120},
+            {Lau_ReportSummaryClothingModel.FieldNames.DateTo,120},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Lau_ReportSummaryClothingModel.FieldNames.TimeLog,ConstantDisplay.HRM_Attendance_WorkDate},
+            {Lau_ReportSummaryClothingModel.FieldNames.ShiftName,ConstantDisplay.HRM_Category_Shift_ShiftName},
+            {Lau_ReportSummaryClothingModel.FieldNames.Total,ConstantDisplay.HRM_Laundry_TotalClothing},
+            {Lau_ReportSummaryClothingModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+            {Lau_ReportSummaryClothingModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Lau_ReportSummaryClothingModel.FieldNames.TimeLog,ConstantFormat.HRM_Format_DayMonthYear},
+        };
+        var grid = new GridBuilderInfo
+        {
+            ShowCheckbox = false,
+            ShowEditIcon = false,
+            Name = "grid_ReportSummaryClothing",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            FormatFields = formatFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Lau_GetData/GetReportSummaryClothing",
+            ReadData = "filterFieldInfo"
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Lau_ReportSummaryClothingModel>(grid))
+</div>
+

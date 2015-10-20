@@ -1,0 +1,324 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Infrastructure.Utilities
+
+@model FIN_ApproverECLAIMModel
+@{
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string gridName = "gridFin_Approver";
+    var profileID = Guid.Empty;
+    var performanceTypeID = Guid.Empty;
+    var isCreate = false;
+    if (Model != null)
+    {
+        profileID = Model.ProfileID ?? Guid.Empty;
+
+    }
+
+    if (Model == null || Model.ID == Guid.Empty)
+    {
+        isCreate = true;
+    }
+    
+    IEnumerable profileEntity = new string[] { };
+    IEnumerable performanceTypeEntity = new string[] { };
+    if (Model != null)
+    {
+        profileEntity = new[] { new { ID = Model.ProfileID, ProfileName = Model.ProfileName } };
+    }
+    IList<SelectListItem> ApprovedTypeStatusSearch = Enum.GetValues(typeof(FinApproverType))
+.Cast<FinApproverType>()
+.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) }).OrderBy(p => p.Text)
+.ToList();
+}
+
+<script language="javascript">
+
+    var gridName = '@gridName';
+    var selectedIds = [];
+    SetFieldRequired();
+    function PerformanceType_Changing() {
+        ReadGrid(gridName);
+    }
+    function Empty() {
+        $("#gridFin_Approver").data("kendoGrid").dataSource.data([]);
+        $("#ApprovedIDs").data("kendoMultiSelect").value('@Guid.Empty');
+        $("#ApprovedType").data("kendoDropDownList").value('@Guid.Empty');
+        $("#ProfileID").data("kendoMultiSelect").value('@Guid.Empty');
+        $("#OrderNo").data("kendoNumericTextBox").value(null);
+
+    }
+    function approve_changing() {
+        var displayedData = $("#" + gridName).data("kendoGrid").dataSource.data();
+        var orderNo = 0;
+        for (var i = 0; i < displayedData.length; i++) {
+            if (displayedData[i].OrderNo > orderNo) {
+                orderNo = displayedData[i].OrderNo;
+            }
+        }
+        orderNo = orderNo + 1;
+        var numOrderNo = $("#OrderNo").data("kendoNumericTextBox");
+        if (numOrderNo != undefined) {
+            numOrderNo.value(orderNo);
+        }
+    }
+    function CheckDulicateOrderNo(obj)
+    {
+        var listdata = $("#gridFin_Approver").data("kendoGrid").dataSource.data();
+        for (var i = 0; i < listdata.length; i++)
+        {
+            if (listdata[i].OrderNo == obj)
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    //Thêm
+    $('#btnCreateFinApprover1').click(function (e) {
+        var numOrderNo1 = $("#OrderNo").val();
+        var kt = CheckDulicateOrderNo(numOrderNo1);
+        if (kt === false) {
+            ShowNotificationProcessor("Không Được Nhập Trùng Cấp Duyệt");
+            return;
+        }
+        else {
+            //$("#ApprovedType").data("kendoDropDownList").value( $("#ApprovedType").val());
+            //alert($("#ApprovedType").val());
+            //return;
+
+            approvedType = $("#ApprovedType").val();
+            profileID =$("#ProfileID").val();
+            orderNo = $("#OrderNo").val();
+            approvedIDs = $("#ApprovedIDs").val();
+            
+            $.ajax({
+                url: '@hrm_Main_Web' + 'FIN_ApproverECLAIM/Create',
+                //data: $("form").serialize(),
+                data: { ApprovedType: approvedType, ProfileID: profileID, OrderNo: orderNo, ApprovedIDs: approvedIDs },
+                type: 'POST',
+                success: function (data) {
+                    $('#ID').val(data);
+                    if (data.ActionStatus == "" || data.ActionStatus == null) {
+                        $("#ApprovedIDs").data("kendoMultiSelect").value('@Guid.Empty');
+                        $("#OrderNo").data("kendoNumericTextBox").value(null);
+                        ShowNotificationProcessor("Thêm Mới Thành Công");
+                        ReadGrid(gridName);
+                        return;
+                    }
+                    else {
+                        ShowNotificationProcessor(data.ActionStatus);
+                        return;
+                    }
+                },
+                error: function (data) {
+                    ShowNotificationProcessor("error,Thêm Mới Thất Bại");
+                }
+            });
+        }
+    });
+
+
+    //Lấy dữ liệu khi tìm kiếm
+    function filterFieldInfo() {
+        return {
+            ProfileID: $('#@Html.FieldIdFor(model => model.ProfileID)').val() == null ? null : $('#@Html.FieldIdFor(model => model.ProfileID)').val().join(','),
+            ApprovedType: $("#ApprovedType").val() == null ? null : $("#ApprovedType").val()
+        };
+    }
+
+    //Xóa
+    $('#btnDelete1').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.FIN_ApproverECLAIM');
+        if (!isAccess) {
+            return;
+        }
+
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        DeleteSelected(gridName, '@hrm_Main_Web' + "FIN_ApproverECLAIM/RemoveSelected/", selectedIds.join(","));
+    });
+
+</script>
+
+
+
+
+<div>
+    <div>
+        <table style="width:100%">
+            <tbody>
+                <tr>
+                    <td valign="top">
+                        <div style="display: block; padding-top: 10px;">
+                            <div style="float: left; padding-right: 10px">
+                                <div id="dvProfileID">
+                                    <div class="FieldTitle">
+                                        @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        @*@Html.HiddenFor(mode => mode.ID)*@
+                                    </div>
+                                    <div class="FieldValue">
+                                        @{
+                                            var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                            {
+                                                Name = "ProfileID",
+                                                DataTextField = "ProfileName",
+                                                DataValueField = "ID",
+                                                MaxSelectedItems = 1,
+                                                Url = _hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                                Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                                //EventChange = "profile_Changing",
+                                                Value = profileEntity,
+                                                Width = 250
+                                            };
+                                        }
+                                        @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+                                    </div>
+                                </div>
+
+                            </div>
+                            <div style="float: left;">
+                                <div>
+                                    <div class="FieldTitle">
+                                        @ConstantDisplay.HRM_FIN_ApproverECLAIM_ApprovedType.TranslateString()
+                                    </div>
+                                    <div class="FieldValue">
+                                   @(Html.Kendo().DropDownList()
+                                    .DataTextField("Text")
+                                    .DataValueField("Value")
+                                    .HtmlAttributes(new { style = "width:160px" })
+                                    .Enable(isCreate)                                    
+                                    .BindTo(ApprovedTypeStatusSearch)
+                                    .Name("ApprovedType"))                                                                                                            
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </td>
+                    <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div style=" display: block; padding-top: 10px; ">
+        <fieldset>
+            <legend>
+                @ConstantDisplay.HRM_FIN_ApproverECLAIM_ApprovedID.TranslateString()
+            </legend>
+
+
+            <div class="commandToolBarWidge" id="anchor">
+                <div style="float:left">
+                    <div style="float:left;" id="dvPerformanceTypeID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ApprovedID)
+                        </div>
+                        <div class="FieldValue">                           
+                            @{ var multiSelectApprovedID = new MultiSelectBuilderInfo()
+                               {
+                                   Name = "ApprovedIDs",
+                                   DataTextField = "UserInfoName",
+                                   DataValueField = "ID",
+                                   Url = hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                                   MaxSelectedItems = 1,
+                                   EventChange = "approve_changing",
+                                   Placeholder = ConstantDisplay.HRM_System_SelectApproveUser.TranslateString(),
+                               };
+                            }
+
+                            @Html.VnrMultiSelectFor(mode => mode.ApprovedIDs, multiSelectApprovedID)
+                        </div>
+                    </div>
+
+                    <div style="float:left;" id="dvPerformanceTypeID">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrderNo)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var orderNo = new NumericTextBoxBuilderInfo<int>()
+                                {
+                                    Name = "OrderNo"
+
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(p => p.OrderNo, orderNo)
+                        </div>
+                    </div>
+
+                    <div style="float:left;padding-left:5px;" id="dvPerformanceTypeID">
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateFinApprover1", Content = ConstantAction.HRM_Common_Add.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                    </div>
+
+                </div>
+
+                <div style="float:right">
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete1", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                </div>
+                <div class="clear"></div>
+            </div>
+
+            <div>
+                <!--Khai báo các thông tin cho Grid-->
+                @{
+                    string[] valueFields = new[]
+                    {
+                        FIN_ApproverECLAIMModel.FieldNames.ProfileName,
+                        FIN_ApproverECLAIMModel.FieldNames.ApprovedTypeView,
+                        FIN_ApproverECLAIMModel.FieldNames.ApprovedName,
+                        FIN_ApproverECLAIMModel.FieldNames.OrderNo,
+                    };
+
+                    var sizeFields = new Dictionary<string, int>()
+                    {
+                        {FIN_ApproverECLAIMModel.FieldNames.ProfileName,200},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedTypeView,180},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedName,150},
+                        {FIN_ApproverECLAIMModel.FieldNames.OrderNo,100},
+                    };
+
+                    var filterable = new Dictionary<string, bool>()
+                    {
+                        {FIN_ApproverECLAIMModel.FieldNames.ProfileName,true},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedTypeView,true},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedName,true},
+                    };
+
+                    var displayFields = new Dictionary<string, string>()
+                    {
+                        {FIN_ApproverECLAIMModel.FieldNames.ProfileName,ConstantDisplay.HRM_Evaluation_Evaluator_ProfileName},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedTypeView,ConstantDisplay.HRM_FIN_ApproverECLAIM_ApprovedType},
+                        {FIN_ApproverECLAIMModel.FieldNames.ApprovedName,ConstantDisplay.HRM_FIN_ApproverECLAIM_ApprovedID},
+                        {FIN_ApproverECLAIMModel.FieldNames.OrderNo,ConstantDisplay.HRM_FIN_ApproverECLAIM_OrderNo},
+                    };
+
+                    var grid = new GridBuilderInfo
+                    {
+                        Name = gridName,
+                        ValueFields = valueFields,
+                        SizeFields = sizeFields,
+                        DisplayFields = displayFields,
+                        Filterable = filterable,
+                        AutoBind = true,
+                        ShowCommand = false,
+                        ShowEditIcon = false,
+                        GridHeight = 400,
+                        ReadActionUrl = @_hrm_Hr_Service + "Hre_GetData/GetApproverOfProfileList/",
+                        ReadData = "filterFieldInfo",
+                    };
+                }
+
+                @(Html.VnrGrid<FIN_ApproverECLAIMModel>(grid))
+            </div>
+        </fieldset>
+    </div>
+</div>

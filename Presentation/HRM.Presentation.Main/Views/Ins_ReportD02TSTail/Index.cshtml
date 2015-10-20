@@ -1,0 +1,289 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Insurance.Models
+@using HRM.Infrastructure.Security
+@model Ins_InsuranceReportD02TailModel
+@{
+    // BC Chức Danh Tháng (Bảo Hiểm)
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    string[] valueFields = null;
+    var gridName = "gridIns_ReportD02Tail";
+}
+
+@Html.Hidden("Screen", screen)
+<script>
+    var checkedNodes = [];
+    SetFieldRequired();
+    var gridName = '@gridName';
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            MonthYear: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthYear").val()),
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        $("#btnSearch").click(function () {
+            //validate
+            isCreateTemplate = false;
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/ReportD02TailValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+
+            //Chức năng tìm kiếm
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            ReadGrid(gridName);
+            selectedIds = [];
+            checkedNodes = [];
+            return false;
+        });
+
+    });
+
+    $("#btnExport").click(function () {
+        var isactive = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/ReportD02TailValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                    isactive = false;
+                    return isactive;
+                }
+            }
+        });
+        if (isactive == false) {
+            return;
+        }
+
+        ShowHre_ProgressBar();
+
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Ins_ReportD02TSTail');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + '/Ins_GetData/ReportD02Tail',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                CloseHre_ProgressBar();
+                if (returnValue == "-1") {
+                    alert("Lỗi Export: <br/>Vui lòng kiểm tra FileTemplate hoặc cấu hình ExportIntem");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + returnValue;
+                    window.location = url;
+                }
+            },
+            error: function () {
+                alert("Lỗi hàm Ajax khi Export");
+            }
+        });
+    });
+    
+
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_Hrm_Hre_Service' + '/Ins_GetData/ReportD02Tail', filterFieldInfo(true));
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var org = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "220px",
+                                    Name = "treeviewOrg",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                        </div>
+                    </div>
+
+                  
+                </div>
+
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.MonthYear)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var RecordDateFrom = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_HR_MonthSearch.TranslateString(),
+                                    StyleCss = "width:100px",
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.MonthYear, RecordDateFrom).Format(ConstantFormat.HRM_Format_MonthYear)
+                        </div>
+                    </div>                
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_Hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = "Tạo temlate", ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+                        {
+                            Ins_InsuranceReportD02TailModel.FieldNames.Name,
+                            Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsSocialAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsHealthAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsUnEmpAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsHealthIncreaseAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsHealthDecreaseAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpIncreaseAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpDecreaseAmount,                            
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsSocialIncreaseAmount,
+                            Ins_InsuranceReportD02TailModel.FieldNames.InsSocialDecreaseAmount,
+                            
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Ins_InsuranceReportD02TailModel.FieldNames.Name, 200},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsSocialAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsHealthAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsUnEmpAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsHealthIncreaseAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsHealthDecreaseAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpIncreaseAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpDecreaseAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsSocialIncreaseAmount, 100},
+                            {Ins_InsuranceReportD02TailModel.FieldNames.InsSocialDecreaseAmount, 100},                           
+                        };
+
+        var displayFields = new Dictionary<string, string>()
+                        {
+                        {Ins_InsuranceReportD02TailModel.FieldNames.Name, ConstantDisplay.HRM_INS_D02Tail_PhatSinh},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsSocialAmount, ConstantDisplay.HRM_INS_D02Tail_PrePeriodInsSocialAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsHealthAmount, ConstantDisplay.HRM_INS_D02Tail_PrePeriodInsHealthAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.PrePeriodInsUnEmpAmount, ConstantDisplay.HRM_INS_D02Tail_PrePeriodInsUnEmpAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsHealthIncreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsHealthIncreaseAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsHealthDecreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsHealthDecreaseAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpIncreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsUnEmpIncreaseAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsUnEmpDecreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsUnEmpDecreaseAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsSocialIncreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsSocialIncreaseAmount},
+                        {Ins_InsuranceReportD02TailModel.FieldNames.InsSocialDecreaseAmount, ConstantDisplay.HRM_INS_D02Tail_InsSocialDecreaseAmount},
+                         };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowEditIcon = false,
+            ReadActionUrl = _Hrm_Hre_Service + "Ins_GetData/ReportD02Tail",
+            ReadData = "filterFieldInfo",
+        };
+    }
+    @(Html.VnrGrid<Ins_InsuranceReportD02TailModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

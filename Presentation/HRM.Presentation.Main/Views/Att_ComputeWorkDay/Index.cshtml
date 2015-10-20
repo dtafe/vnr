@@ -1,0 +1,337 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models;
+@model Att_ComputeWorkDayModel
+<div>
+    @ViewBag.MsgInsert
+    </di>
+    @{
+        Layout = null;
+        string[] valueFields = null;
+        var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+        var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+        var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    }
+    <script>
+        var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantDisplay.HRM_Attendance_ComputeWorkDay_Compute.TranslateString())';
+
+        var userID = $('#UserLoginId').val();
+
+        var checkedNodes = [];
+        var selectedIds = [];
+
+        //Khởi tạo điều kiện tìm kiếm
+        function paramComputing() {
+            return {
+                Type: '@AsynTask.Attendance_Compute_Workday.ToString()'
+            };
+        }
+
+        function eventParaData(isExport) {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+            var _ProfileIDs = $('#@Html.FieldIdFor(model => model.ProfileIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileIDs)').val();
+            return {
+                ProfileIDs: _ProfileIDs,
+                DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+                DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+                ComputeContinue: $('#@Html.FieldIdFor(model => model.ComputeContinue)').val(),
+                ComputeRepeat: $('#@Html.FieldIdFor(model => model.ComputeRepeat)').val(),
+                OrgStructureID: checkedNodes.join(','),
+                selectedIds: selectedIds.join(","),
+                UserCreateID: userID,
+                IsExport: isExport,
+                ValueFields: $('#valueFieldsGrid').val()
+            };
+        }
+
+        var data = SetCharacteFieldRequired();
+        $(document).ready(function () {
+            
+            $('input[type=radio]').change(function () {
+                if ($(this).is(':checked')) {
+                    $(this).val('true');
+                } else {
+                    $(this).val('false');
+                }
+            });
+
+            var _key = '@AppConfig.HRM_ATT_WORKDAY_SUMMARY.ToString()';
+
+            $.ajax({
+                url: '@_hrm_Sys_Service' + 'Sys_GetData/CheckSys_AllSetting_RepairSummary',
+                type: 'POST',
+                datatype: 'json',
+                data: { key: _key },
+                success: function (strResponse) {
+                    
+                    if (strResponse != null) {
+
+                        var dFrom = strResponse.DFrom;
+                        var dTo = strResponse.DTo;
+                        $('#@Html.FieldIdFor(model => model.ComputeContinue)').val(true);
+                        $("#DateFrom").data("kendoDateTimePicker").value(dFrom);
+                        $("#DateTo").data("kendoDateTimePicker").value(dTo);
+                    }
+                },
+            });
+
+
+            //Show Hide Panel
+            ShowHidePanel();
+            //Jump Anchor
+            jumpAnchor("anchor");
+            //
+            $("#btnComputeWorkDay").click(function () {
+                debugger;
+                @*var isAccess = checkPermission(PrivilegeType.Modify, '@ConstantPermission.Att_ComputeWorkDay',false);
+                if (!isAccess) {
+                    ShowNotificationProcessor(permissionNotAllow_Msg);
+                    return;
+                }*@
+
+                var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeWorkDay', false);
+                if (!isAccess) {
+                    ShowNotificationProcessor(permissionNotAllow_Msg);
+                    return;
+                }
+                
+                var treeView = $("#treeviewOrg").data("kendoTreeView");
+                SelectcheckedNodeIds(treeView.dataSource.view(), checkedNodes);
+
+                $.ajax({
+                    type: 'POST',
+                    url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeWorkday',
+                    data: eventParaData(false),
+                    dataType: 'json',
+                    async: false,
+                    success: function (data) {
+                        ShowProgressBar(data.ID, "gridAtt_ComputeWorkDay");
+                    },
+                    error: function (data) {
+                        window.ShowNotificationProcessor("Lỗi trong quá trình xử lý !");
+                    }
+                });
+            });
+        });
+
+        //Xử Lý Grid
+        GridCheckbox("gridAtt_ComputeWorkDay");
+
+        var _Continue = $('#@Html.FieldIdFor(model => model.ComputeContinue)');
+        var _Repeat = $('#@Html.FieldIdFor(model => model.ComputeRepeat)');
+        var optionDiv = $("#dateFromdateTo :input");
+        $(document).ready(function () {
+            optionDiv.attr("disabled", true);
+            _Continue.prop("checked", true);
+        });
+
+        _Continue.click(function (e) {
+            _Repeat.prop("checked", false);
+            _Repeat.val(false);
+            _Continue.val(true);
+            $('#DateFrom').data('kendoDateTimePicker').enable(false);
+            $('#DateTo').data('kendoDateTimePicker').enable(false);
+        });
+
+        _Repeat.click(function (e) {
+            _Continue.prop("checked", false);
+            _Repeat.val(true);
+            _Continue.val(false);
+            $('#DateFrom').data('kendoDateTimePicker').enable(true);
+            $('#DateTo').data('kendoDateTimePicker').enable(true);
+        });
+
+        $("#gridAtt_ComputeWorkDay").on("dblclick", "tr.k-state-selected", function () {
+            
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.GeneralProfile_ComputeWorkday', false)
+            if (!isAccess) {
+                ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Compute.TranslateString())');
+                return;
+            }
+            
+            var status = this.childNodes[3].childNodes[0].data;
+            if (status == 'Done') {
+                return;
+            }
+            var idSelected = this.childNodes[0].childNodes[0].defaultValue;
+            IsActiveProgress = true;
+            ShowProgressBar(idSelected, "gridAtt_ComputeWorkDay");
+        });
+
+    </script>
+
+
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <h3>
+                    <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                    @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                    <span class="collapse k-icon k-i-arrowhead-n"></span>
+                </h3>
+                <!--Bất đầu nôi dung tìm kiếm-->
+
+                <div class="contendSearchWidge">
+                    <form action="#" method="POST" id="form-search">
+                        <div style="float:left; width:500px">
+                            <div id="div5">
+                                <div class="FieldTitle" style="width:100px">
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrRadioButtonFor(model => model.ComputeContinue, "groupSrcType")
+                                    @Html.VnrLabelFor(mode => mode.ComputeContinue)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div6">
+                                <div class="FieldTitle" style="width:100px">
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.VnrRadioButtonFor(model => model.ComputeRepeat, "groupSrcType")
+                                    @Html.VnrLabelFor(mode => mode.ComputeRepeat)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div4">
+                                <div class="FieldTitle" style="width:100px">
+                                    @Html.VnrLabel(ConstantDisplay.HRM_Attendance_WorkDay_WorkDate.TranslateString())
+                                </div>
+                                <div class="FieldValue" id="dateFromdateTo">
+                                    @{
+                                        var dtpDateFrom = new DateTimePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                            StyleCss = "width: 160px"
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateFrom, dtpDateFrom)
+
+                                    @{
+                                        var dtpDateTo = new DateTimePickerBuilderInfo()
+                                        {
+                                            Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                            StyleCss = "width: 160px"
+                                        };
+                                    }
+                                    @Html.VnrDateTimePickerFor(model => model.DateTo, dtpDateTo)
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                        <div style="width:600px; display:block; float:left">
+                            <div id="div2">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.ProfileIDs)
+                                </div>
+                                <div class="FieldValue">
+                                    @{
+                                        var multiSelectProfileID = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "ProfileName",
+                                            DataValueField = "ID",
+                                            Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+                                            Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                        };
+                                    }
+                                    @Html.VnrMultiSelectFor(mode => mode.ProfileIDs, multiSelectProfileID)
+
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                            <div id="div3">
+                                <div class="FieldTitle">
+                                    @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                </div>
+                                <div class="FieldValue">
+                                    @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                </div>
+                                <div style="clear: both;"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="commandToolBarWidge">
+        <div style="float:left">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeWorkDay", Content = ConstantDisplay.HRM_Attendance_ComputeWorkDay_Compute.TranslateString(), ImageUrl = ConstantPath.IconBtnCompute })
+        </div>
+        <div class="clear"></div>
+    </div>
+    <div>
+        <!--Khai báo các thông tin cho Grid-->
+        @{
+
+            valueFields = new string[]
+        {
+            Sys_AsynTaskModel.FieldNames.Summary,
+            Sys_AsynTaskModel.FieldNames.Status,
+            Sys_AsynTaskModel.FieldNames.UserCreate,
+            Sys_AsynTaskModel.FieldNames.PercentComplete,
+            Sys_AsynTaskModel.FieldNames.TimeStart,
+            Sys_AsynTaskModel.FieldNames.TimeEnd,
+            Sys_AsynTaskModel.FieldNames.Description,
+        };
+
+            Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, 270},
+            {Sys_AsynTaskModel.FieldNames.Status, 80},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, 110},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, 80},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, 135},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd,135},
+            {Sys_AsynTaskModel.FieldNames.Description, 300}
+        };
+
+            Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.Summary, ConstantDisplay.HRM_System_AsynTask_Summary},
+            {Sys_AsynTaskModel.FieldNames.Status, ConstantDisplay.HRM_System_AsynTask_Status},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantDisplay.HRM_System_AsynTask_PercentComplete},
+            {Sys_AsynTaskModel.FieldNames.UserCreate, ConstantDisplay.HRM_System_AsynTask_UserNameCreate},
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantDisplay.HRM_System_AsynTask_TimeStart},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantDisplay.HRM_System_AsynTask_TimeEnd},
+            {Sys_AsynTaskModel.FieldNames.Description, ConstantDisplay.HRM_System_AsynTask_Description},
+        };
+
+            Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_AsynTaskModel.FieldNames.TimeStart, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.TimeEnd, ConstantFormat.HRM_Format_DayMonthYear_HoursMinSecond},
+            {Sys_AsynTaskModel.FieldNames.PercentComplete, ConstantFormat.HRM_Format_Percent}
+        };
+            var grid = new GridBuilderInfo
+            {
+                Name = "gridAtt_ComputeWorkDay",
+                ValueFields = valueFields,
+                FormatFields = formatFields,
+                SizeFields = sizeFields,
+                DisplayFields = displayFields,
+                ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetAsynTaskList",
+                ReadData = "paramComputing",
+                ShowEditIcon = false,
+                AutoBind = true
+            };
+        }
+
+        <!--Khởi tạo Grid-->
+        @(Html.VnrGrid<Sys_AsynTaskModel>(grid))
+    </div>
+
+    @{
+        var valueFields1 = string.Empty;
+        for (int i = 0; i < valueFields.Count(); i++)
+        {
+            valueFields1 += "," + valueFields[i];
+        }
+    }
+    @Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

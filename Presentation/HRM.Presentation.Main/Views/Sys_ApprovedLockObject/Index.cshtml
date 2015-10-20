@@ -1,0 +1,313 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models;
+@using HRM.Infrastructure.Security;
+
+@model Sys_LockObjectModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_System_LockObject.TranslateString();
+    Layout = null;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+
+    IList<SelectListItem> listLockObjectType = Enum.GetValues(typeof(EnumDropDown.LockObjectType))
+        .Cast<EnumDropDown.LockObjectType>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+        .ToList();
+
+    IList<SelectListItem> listLockObjectStatus = Enum.GetValues(typeof(EnumDropDown.LockObjectStatus))
+    .Cast<EnumDropDown.LockObjectStatus>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+}
+
+<script type="text/javascript">
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        var checkedNodes = [];
+        var treeView = $("#OrgTreeViewDropDown").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var WorkPlacecombobox = $("#WorkPlaceID").data("kendoComboBox");
+        var workPlaceValue = WorkPlacecombobox.value();
+        return {
+            @*DateStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Search_DateStart").val()),
+            DateEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#Search_DateEnd").val()),*@
+            CutOffDurationID: $('#ddlCutOffDuration').val(),
+            OrgStructureID: checkedNodes.join(','),
+            WorkPlaceID: workPlaceValue,
+            Type: "E_APPROVED_PAYROLL"
+            
+
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //Jump Anchor
+        jumpAnchor("anchor");
+        //
+        $("#btnSearch").click(function () {
+            var grid = $('#gridSys_LockObject').data("kendoGrid");
+            grid.dataSource.read();
+        });
+
+        EditGridNewPage("gridSys_LockObject", '#Hrm_Sys_Web/Sys_LockObject/Edit/', 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+    });
+
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Sys_Web/Sys_LockObject/Create/', 'Hrm_Sys_Web', '@_hrm_Sys_Web');
+    });
+
+    //Xử Lý grid
+    GridCheckbox("gridSys_LockObject");
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelectedConfirm("gridSys_LockObject", '@_hrm_Sys_Web' + "Sys_LockObject/RemoveSelected/", selectedIds, '@ConstantPermission.Sys_LockObject');
+        return false;
+    });
+
+    $('#btnApprove').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#gridSys_LockObject').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("gridSys_LockObject", '@_hrm_Sys_Service' + "Sys_GetData/ActionApprovedLockObject/", selectedIds, '@EnumDropDown.WorkdayStatus.E_APPROVED.ToString()');
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    $('#btnCancel').click(function (e) {
+
+        e.preventDefault();
+        var grid = $('#gridSys_LockObject').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem != null) {
+
+            $.when(kendo.ui.ExtOkCancelDialog.show({
+                title: '@Html.Raw(@ConstantDisplay.Hrm_Notification.TranslateString())',
+                message: '@Html.Raw(@ConstantDisplay.HRM_Message_AreYouSureWantToChangeStatus.TranslateString())',
+                icon: "k-ext-warning",
+                width: "355px",
+                height: "105px"
+            })
+                ).done(function (response) {
+
+                    if (response.button == "OK") {
+                        DoActionData("gridSys_LockObject", '@_hrm_Sys_Service' + "Sys_GetData/ActionApprovedLockObject/", selectedIds, '@EnumDropDown.LockObjectStatus.E_CANCEL.ToString()');
+                    }
+                    else if (response.button == "Cancel") {
+                        return false;
+                    }
+                });
+        }
+        else {
+            ErrorMessages('@Html.Raw(@ConstantDisplay.HRM_Message_PleaseSelectData.TranslateString())');
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter, status) {
+
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter, status: status },
+            type: 'POST',
+            traditional: true,
+            success: function (data) {
+
+                selectedIds = [];
+                ReadGrid(gridName);
+                ShowNotificationProcessor('@Html.Raw(@ConstantDisplay.Hrm_Change_Status_Succeed.TranslateString())');
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');//Chưa dịch
+            }
+        });
+    };
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.CutOffDurationID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var cutOffDurationName = new DropDownListBuilderInfo()
+                                {
+                                    Name = "ddlCutOffDuration",
+                                    DataTextField = "CutOffDurationName",
+                                    DataValueField = "ID",
+                                    Url = _Hrm_Hre_Service + "Att_GetData/GetMultiCutOffDuration",
+                                    StyleCss = "width:205px",
+                                };
+                            }
+                            @(Html.VnrDropDownList(cutOffDurationName))
+                        </div>
+                    </div>
+                    <div id="div4">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @*@Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")*@
+                            @{
+                                var _OrgStructureID = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "205px",
+                                };
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", _OrgStructureID)
+                            @Html.HiddenFor(model => model.OrgStructureID)
+                        </div>
+                    </div>
+                    <div id="div7">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var PlaceDropdown = new ComboBoxBuilderInfo()
+                                {
+                                    DataValueField = "ID",
+                                    DataTextField = "WorkPlaceName",
+                                    Url = _Hrm_Hre_Service + "Cat_Getdata/GetMultiWorkPlace",
+                                    Value = Model != null ? Model.WorkPlaceID != null ? Model.WorkPlaceID.ToString() : "" : "",
+                                    ServerFilter = true,
+                                    StyleCss = "width:201px",
+                                };
+                            }
+                            @Html.VnrComboBoxFor(m => m.WorkPlaceID, PlaceDropdown)
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" id="anchor">
+   @* @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })*@
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="HideExportCate">
+            @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })*@
+        </div>
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApprove", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovePath })
+@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCancel", Content = ConstantAction.HRM_Common_Cancel.TranslateString(), ImageUrl = ConstantPath.IconCancelLateEarly })
+@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.HrmSystem.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+
+            Sys_LockObjectModel.FieldNames.DateStart,
+            Sys_LockObjectModel.FieldNames.DateEnd,
+           // Sys_LockObjectModel.FieldNames.Type,
+            Sys_LockObjectModel.FieldNames.StatusView,
+            Sys_LockObjectModel.FieldNames.CutOffDurationName,
+            Sys_LockObjectModel.FieldNames.OrgStructureName,
+            Sys_LockObjectModel.FieldNames.WorkPlaceName,
+            
+            Sys_LockObjectModel.FieldNames.UserCreate,
+            Sys_LockObjectModel.FieldNames.DateUpdate,
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_LockObjectModel.FieldNames.DateStart, 90},
+            {Sys_LockObjectModel.FieldNames.DateEnd, 90},
+           // {Sys_LockObjectModel.FieldNames.Type, 130},
+            {Sys_LockObjectModel.FieldNames.StatusView, 90},
+            {Sys_LockObjectModel.FieldNames.CutOffDurationName, 90},
+            {Sys_LockObjectModel.FieldNames.OrgStructureName, 90},
+            {Sys_LockObjectModel.FieldNames.WorkPlaceName, 90},
+            {Sys_LockObjectModel.FieldNames.UserCreate, 100},
+            {Sys_LockObjectModel.FieldNames.DateUpdate, 110},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_LockObjectModel.FieldNames.DateStart, ConstantDisplay.HRM_Attendance_DateFrom},
+            {Sys_LockObjectModel.FieldNames.DateEnd, ConstantDisplay.HRM_Attendance_DateTo},
+         //   {Sys_LockObjectModel.FieldNames.Type, ConstantDisplay.HRM_Attendance_Type},
+            {Sys_LockObjectModel.FieldNames.StatusView, ConstantDisplay.HRM_Attendance_Status},
+            {Sys_LockObjectModel.FieldNames.CutOffDurationName, ConstantDisplay.HRM_Attendance_CutOffDuration_CutOffDurationName},
+            {Sys_LockObjectModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_HR_Profile_OrgStructureName},
+            {Sys_LockObjectModel.FieldNames.WorkPlaceName, ConstantDisplay.HRM_HR_Profile_WorkingPlace},
+            {Sys_LockObjectModel.FieldNames.UserCreate, ConstantDisplay.HRM_Attendance_UserCreate},
+            {Sys_LockObjectModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_DateUpdate},
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Sys_LockObjectModel.FieldNames.DateStart, ConstantFormat.HRM_Format_DayMonthYear},
+            {Sys_LockObjectModel.FieldNames.DateEnd, ConstantFormat.HRM_Format_DayMonthYear},
+            {Sys_LockObjectModel.FieldNames.DateUpdate, ConstantFormat.HRM_Format_DayMonthYear},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridSys_LockObject",
+            //ForeignKey = foreignKey,
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetLockObjectList",
+            ReadData = "filterFieldInfo"
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_LockObjectModel>(grid))
+</div>

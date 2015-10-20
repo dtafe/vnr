@@ -1,0 +1,337 @@
+﻿@using HRM.Infrastructure.Security
+@using HRM.Infrastructure.Utilities;
+
+@using HRM.Presentation.Attendance.Models;
+@model HRM.Presentation.Attendance.Models.Att_WorkDaySearchModel
+
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Attendance_WorkDay.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+<script type="text/javascript">
+    var checkedNodes = [];
+     
+    var ShiftID = null;
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        
+        var param = {
+            OrgStructureID: checkedNodes.join(','),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            ShiftID: ShiftID,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        return param;
+    }
+
+    function onChange(e) {
+        
+        var dataItem = this.dataItem(e.item.index());
+        ShiftID = dataItem.ID;
+    }
+
+    function onSelectShift(e) {
+        var dataItem = this.dataItem(e.item.index());
+        ShiftID = dataItem.ID;
+    }
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_WorkDay').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportWorkDayList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_Workday');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/ExportWorkDaySelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_Workday');
+        selectedIds = [];
+    });
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel        //
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+            var grid = $('#gridAtt_WorkDay').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+        
+        EditGridNewPage("gridAtt_WorkDay", '#Hrm_Att_Web/Att_Workday/Edit/', 'Hrm_Att_Web', '@_hrm_Main_Web');
+    });
+
+    //Xử Lý Grid
+    GridCheckbox("gridAtt_WorkDay");
+
+    //Xử lý nút Delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridAtt_WorkDay", '@_hrm_Main_Web' + "Att_Workday/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Att_Workday');
+        selectedIds = [];
+        return false;
+    });
+
+    //Xử lý nút Create
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Att_Web/Att_Workday/Create/', 'Hrm_Att_Web', '@_hrm_Main_Web');
+    });
+
+    $('#btnActionSubmit').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_Workday_Rejected');
+        if (!isAccess) {
+            ShowNotificationProcessor('@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Rejected.TranslateString())');
+            return;
+        }
+        e.preventDefault();
+        var grid = $('#gridAtt_WorkDay').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        if (selectedItem.Status != "Duyệt" && selectedItem.Status != "E_APPROVED") {
+            var r = confirm("Bạn Có Chắc Chắn Muốn Thay Đổi Trạng Thái?");
+            if (r == true) {
+                DoActionData("gridAtt_WorkDay", '@_hrm_Hr_Service' + "Att_ActionData/SubmitWorkDay/", selectedIds.join(","));
+                selectedIds = [];
+            }
+        }
+        else {
+            ErrorMessages("Ngày Công Đã Duyệt Không Được Phép Chỉnh Sửa!");
+        }
+        return false;
+    });
+
+    // Hàm xử lý dữ liệu được chọn trên lưới và xử lý bên dưới
+    // vd: Xử lý thay đổi trạng thái
+    function DoActionData(gridName, actionURL, parameter) {
+        $.ajax({
+            url: actionURL,
+            data: { selectedIds: parameter },
+            type: 'POST',
+            success: function (data) {
+                selectedIds = [];
+                ReadGrid(gridName);
+            },
+            error: function (data) {
+                alert('Lỗi hàm DoActionData trong hrm-8.0.js');
+            }
+        });
+    }
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge" style="overflow:visible">
+                @*<form action="#" method="POST" id="form-search">*@
+                <div style="float:left; width:450px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.ProfileName, "width:250px")
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+                    <div id="div14">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+                <div style="width:550px; display:block; float:left">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.Label(@ConstantDisplay.HRM_Attendance_WorkDay_WorkDate.TranslateString())
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                        </div>
+
+                    </div>
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ShiftID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var ShiftName11 = new DropDownListBuilderInfo
+                                {
+                                    DataTextField = "ShiftName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                    OptionLabel = ConstantDisplay.HRM_Att_SelectShift.TranslateString(),
+                                    StyleCss = "width:200px",
+                                    EventSelect = "onChange",
+                                    
+                                };
+                            }
+                            @Html.VnrDropDownListFor(mode => mode.ShiftID, ShiftName11)
+                        </div>
+                    </div>
+                </div>
+                @*</form>*@
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })*@
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float: right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnActionSubmit", Content = ConstantDisplay.HRM_Common_SendRequestApprove_Button.TranslateString(), ImageUrl = ConstantPath.IconConfirmPath })
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        valueFields = new string[]
+        {
+            Att_WorkdayModel.FieldNames.CodeEmp,
+            Att_WorkdayModel.FieldNames.ProfileName,
+            
+            Att_WorkdayModel.FieldNames.WorkDate,
+            Att_WorkdayModel.FieldNames.FirstInTime,
+            Att_WorkdayModel.FieldNames.LastOutTime,
+            Att_WorkdayModel.FieldNames.ShiftName,
+            Att_WorkdayModel.FieldNames.WorkDuration,
+            Att_WorkdayModel.FieldNames.LateEarlyDuration,
+            Att_WorkdayModel.FieldNames.TAMScanReasonMissName,
+            Att_WorkdayModel.FieldNames.StatusTranslate
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_WorkdayModel.FieldNames.CodeEmp,70},
+            {Att_WorkdayModel.FieldNames.ProfileName,135},
+           
+            {Att_WorkdayModel.FieldNames.WorkDate,80},
+            {Att_WorkdayModel.FieldNames.FirstInTime,70},
+            {Att_WorkdayModel.FieldNames.LastOutTime,70},
+            {Att_WorkdayModel.FieldNames.ShiftName,90},
+            {Att_WorkdayModel.FieldNames.WorkDuration,85},
+            {Att_WorkdayModel.FieldNames.LateEarlyDuration,130},
+            {Att_WorkdayModel.FieldNames.TAMScanReasonMissName,145},
+            {Att_WorkdayModel.FieldNames.StatusTranslate,80}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_WorkdayModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+            {Att_WorkdayModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_WorkDay_ProfileID},
+            
+            {Att_WorkdayModel.FieldNames.WorkDate,ConstantDisplay.HRM_Attendance_WorkDay_WorkDate},
+            {Att_WorkdayModel.FieldNames.FirstInTime,ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime},
+            {Att_WorkdayModel.FieldNames.LastOutTime,ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime},
+            {Att_WorkdayModel.FieldNames.ShiftName,ConstantDisplay.HRM_Attendance_WorkDay_ShiftID},
+            {Att_WorkdayModel.FieldNames.WorkDuration,ConstantDisplay.HRM_Attendance_WorkDay_WorkDuration},
+            {Att_WorkdayModel.FieldNames.LateEarlyDuration,ConstantDisplay.HRM_Attendance_WorkDay_LateEarlyDuration},
+            {Att_WorkdayModel.FieldNames.TAMScanReasonMissName,ConstantDisplay.HRM_Canteen_MealRecordMissing_TamScanReasonMissName},
+            {Att_WorkdayModel.FieldNames.StatusTranslate,ConstantDisplay.HRM_Attendance_WorkDay_Status}
+        };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Att_WorkdayModel.FieldNames.WorkDate, ConstantFormat.HRM_Format_DayMonthYear},
+            {Att_WorkdayModel.FieldNames.FirstInTime, ConstantFormat.HRM_Format_HourMinSecond},
+            {Att_WorkdayModel.FieldNames.LastOutTime , ConstantFormat.HRM_Format_HourMinSecond},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_WorkDay",
+           ShowEditIcon = false,
+            ValueFields = valueFields,
+            FormatFields = formatFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = @_hrm_Hr_Service + "Att_GetData/GetWorkDayList/",
+            ReadData = "filterFieldInfo"
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_WorkdayModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

@@ -1,0 +1,315 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Presentation.UI.Controls.Kendo
+@model Rep_ControlModel
+@{
+    Layout = null;
+    var _hrm_Att_Web = ConstantPathWeb.Hrm_Att_Web;
+    var _hrm_Att_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    var _hrm_Sal_Service = ConstantPathWeb.Hrm_Sal_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+}
+
+<script type="text/javascript">
+
+    function filterFieldInfo() {
+        return {
+            masterID: $("#IDMaster").val(),
+        };
+    };
+
+    function filterColumnControl() {
+        return {
+            ID: $("#RenderTable").val()
+        };
+    };
+
+    $("#IsEnum").on("change", function (e) {
+        LoadData_Enum(e.currentTarget.checked);
+    });
+
+    function LoadData_Enum(isEnum) {
+        var masterId = $("#IDMaster").val();
+        $.ajax({
+            url: "@_hrm_Sys_Service" + "Sys_GetData/GetMulti_Table_Enum",
+            type: 'POST',
+            data:{IsEnum:isEnum},
+            success: function (data) {
+                var combobox = $("#RenderTable").data("kendoComboBox");
+                combobox.setDataSource(data);
+                $("#RenderTable").data("kendoComboBox").refresh();
+            },
+            error: function (data) {
+                alert('error Translate');
+            }
+        });
+    };
+
+    function ReloadCondition()
+    {
+        LoadDataCondition();
+    };
+
+    function LoadDataCondition() {
+        var masterId = $("#IDMaster").val();
+        $.ajax({
+            url: "@_hrm_Sys_Service" + "Sys_GetData/GetMulti_ConditionItem?MasterID=" + masterId,
+            type: 'POST',
+            success: function (data) {
+                if (data != undefined) {
+                    var dropdownlist = $("#ConditionItem_Control").data("kendoDropDownList");
+                    dropdownlist.setDataSource(data);
+                }
+            },
+            error: function (data) {
+                alert('error Translate');
+            }
+        });
+    };
+
+
+    function CreateControl() {
+        $("#SMasterID").val($("#IDMaster").val());
+        $.ajax({
+            url: "@_hrm_Sys_Service" + "Sys_GetData/SaveCustomControl",
+            type: 'POST',
+            data: { Name: $("#Name").val(), MasterID: $("#IDMaster").val(), ConditionItemID: $("#ConditionItem_Control").val(), TableName: $("#RenderTable").val(), ControlType: $("#ControlType").val(), IsEnum: $("#IsEnum").val(), TextField: $("#TextField").val(), ValueField: $("#ValueField").val() },
+            success: function (data) {
+                if (data == true) {
+                    ReadGrid("gridRep_RenderControl");
+                    ShowNotificationProcessor("Lưu Thành Công");
+                }
+                else {
+                    ShowNotificationProcessor("Điều Kiện Đã Được Chọn Control !");
+                }
+            },
+            error: function (data) {
+                alert('error Translate');
+            }
+        });
+    };
+
+    $(document).ready(function () {
+        LoadDataCondition();
+    });
+
+</script>
+@using (Html.BeginForm("#", "", FormMethod.Post, new { id = "formcreateControl" }))
+{
+    @Html.HiddenFor(m => m.MasterID, new { id = "SMasterID" })
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge">
+                    <div style="float:left; width:350px">
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.Name)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(m=>m.Name)
+                            </div>
+                        </div>
+                        <div id="div12">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.TableName)
+                            </div>
+                            <div class="FieldValue170">
+                                @{
+                                    var Table = new ComboBoxBuilderInfo()
+                                    {
+                                        Name = "RenderTable",
+                                        Url = _hrm_Sys_Service + "Sys_GetData/GetMulti_Table_Enum",
+                                        DataValueField = "Name",
+                                        DataTextField = "Name",
+                                        StyleCss = "width:200px;",
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(model => model.TableName, Table)
+                                <label style="margin-left:145px;">
+                                    @{
+                                        var checkbox = new CheckBoxBuilderInfo()
+                                        {
+                                            Value=false,
+                                        };
+                                    }
+                                    @Html.VnrCheckBoxFor(m => m.IsEnum)
+                                    Enum
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="width:350px; float:left">
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.ConditionItemID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dropdown = new DropDownListBuilderInfo()
+                                    {
+                                        Name="ConditionItem_Control",
+                                        DataTextField = "ConditionItemName",
+                                        DataValueField = "ID",
+                                        StyleCss="width:170px;"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(m=>m.ConditionItemID,dropdown)
+                                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "ReloadCondition", Name = "ReloadCondition", Content = "", ImageUrl = ConstantPath.IconChangeInOut })
+                            </div>
+                        </div>
+                    
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.TextField)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var comboboxValue = new ComboBoxBuilderInfo()
+                                    {
+                                        Url = _hrm_Sys_Service + "Sys_GetData/GetMulti_Column",
+                                        DataValueField = "Name",
+                                        DataTextField = "Name",
+                                        StyleCss = "width:200px;",
+                                        CascadeFrom = "RenderTable",
+                                        ServerFilter = true,
+                                        Data = "filterColumnControl",
+                                    };
+                                }
+                                @Html.VnrComboBoxFor(m => m.TextField, comboboxValue)
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <div style="float:left; width:350px">
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.ControlType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    IList<SelectListItem> listControl = Enum.GetValues(typeof(CustomReportControl))
+                                     .Cast<CustomReportControl>()
+                                     .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+                                     .ToList();
+                                    var ControlType = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listControl,
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.ControlType, ControlType)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ValueField)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                var comboboxText = new ComboBoxBuilderInfo()
+                                {
+                                    Url = _hrm_Sys_Service + "Sys_GetData/GetMulti_Column",
+                                    DataValueField = "Name",
+                                    DataTextField = "Name",
+                                    StyleCss = "width:200px;",
+                                    CascadeFrom = "RenderTable",
+                                    ServerFilter = true,
+                                    Data = "filterColumnControl",
+                                };
+                                }
+                                @Html.VnrComboBoxFor(m => m.ValueField, comboboxText)
+                            </div>
+                        </div>
+
+                    </div>
+                 
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="commandToolBarWidge" id="anchor">
+        <div style="float:left">
+            @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "CreateControl", Name = "Create-Control", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+        </div>
+        <div style="float:right">
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteItemControl", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+        </div>
+
+        <div class="clear"></div>
+    </div>
+}
+
+
+
+
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        string[] valueFields = new string[]
+        {
+            Rep_ControlModel.FieldNames.Name,
+            Rep_ControlModel.FieldNames.ControlType,
+            //Rep_ControlModel.FieldNames.ParamerterName1,
+            //Rep_ControlModel.FieldNames.DisplayName1,
+            //Rep_ControlModel.FieldNames.DefaultValue1,
+            //Rep_ControlModel.FieldNames.ParamerterName2,
+            //Rep_ControlModel.FieldNames.DisplayName2,
+            //Rep_ControlModel.FieldNames.DefaultValue2,
+            Rep_ControlModel.FieldNames.TableName,
+              Rep_ControlModel.FieldNames.IsEnum,
+            Rep_ControlModel.FieldNames.TextField,
+            Rep_ControlModel.FieldNames.ValueField,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+                  {Rep_ControlModel.FieldNames.Name, 150},
+            {Rep_ControlModel.FieldNames.ControlType, 150},
+            //{Rep_ControlModel.FieldNames.ParamerterName1, 100},
+            //{Rep_ControlModel.FieldNames.DisplayName1, 150},
+            //{Rep_ControlModel.FieldNames.DefaultValue1, 150},
+            //{Rep_ControlModel.FieldNames.ParamerterName2, 150},
+            //{Rep_ControlModel.FieldNames.DisplayName2, 100},
+            //{Rep_ControlModel.FieldNames.DefaultValue2, 150},
+            {Rep_ControlModel.FieldNames.IsEnum, 100},
+            {Rep_ControlModel.FieldNames.TableName, 150},
+            {Rep_ControlModel.FieldNames.TextField, 150},
+            {Rep_ControlModel.FieldNames.ValueField, 100},
+        };
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+              {Rep_ControlModel.FieldNames.Name, "Name"},
+            {Rep_ControlModel.FieldNames.ControlType, "ControlType"},
+            //{Rep_ControlModel.FieldNames.ParamerterName1, "ParamerterName1"},
+            //{Rep_ControlModel.FieldNames.DisplayName1, "DisplayName1"},
+            //{Rep_ControlModel.FieldNames.DefaultValue1, "DefaultValue1"},
+            //{Rep_ControlModel.FieldNames.ParamerterName2, "ParamerterName2"},
+            //{Rep_ControlModel.FieldNames.DisplayName2, "DisplayName2"},
+            //{Rep_ControlModel.FieldNames.DefaultValue2, "DefaultValue2"},
+            //{Rep_ControlModel.FieldNames.TableName, "TableName"},
+             {Rep_ControlModel.FieldNames.IsEnum, "IsEnum"},
+            {Rep_ControlModel.FieldNames.TextField, "TextField"},
+            {Rep_ControlModel.FieldNames.ValueField, "ValueField"},
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridRep_RenderControl",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ReadActionUrl=_hrm_Sys_Service + "Sys_GetData/GetControlForGrid",
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Rep_ControlModel>(grid))
+</div>

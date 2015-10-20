@@ -1,0 +1,352 @@
+﻿
+@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using System.Collections
+@using HRM.Presentation.Hr.Models
+@model Hre_AppendixContractSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Hr_AppendixContract_Title.TranslateString();
+    Layout = null;
+    //string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+   
+}
+<script type="text/javascript">
+    var checkedNodes = [];
+    var selectedIds = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport)
+    {
+        var profileName = $('#@Html.FieldIdFor(model => model.ProfileName)').val();
+        var codeEmp = $('#@Html.FieldIdFor(model => model.CodeEmp)').val();
+        var dateStart = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateStart1").val());
+        var dateEnd = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateEnd1").val());
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        return {
+            ProfileName: profileName,
+            CodeEmp: codeEmp,
+            DateStart: dateStart,
+            DateEnd: dateEnd,
+            OrgStructureID: checkedNodes.join(','),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridHre_AppendixExpiredContract').data("kendoGrid");
+            grid.dataSource.read();
+            checkedNodes = [];
+        });
+        EditGridNewPage("gridHre_AppendixExpiredContract", '#Hrm_Main_Web/Hre_AppendixContract/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    GridCheckbox("gridHre_AppendixExpiredContract");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        var isAccess = checkPermission(PrivilegeType.Delete, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected("gridHre_AppendixExpiredContract", '@_hrm_Main_Web' + "Hre_AppendixContract/RemoveSelected/", selectedIds);
+        return false;
+    });
+    $("#btnExportAll").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        var grid = $('#gridHre_AppendixExpiredContract').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAppendixContractList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    // Nút export selected
+    $("#btnExportSelected").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_AppendixContract');
+        if (!isAccess) {
+            return;
+        }
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAppendixContractSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload);
+    });
+   
+    function onDataBoundGrid() {
+        CheckedGrid("gridHre_AppendixExpiredContract", selectedIds.join(","));
+    };
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.ProfileName)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.ProfileName, "width:200px;")
+                            </div>
+                        </div>
+                        <div id="div2">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(model => model.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp, "width:200px")
+                            </div>
+                        </div>                       
+                    </div>
+                    <div class="hrm_box">
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div> 
+                        <div id="div3">
+                            <div class="FieldTitle150">
+                                @Html.Label(@ConstantDisplay.HRM_HR_AppendixContract_DateEndAppendixContract.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "DateStart1",
+                                        Value = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).ToShortDateString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateStart, DateStart)
+                                @{
+                                    var DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Name = "DateEnd1",
+                                        //    Value = @Html.DisplayFor(mode => mode.DateEnd).ToString(),
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                    };
+                                    if (DateTime.Now.Month + 1 > 12)
+                                    {
+                                        DateEnd.Value = new DateTime(DateTime.Now.Year + 1, (DateTime.Now.Month - 11), 1).AddDays(-1).ToShortDateString();
+                                    }
+                                    else
+                                    {
+                                        DateEnd.Value = new DateTime(DateTime.Now.Year, DateTime.Now.Month + 2, 1).AddDays(-1).ToShortDateString();
+                                    }
+                                }
+                                @Html.VnrDatePickerFor(mode => mode.DateEnd, DateEnd)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    </div>
+    <div style="float:right">
+        @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeAppendixExpireContract", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })*@
+    </div>
+    <div class="clear"></div>
+</div>
+<script>
+    function clickProfile(id) {
+        KendoRouteMapping('#Hrm_Main_Web/GeneralProfile/Index/' + id, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+</script>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.Hr.Models
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_gridHre_AppendixExpiredContract_Grid_Name + "__Hre_AppendixExpiredContractIndex";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = ConstantControlName.HRM_gridHre_AppendixExpiredContract_Grid_Name,
+            ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetAppendixExpiredContractList",
+            ReadData = "filterFieldInfo",
+            EventDataBound = "onDataBoundGrid",
+            ShowDeleteButton = false,
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new[]
+            {
+                Hre_AppendixContractModel.FieldNames.CodeEmp,
+                Hre_AppendixContractModel.FieldNames.ProfileName,
+                           Hre_AppendixContractModel.FieldNames.E_UNIT,
+                       Hre_AppendixContractModel.FieldNames.E_DIVISION,
+                Hre_AppendixContractModel.FieldNames.E_DEPARTMENT,
+                 Hre_AppendixContractModel.FieldNames.E_TEAM,
+                Hre_AppendixContractModel.FieldNames.E_SECTION,
+
+                Hre_AppendixContractModel.FieldNames.ContractNo,
+                Hre_AppendixContractModel.FieldNames.Code,
+                Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract,
+                Hre_AppendixContractModel.FieldNames.DateofEffect,
+                Hre_AppendixContractModel.FieldNames.DateEndAppendixContract,
+                Hre_AppendixContractModel.FieldNames.Amount,
+                //Hre_AppendixContractModel.FieldNames.ProfileID,
+            };
+            grid.SizeFields = new Dictionary<string, int>()
+            {
+                {Hre_AppendixContractModel.FieldNames.CodeEmp, 80},
+                {Hre_AppendixContractModel.FieldNames.ProfileName, 140},
+                     {Hre_AppendixContractModel.FieldNames.E_UNIT,135},
+                {Hre_AppendixContractModel.FieldNames.E_DIVISION,135},
+
+                {Hre_AppendixContractModel.FieldNames.E_TEAM,135},
+                {Hre_AppendixContractModel.FieldNames.E_DEPARTMENT,135},
+                {Hre_AppendixContractModel.FieldNames.E_SECTION,135},
+
+                {Hre_AppendixContractModel.FieldNames.ContractNo, 140},
+                {Hre_AppendixContractModel.FieldNames.Code,110},
+                {Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract, 85},
+                {Hre_AppendixContractModel.FieldNames.DateofEffect, 100},
+                {Hre_AppendixContractModel.FieldNames.DateEndAppendixContract, 100},
+                {Hre_AppendixContractModel.FieldNames.Amount, 100}
+            };
+            grid.HiddenFields = new[]
+            {
+           
+                Hre_ContractModel.FieldNames.ProfileID,
+            
+            };
+            grid.DisplayFields = new Dictionary<string, string>()
+            {
+                {Hre_AppendixContractModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_AppendixContractModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                      {Hre_AppendixContractModel.FieldNames.E_UNIT, ConstantDisplay.HRM_Hre_Report_E_UNIT},
+                {Hre_AppendixContractModel.FieldNames.E_DIVISION, ConstantDisplay.HRM_Hre_Report_E_DIVISION},
+                {Hre_AppendixContractModel.FieldNames.E_DEPARTMENT, ConstantDisplay.HRM_Hre_Report_E_DEPARTMENT},
+                {Hre_AppendixContractModel.FieldNames.E_SECTION, ConstantDisplay.HRM_Hre_Report_E_SECTION},
+                {Hre_AppendixContractModel.FieldNames.E_TEAM, ConstantDisplay.HRM_Hre_Report_E_TEAM},
+
+                {Hre_AppendixContractModel.FieldNames.ContractNo, ConstantDisplay.HRM_HR_Contract_ContractNo},
+                {Hre_AppendixContractModel.FieldNames.Code, ConstantDisplay.HRM_HR_AppendixContract_Code},
+                {Hre_AppendixContractModel.FieldNames.DateSignedAppendixContract, ConstantDisplay.HRM_HR_AppendixContract_DateSignedAppendixContract},
+                {Hre_AppendixContractModel.FieldNames.DateofEffect, ConstantDisplay.HRM_HR_AppendixContract_DateofEffect},
+                {Hre_AppendixContractModel.FieldNames.DateEndAppendixContract, ConstantDisplay.HRM_HR_AppendixContract_DateEndAppendixContract},
+                {Hre_AppendixContractModel.FieldNames.Amount, ConstantDisplay.HRM_HR_AppendixContract_Amount}
+
+            };
+            grid.HyperlinkFields = new Dictionary<string, string>()
+            {
+                {Hre_AppendixContractModel.FieldNames.ProfileName,"clickProfile,ProfileID"},
+            };
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+        //var grid = new GridBuilderInfo
+        //{
+        //    Name = "gridHre_AppendixExpiredContract",
+        //    ValueFields = valueFields,
+        //    ShowDeleteButton = false,
+        //    SizeFields = sizeFields,
+        //    DisplayFields = displayFields,
+        //    ReadActionUrl = _hrm_Hr_Service + "Hre_GetData/GetAppendixContractList",
+        //    ReadData = "filterFieldInfo",
+        //    HyperlinkFields = hyperlinkFields,
+        //    HiddenFields = hiddenFields,
+        //    EventDataBound = "onDataBoundGrid"
+        //};
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Hre_AppendixContractModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeAppendixExpireContract", "Hre_AppendixContractModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+

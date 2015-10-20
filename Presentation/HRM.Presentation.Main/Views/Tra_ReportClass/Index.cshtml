@@ -1,0 +1,304 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Training.Models
+@using HRM.Presentation.Main.Controllers
+@using HRM.Presentation.UI.Controls.Kendo
+@model Tra_ReportClassSearchModel
+
+@{
+    ViewBag.Title = "ReportClass Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+   
+}
+@Html.Hidden("Screen", screen)
+
+<style>
+    .k-state-selected {
+        color: #fff !important;
+        background-color: #5A83B1 !important;
+        border-color: #5A83B1 !important;
+    }
+</style>
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var _RequirementTrainID = $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val() != null ? $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val().join(',') : $('#@Html.FieldIdFor(model => model.RequirementTrainID)').val();
+        var dataParameter = {
+          ClassID: $('#@Html.FieldIdFor(model => model.ClassID)').val() ? $('#@Html.FieldIdFor(model => model.ClassID)').val()[0] : null,
+            StartDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#StartDate").val()),
+          EndDate: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#EndDate").val()),
+          ScheduleTimeStart: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ScheduleTimeStart").val()),
+          ScheduleTimeEnd: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#ScheduleTimeEnd").val()),
+          IsExport: isExport,
+          ValueFields: $('#valueFieldsGrid').val(),
+          IsCreateTemplate: isCreateTemplate,
+          IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+          RequirementTrainID: _RequirementTrainID,
+        };
+      if (isExport == true) {
+          dataParameter["ExportId"] = $('#ddlScreenName').val();
+      }
+      return dataParameter;
+  }
+  $(document).ready(function () {
+      //Xử lý sự kiện click button tìm kiếm
+      $("#btnSearch").click(function () {
+
+          isCreateTemplate = false;
+          isCreateTemplateForDynamicGrid = false;
+          var grid = $('#gridTra_ReportClass').data("kendoGrid");
+          grid.dataSource.read();
+          selectedIds = [];
+
+      });
+      ShowHidePanel();
+  });
+
+  $("#btnExport").click(function () {
+      var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Tra_ReportClass');
+      if (!isAccess) {
+          return;
+      }
+      if ($('#ddlScreenName').val() == "") {
+          ExportFail();
+          return;
+      }
+
+      var urlGetData = '@_hrm_Hr_Service' + '/Tra_GetData/GetReportClassList';
+      var urlDownload = '@_hrm_Main_Web';
+      var dataParameter = filterFieldInfo(true);
+      ExportAll(urlGetData, dataParameter, urlDownload);
+  });
+  $("#btnCreateTemplate").click(function () {
+
+      isCreateTemplate = true;
+      isCreateTemplateForDynamicGrid = true;
+      CreateTemplate('@_hrm_Hr_Service' + '/Tra_GetData/GetReportClassList', filterFieldInfo(true));
+  });
+</script>
+<div id="grid_Demo"></div>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div>
+
+                    <div class="hrm_box">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ClassID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ClassID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "ClassName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hre_Service + "Tra_GetData/GetMultiClass",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectClass.TranslateString(),
+                                        Autobind = false
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.ClassID, ClassID))
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_HR_DateLearn.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var StartDate = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.StartDate, StartDate)
+                                @{
+                                    var EndDate = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.EndDate, EndDate)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Tra_Class_ScheduleTime.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ScheduleTimeStart = new TimePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.ScheduleTimeStart, ScheduleTimeStart)
+                                @{
+                                    var ScheduleTimeEnd = new TimePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                    };
+                                }
+                                @Html.VnrTimePickerFor(model => model.ScheduleTimeEnd, ScheduleTimeEnd)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.RequirementTrainID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _RequirementTrainID = new MultiSelectBuilderInfo
+                                    {
+
+                                        DataTextField = "RequirementTrainName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Tra_GetData/GetMultiRequirementTrain",
+                                        //  MaxSelectedItems = 1,
+                                        Placeholder = ConstantDisplay.HRM_Training_TrainingRequirements_Select.TranslateString(),
+                                        Autobind = true
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.RequirementTrainID, _RequirementTrainID)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+
+
+
+        var valueFields = new[]
+            {
+                Tra_ReportClassModel.FieldNames.Code,
+                Tra_ReportClassModel.FieldNames.ClassName,
+                Tra_ReportClassModel.FieldNames.StartDate,
+                Tra_ReportClassModel.FieldNames.EndDate,
+                Tra_ReportClassModel.FieldNames.ScheduleTimeStart,
+                Tra_ReportClassModel.FieldNames.ScheduleTimeEnd,
+                Tra_ReportClassModel.FieldNames.TrainingPlace,
+                Tra_ReportClassModel.FieldNames.Teacher,
+                Tra_ReportClassModel.FieldNames.RequirementTrainName,
+
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Tra_ReportClassModel.FieldNames.Code,90},
+                {Tra_ReportClassModel.FieldNames.ClassName,140},
+                {Tra_ReportClassModel.FieldNames.StartDate,90},
+                {Tra_ReportClassModel.FieldNames.EndDate,90},
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeStart,90},
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeEnd,90},
+                {Tra_ReportClassModel.FieldNames.TrainingPlace,140},
+                {Tra_ReportClassModel.FieldNames.Teacher,140},
+                {Tra_ReportClassModel.FieldNames.RequirementTrainName,140},
+
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+
+            };
+        var formatFields = new Dictionary<string, string>()
+            {
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeStart, ConstantFormat.HRM_Format_HourMin},
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeEnd, ConstantFormat.HRM_Format_HourMin},
+
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+               {Tra_ReportClassModel.FieldNames.Code,ConstantDisplay.HRM_Tra_Class_Code},
+               {Tra_ReportClassModel.FieldNames.ClassName,ConstantDisplay.HRM_Tra_Class_ClassName},
+                {Tra_ReportClassModel.FieldNames.StartDate,ConstantDisplay.HRM_Tra_Class_StartDate},
+                {Tra_ReportClassModel.FieldNames.EndDate,ConstantDisplay.HRM_Tra_Class_EndDate},
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeStart,ConstantDisplay.HRM_Tra_Class_ScheduleTimeStart},
+                {Tra_ReportClassModel.FieldNames.ScheduleTimeEnd,ConstantDisplay.HRM_Tra_Class_ScheduleTimeEnd},
+                {Tra_ReportClassModel.FieldNames.TrainingPlace,ConstantDisplay.HRM_Tra_Class_TrainingPlace},
+                {Tra_ReportClassModel.FieldNames.Teacher,ConstantDisplay.HRM_Tra_Class_Teacher},
+                {Tra_ReportClassModel.FieldNames.RequirementTrainName, ConstantDisplay.HRM_Tra_RequirementTrain_RequirementTrainName},
+
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridTra_ReportClass",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Tra_GetData/GetReportClassList/",
+            ReadData = "filterFieldInfo",
+            FormatFields = formatFields,
+            ShowCheckAll = false,
+            ShowCheckbox = false,
+            ShowEditIcon = false
+        };
+    }
+    @(Html.VnrGrid<Tra_ReportClassModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

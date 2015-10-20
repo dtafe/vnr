@@ -1,0 +1,268 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model Hre_ReportAccidentSearchModel
+@{
+    ViewBag.Title = "Accident Index";
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    Layout = null;
+    string[] valueFields = null;
+}
+@Html.Hidden("Screen", screen)
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    @*function filterFieldInfo(isExport) {
+        var DateFrom = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val());
+        var DateTo = ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val());
+        var orgStructureID = checkedNodes.join(',');
+        var AccidentTypeID = $('#@Html.FieldIdFor(model => model.AccidentTypeID)').val() ? $('#@Html.FieldIdFor(model => model.AccidentTypeID)').val()[0] : null;
+        return {
+            DateFrom: datefrom,
+            DateTo: dateto,
+            OrgStructureID: orgStructureID,
+            AccidentTypeID : AccidentTypeID,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }*@
+
+    function filterFieldInfo(isExport) {
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        var AccidentTypeID = $('#@Html.FieldIdFor(model => model.AccidentTypeID)').val();
+        var dataParameter = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureID: checkedNodes.join(','),
+            @*AccidentTypeID: $('#@Html.FieldIdFor(model => model.AccidentTypeID)').val() ? $('#@Html.FieldIdFor(model => model.AccidentTypeID)').val()[0] : null,*@
+            AccidentTypeID: $('#AccidentTypeName').val() ? $('#AccidentTypeName').val()[0] : null,
+            ValueFields: $('#valueFieldsGrid').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            dataParameter["ExportId"] = $('#ddlScreenName').val();
+        }
+        return dataParameter;
+    }
+    $(document).ready(function () {
+        //Xử lý sự kiện click button tìm kiếm
+        $("#btnSearch").click(function () {
+            
+            var treeView = $("#treeviewOrg").data("kendoTreeView");
+            checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes)
+            var grid = $('#gridHre_Accident').data("kendoGrid");
+            grid.dataSource.read();
+            selectedIds = [];
+            checkedNodes = [];
+        });
+        //Xử lý show hide form tìm kiếm
+        ShowHidePanel();
+    });
+    GridCheckbox("gridHre_Accident");
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Hre_ReportAccident');
+        if (!isAccess) {
+            return;
+        }
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@hrm_Hr_Service' + "Hre_GetData/GetDateEndAccidentTypeList";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+    $("#btnCreateTemplate").click(function () {
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@hrm_Hr_Service' + '/Hre_GetData/GetDateEndAccidentTypeList', filterFieldInfo(true));
+    });
+    function onDataBoundGrid() {
+        CheckedGrid("gridHre_Accident", selectedIds.join(","));
+    }
+</script>
+<div id="grid_Demo"></div>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div class="hrm_box">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.OrgStructureID)
+                            </div>
+                            <div class="FieldValue" id="test">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.DateFrom)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var dateFrom = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateFrom, dateFrom)
+                                @{
+                                    var dateTo = new DatePickerBuilderInfo()
+                                    {
+                                        StyleCss = "width:100px;",
+                                        Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString(),
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateTo, dateTo)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.AccidentTypeID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var AccidentTypeName = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "AccidentTypeName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiAccidentType",
+                                        Value = @Html.DisplayFor(mode => mode.AccidentTypeID).ToString(),
+                                        //OptionLabel = "Chọn Loại Tai Nạn",
+                                        //Autobind = false,
+                                        StyleCss = "width:200px"
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.AccidentTypeID, AccidentTypeName))
+                            </div>
+                        </div>
+                        
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new[]
+            {
+                Hre_AccidentModel.FieldNames.CodeEmp,
+                Hre_AccidentModel.FieldNames.ProfileName,      
+                Hre_AccidentModel.FieldNames.OrgStructureName,
+                Hre_AccidentModel.FieldNames.PositionName,
+                Hre_AccidentModel.FieldNames.JobTitleName,
+                Hre_AccidentModel.FieldNames.Date,
+                Hre_AccidentModel.FieldNames.Place,
+                Hre_AccidentModel.FieldNames.AccidentTypeName,
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Hre_AccidentModel.FieldNames.CodeEmp,80},
+                {Hre_AccidentModel.FieldNames.ProfileName,140},
+                {Hre_AccidentModel.FieldNames.OrgStructureName,120},
+                {Hre_AccidentModel.FieldNames.PositionName,120},
+                {Hre_AccidentModel.FieldNames.JobTitleName,120},
+                {Hre_AccidentModel.FieldNames.Date,140},
+                {Hre_AccidentModel.FieldNames.Place,160},
+                {Hre_AccidentModel.FieldNames.AccidentTypeName,100},
+            };
+
+        var filterable = new Dictionary<string, bool>()
+            {
+                {Hre_AccidentModel.FieldNames.CodeEmp,true},
+                {Hre_AccidentModel.FieldNames.ProfileName,true},
+                {Hre_AccidentModel.FieldNames.OrgStructureName,true},
+                {Hre_AccidentModel.FieldNames.PositionName,true},
+                {Hre_AccidentModel.FieldNames.JobTitleName,true},
+                {Hre_AccidentModel.FieldNames.Date,true},
+                {Hre_AccidentModel.FieldNames.Place,false},
+                {Hre_AccidentModel.FieldNames.AccidentTypeName,false},
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Hre_AccidentModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Hre_AccidentModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},       
+                {Hre_AccidentModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_HR_Profile_OrgStructureName},
+                {Hre_AccidentModel.FieldNames.PositionName,ConstantDisplay.HRM_Att_Report_PositionName},
+                {Hre_AccidentModel.FieldNames.JobTitleName,ConstantDisplay.HRM_Att_Report_JobTitleName},
+                {Hre_AccidentModel.FieldNames.Date,ConstantDisplay.HRM_HR_Accident_Date},
+                {Hre_AccidentModel.FieldNames.Place,ConstantDisplay.HRM_HR_Accident_Place},
+                {Hre_AccidentModel.FieldNames.AccidentTypeName,ConstantDisplay.HRM_HR_Accident_AccidentTypeName},
+            };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridHre_Accident",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            Filterable = filterable,
+            ReadActionUrl = hrm_Hr_Service + "Hre_GetData/GetDateEndAccidentTypeList/",
+            ReadData = "filterFieldInfo",
+        };
+    }
+    @(Html.VnrGrid<Hre_AccidentModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

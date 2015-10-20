@@ -1,0 +1,1513 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@model Att_ComputeOvertimeModel
+<div>
+    @ViewBag.MsgInsert
+</div>
+@{
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+
+    List<SelectListItem> listComputeOvertimeType = Enum.GetValues(typeof(EnumDropDown.ComputeOvertimeType))
+    .Cast<EnumDropDown.ComputeOvertimeType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+    List<SelectListItem> listComputeLeavedayType = Enum.GetValues(typeof(EnumDropDown.ComputeLeavedayType))
+    .Cast<EnumDropDown.ComputeLeavedayType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+    List<SelectListItem> methodPayment = Enum.GetValues(typeof(EnumDropDown.PaymentType))
+    .Cast<EnumDropDown.PaymentType>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+
+    List<SelectListItem> computeOvertimeStatus = Enum.GetValues(typeof(Att_ComputeOvertimeStatus))
+    .Cast<Att_ComputeOvertimeStatus>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+    .ToList();
+
+    listComputeOvertimeType.AddRange(listComputeLeavedayType);
+}
+
+@{
+    var window_Manual_Leave = new WindowBuilderInfo
+    {
+        Name = "windowAtt_ChangeMethodOverTime_Manual_Leave",
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Att_Overtime/ChangeMethodOverTime_Manual_Leave/",
+        Width = 1000,
+    };
+}
+@(Html.VnrWindow(window_Manual_Leave))
+
+<script>
+    SetFieldRequired();
+
+    var permissionNotAllow_Msg = '@string.Format(ConstantDisplay.HRM_Common_PermissionNotAllow.TranslateString(), ConstantAction.HRM_Common_Compute.TranslateString())';
+
+    $(document).ready(function () {
+        debugger;
+        document.getElementById('isAllowGetTypeBaseOnEndShift').checked = true;
+        document.getElementById('isAllowGetOTOutterShift').checked = true;
+        document.getElementById('isAllowGetBeforeShift').checked = true;
+        document.getElementById('isAllowGetAfterShift').checked = true;
+        document.getElementById('isAllowGetNightShift').checked = true;
+        $("#isAllowGetTypeBaseOnEndShift").val(true);
+        $("#isAllowGetOTOutterShift").val(true);
+        $("#isAllowGetBeforeShift").val(true);
+        $("#isAllowGetAfterShift").val(true);
+        $("#isAllowGetNightShift").val(true);
+        var radioItem = $("input[type=radio]");
+        radioItem.change(function () {
+            for (var i = 0; i < radioItem.length; i++) {
+                if (radioItem[i].checked) {
+                    radioItem[i].value = true;
+                }
+                else {
+                    radioItem[i].value = false;
+                }
+            }
+        });
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Att_GetData/GetConfig_AllowSplit",
+            type: "POST",
+            async: false,
+            error: function () {
+                //Handle the server errors using the approach from the previous example
+            },
+            success: function (result) {
+                var cfg = document.getElementById('configMaxOT');
+                var fml = document.getElementById('formulaMaxOT');
+
+                if (result != null && result.configMaxOT == true) {
+                    cfg.style.visibility = 'visible';
+                    fml.style.visibility = 'visible';
+                    $('#MaximumOvertimeHour').val(result.formulaMaxOT);
+                } else {
+                    cfg.style.visibility = 'hidden';
+                    fml.style.visibility = 'hidden';
+                }
+            }
+        });
+    });
+
+    var checkedNodes = [];
+    var SelectedGuid = [];
+    var _typeFilter = null;
+
+    function eventParaData(isExport) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _type = $('#msl_Type').val() != null ? $('#msl_Type').val().join(',') : $('#msl_Type').val();
+        var _profileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileID)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        var param = {
+            FilterCompute: _typeFilter,
+            ProfileID: _profileID,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            DefinitionOfShiftWork: $('#@Html.FieldIdFor(model => model.DefinitionOfShiftWork)').val(),
+            MininumOvertimeHour: $('#@Html.FieldIdFor(model => model.MininumOvertimeHour)').val(),
+            MaximumOvertimeHour: $('#@Html.FieldIdFor(model => model.MaximumOvertimeHour)').val(),
+            OrgStructureID: checkedNodes.join(','),
+            RoundingFormula: $('#@Html.FieldIdFor(model => model.RoundingFormula)').val(),
+
+            isAllowGetAfterShift: $('#@Html.FieldIdFor(model => model.isAllowGetAfterShift)').val(),
+            isAllowGetBeforeShift: $('#@Html.FieldIdFor(model => model.isAllowGetBeforeShift)').val(),
+            isAllowGetInShift: $('#@Html.FieldIdFor(model => model.isAllowGetInShift)').val(),
+            isAllowGetOTOutterShift: $('#@Html.FieldIdFor(model => model.isAllowGetOTOutterShift)').val(),
+            isAllowGetTypeBaseOnActualDate: $('#@Html.FieldIdFor(model => model.isAllowGetTypeBaseOnActualDate)').val(),
+            isAllowGetTypeBaseOnBeginShift: $('#@Html.FieldIdFor(model => model.isAllowGetTypeBaseOnBeginShift)').val(),
+            isAllowGetTypeBaseOnEndShift: $('#@Html.FieldIdFor(model => model.isAllowGetTypeBaseOnEndShift)').val(),
+            isAllowGetNightShift: $('#@Html.FieldIdFor(model => model.isAllowGetNightShift)').val(),
+            isNotAllowGetNightShift: $('#@Html.FieldIdFor(model => model.isNotAllowGetNightShift)').val(),
+
+            Type: _type,
+            IsExport: isExport,
+            ExportID: null,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExport) {
+            param["ExportID"] = $('#ddlScreenName').val();
+        }
+        return param;
+    };
+    //Xự kiện check chọn
+    $(document).on("click", "input[class=checkboxGroups]", function () {
+
+        var guid = this.parentNode.parentNode.attributes["data-uid"].value;
+        if (guid != '00000000-0000-0000-0000-000000000000') {
+            if (SelectedGuid.indexOf(guid) != -1) {
+                SelectedGuid.splice(SelectedGuid.indexOf(guid), 1);
+            }
+            else {
+                SelectedGuid.push(guid);
+            }
+        }
+    });
+
+    $(document).on("click", "input#mastercheckbox", function () {
+
+        var t = $('input.checkboxGroups');
+        $('input.checkboxGroups').prop('checked', this.checked);//Xử lý check hoặc uncheck các checkbox con
+
+        if (this.checked == true) {
+            $("div#MultipleSelectForPage").show(50);
+            for (var i = 0; i < t.length; i++) {
+                if (SelectedGuid.indexOf(t[i].parentNode.parentNode.attributes["data-uid"].value) == -1) {
+                    SelectedGuid.push(t[i].parentNode.parentNode.attributes["data-uid"].value);
+                }
+            }
+        }
+        else {//Nếu là uncheck thì bỏ các giá trị đã lưu trong selectedIds
+            //for (var i = 0; i < t.length; i++) {
+            //    if (t[i].defaultValue != '00000000-0000-0000-0000-000000000000') {
+            //        if (selectedIds.indexOf(t[i].defaultValue) != -1) {
+            //            selectedIds.splice(selectedIds.indexOf(t[i].defaultValue), 1);
+            //        }
+            //    }
+            //}
+            SelectedGuid = [];
+            var radio = document.getElementsByName('selectOnePageOrAllPage');
+            radio[0].checked = true;//Cho select page trở về mặt định
+        }
+    });
+
+
+    ////Không có ID nên lấy uid của girl để phân biệt
+    //function GetSelectGuiId() {
+    //    SelectedGuid = [];
+    //    var lstCheckBox = $("input[type=checkbox][class=checkboxGroups][id!=mastercheckbox]");
+    //
+    //    for (var i = 0; i < lstCheckBox.length; i++) {
+    //        if (lstCheckBox[i].checked == true) {
+    //            SelectedGuid.push(lstCheckBox[i].parentNode.parentNode.attributes["data-uid"].value);
+    //        }
+    //    }
+    //}
+    //Do Page này không có id nên lấy guid của row
+
+    function changePageGirdOT() {
+
+        // Lấy mã màu khi vượt mức
+        $.ajax({
+            type: "POST",
+            url: '@_hrm_Sys_Service' + "Sys_GetData/GetColorConfig",
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                debugger;
+                var color1 = data.Level1 != "" ? data.Level1 : 'white';
+                var color2 = data.Level2 != "" ? data.Level2 : 'white';
+                var color3 = data.Level3 != "" ? data.Level3 : 'white';
+
+                var field1 = ["Valid", "", 'white', 'black', "="];
+                var field2 = ["Valid", "Level1", color1, 'red', "="];
+                var field3 = ["Valid", "Level2", color2, 'red', "="];
+                var field4 = ["Valid", "Level3", color3, 'red', "="];
+                var field = [field1, field2, field3, field4];
+                SetRowColor('gridAtt_ComputeOvertime', field);
+
+
+                $('#mastercheckbox').prop('checked', false);
+                var result = $("input[type=checkbox][id!=mastercheckbox][class=checkboxGroups]");
+                for (var i = 0; i < result.length; i++) {
+                    if (SelectedGuid.indexOf(result[i].parentNode.parentNode.attributes["data-uid"].value) != -1) {
+                        result[i].checked = true;
+                    }
+                }
+            },
+            error: function () {
+                ShowNotificationProcessor("Error, Không Có Dữ Liệu Cấu Hình Màu Vượt Mức !");//Chưa Dịch
+            },
+        });
+
+
+    };
+
+    function onCancelChange() {
+        var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+        grid.cancelChanges();
+    }
+
+    // Xử lý saveChange trên lưới
+    function onSaveChange(e) {
+
+        var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid"),
+            parameterMap = grid.dataSource.transport.parameterMap;
+
+        //get the new and the updated records
+        var currentData = grid.dataSource.data();
+        var updatedRecords = [];
+        var totalRecords = [];
+
+        for (var i = 0; i < currentData.length; i++) {
+            totalRecords.push(currentData[i].toJSON());
+            if (currentData[i].dirty) {
+                updatedRecords.push(currentData[i].toJSON());
+            }
+        }
+        ////this records are deleted
+        //var deletedRecords = [];
+        //for (var i = 0; i < grid.dataSource._destroyed.length; i++) {
+        //    deletedRecords.push(grid.dataSource._destroyed[i].toJSON());
+        //}
+
+        if (updatedRecords.length > 0) {
+
+            var data = {};
+            $.extend(data, parameterMap({ totalRecord: totalRecords }), parameterMap({ models: updatedRecords }));
+
+
+            //var currentData = [];
+            //
+            //var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+            //parameterMap = grid.dataSource.transport.parameterMap;
+            //var currentSource = grid.dataSource.data();
+            //
+            //var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid").dataSource,
+            //dataSource = grid.data();
+            //var updatedRecords = dataSource;
+            //if (grid.hasChanges) {
+            //    for (var i = 0; i < dataSource.length; i++) {
+            //
+            //        if (dataSource[i].dirty == false)
+            //        {
+            //            var qwe = "";
+            //
+            //            delete updatedRecords[i];
+            //        }
+            //    }
+            //}
+            ////Map record
+            //
+            //var data = {};
+            //$.extend(data, parameterMap({ totalRecord: currentSource, models: updatedRecords }));
+
+            ShowHre_ProgressBar();
+
+
+            $.ajax({
+                url: '@_hrm_Main_Web' + "Att_ComputeOvertime/Create",
+                data: data,
+                type: "POST",
+                async: false,
+                error: function () {
+                    ShowNotificationProcessor("Lỗi, Thử Lại Sau !");//Chưa Dịch
+                },
+                success: function (dataReturn) {
+
+                    var gridComputeOvertime = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+                    var coData = dataReturn.Data.length;
+                    for (var i = 0; i < coData; i++) {
+                        var inTime = kendo.parseDate(dataReturn.Data[i].InTime);
+                        var outTime = kendo.parseDate(dataReturn.Data[i].OutTime);
+                        var workDate = kendo.parseDate(dataReturn.Data[i].WorkDate);
+                        dataReturn.Data[i].InTime = inTime;
+                        dataReturn.Data[i].OutTime = outTime;
+                        dataReturn.Data[i].WorkDate = workDate;
+                    }
+
+                    gridComputeOvertime.dataSource.data(dataReturn.Data);
+                    gridComputeOvertime.refresh();
+                }
+            });
+        }
+        CloseHre_ProgressBar();
+    }
+
+    //[Hien.Nguyen] save all item in grid
+    function btnSave() {
+        var _userApproved = $("#UserApproved").val();
+        var methodMayment = $("#mls_methodPayment").val();
+        var status = $("#mls_status").val();
+        var HouseTimeOff = "";
+        var TimeRegister = "";
+
+        var updatedRecords = [];
+        var newRecords = [];
+        var currentData = [];
+
+        var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+        parameterMap = grid.dataSource.transport.parameterMap;
+        var currentSource = grid.dataSource.data();
+
+
+
+
+        if (status == null) {
+            ShowNotificationProcessor("Chưa Chọn Trạng Thái !");//Chưa Dịch
+            return;
+        }
+
+        if (methodMayment == null) {
+            ShowNotificationProcessor("Chưa Chọn Phương Thức Thanh Toán !");//Chưa Dịch
+            return;
+        }
+
+        if (_userApproved == null) {
+            ShowNotificationProcessor("Chưa Chọn Người Duyệt !");//Chưa Dịch
+            return;
+        }
+
+        if (currentSource.length <= 0 || SelectedGuid.length <= 0) {
+            ShowNotificationProcessor("Chưa Có Dữ Liệu !");//Chưa Dịch
+            return;
+        }
+
+
+
+        //Do dữ liệu tổng hợp không có id để phân biệt nên lấy Guid của grid để phân biệt
+        //GetSelectGuiId();
+
+        //Xử lý data khi select row
+        var pageIndex = grid.dataSource.page() - 1;//Xác định số trang đang đứng
+        var radio = document.getElementsByName('selectOnePageOrAllPage');
+
+        if (radio[0].checked) {//nếu chọn check one page thì chỉ kiểm tra các dòng trong page tương ứng đang selected
+            for (var i = 0; i < currentSource.length; i++) {
+                if (i >= currentSource.length)//Xử lý khi đang ở trang cuối mà số dòng không đủ 50
+                    break;
+                if (SelectedGuid.indexOf(currentSource[i].uid) != -1) {
+                    currentData.push(currentSource[i]);
+                }
+            }
+        }
+        else {//Nếu chọn all page thì kiểm tra tất cả các dữ liệu
+            for (var i = 0; i < currentSource.length; i++) {
+                if (i >= currentSource.length)//Xử lý khi đang ở trang cuối mà số dòng không đủ 50
+                    break;
+                if (SelectedGuid.indexOf(currentSource[i].uid) != -1) {
+                    currentData.push(currentSource[i]);
+                }
+            }
+        }
+        radio[0].checked = true;
+
+
+        //Validate khi chọn loại là vừa trả tiền vừa nghỉ bù
+        if (methodMayment == "E_CASHOUT_TIMEOFF") {//Lưu một nhân viên
+
+            //Kiểm tra các null số giờ
+            if ($("#timeRegister").val() == "") {
+                ShowNotificationProcessor("Quy Đổi Giờ Tăng Ca Trả Tiền Chưa Đúng !");//Chưa Dịch
+                return;
+            }
+            if ($("#hourToTimeOff").val() == "") {
+                ShowNotificationProcessor("Quy Đổi Giờ Tăng Ca Nghỉ Bù Chưa Đúng !");//Chưa Dịch
+                return;
+            }
+
+            if (currentData.length != 1) {
+                ShowNotificationProcessor("Phương Thức TT Trả Tiền Và Nghỉ Bù Chỉ Duyệt Khi Chọn Duy Nhất 1 Dòng  !");//Chưa Dịch
+                return;
+            }
+            else {
+                for (var i = 0; i < currentData.length; i++) {
+                    if (SelectedGuid[0] == currentData[i].uid) {
+                        // currentData[i].Status = $("#mls_status").val() != "" ? $("#mls_status").val() : currentData[i].Status;
+                        // currentData[i].MethodPayment = $("#mls_methodPayment").val() != "" ? $("#mls_methodPayment").val() : currentData[i].MethodPayment;
+                        // currentData[i].ReasonOT = $("#Att_ReasonOT").val();
+                        // currentData[i].UserApproveID = _userApproved.join(',');
+                        //// currentData[i].RegisterHours = $("#registerHours").val();
+
+                        // currentData[i].TimeRegister = $("#timeRegister").val() == "" ? 0 : $("#timeRegister").val();
+                        // currentData[i].HourToTimeOff = $("#hourToTimeOff").val() == "" ? 0 : $("#hourToTimeOff").val();
+
+                        updatedRecords.push(currentData[i].toJSON());
+                        break;
+                    }
+                }
+            }
+            TimeRegister = $("#timeRegister").val();
+            HouseTimeOff = $("#hourToTimeOff").val();
+        }
+        else {//Lưu toàn bộ nhân viên
+            if ($("#timeRegister").val() != "") {
+                for (var i = 0; i < currentData.length; i++) {
+                    //currentData[i].Status = $("#mls_status").val() != "" ? $("#mls_status").val() : currentData[i].Status;
+                    //currentData[i].MethodPayment = $("#mls_methodPayment").val() != "" ? $("#mls_methodPayment").val() : currentData[i].MethodPayment;
+                    //currentData[i].ReasonOT = $("#Att_ReasonOT").val();
+                    //currentData[i].UserApproveID = _userApproved.join(',');
+                    //currentData[i].RegisterHours = $("#timeRegister").val();
+
+                    TimeRegister = $("#timeRegister").val();
+
+                    updatedRecords.push(currentData[i].toJSON());
+                }
+            }
+            else if ($("#hourToTimeOff").val() != "") {
+                for (var i = 0; i < currentData.length; i++) {
+                    //currentData[i].Status = $("#mls_status").val() != "" ? $("#mls_status").val() : currentData[i].Status;
+                    //currentData[i].MethodPayment = $("#mls_methodPayment").val() != "" ? $("#mls_methodPayment").val() : currentData[i].MethodPayment;
+                    //currentData[i].ReasonOT = $("#Att_ReasonOT").val();
+                    //currentData[i].UserApproveID = _userApproved.join(',');
+                    //currentData[i].RegisterHours = $("#hourToTimeOff").val();
+
+                    HouseTimeOff = $("#hourToTimeOff").val();
+
+                    updatedRecords.push(currentData[i].toJSON());
+                }
+            }
+            else {
+                //Không cập nhật giờ đăng ký khi không nhập giờ đăng ký
+                for (var i = 0; i < currentData.length; i++) {
+                    //currentData[i].Status = $("#mls_status").val() != "" ? $("#mls_status").val() : currentData[i].Status;
+                    //currentData[i].MethodPayment = $("#mls_methodPayment").val() != "" ? $("#mls_methodPayment").val() : currentData[i].MethodPayment;
+                    //currentData[i].ReasonOT = $("#Att_ReasonOT").val();
+                    //currentData[i].UserApproveID = _userApproved.join(',');
+                    updatedRecords.push(currentData[i].toJSON());
+                }
+            }
+        }
+
+
+        //chưa có hướng giải quyết nên đưa dữ liệu lên  cách này [hien.nguyen]
+        var Options = [status, methodMayment, TimeRegister, HouseTimeOff, $("#Att_ReasonOT").val(), _userApproved.join(","), $("#UserLoginId").val()];
+
+        //Map record
+        var data = {};
+        $.extend(data, parameterMap({ options: Options, models: updatedRecords }));
+
+        ShowHre_ProgressBar();
+
+        $.ajax({
+            url: '@_hrm_Hre_Service' + "Att_GetData/CreateComputeOvertime",
+            data: data,
+            type: "POST",
+            async: false,
+            error: function () {
+                ShowNotificationProcessor("Lỗi, Thử Lại Sau !");//Chưa Dịch
+            },
+            success: function (data) {
+                if (data) {
+                    ShowNotificationProcessor("Lưu Thành Công");//Chưa Dịch*
+                }
+                else {
+                    ShowNotificationProcessor("Lỗi, Thử Lại Sau !");//Chưa Dịch
+                }
+                @*if (data[0] == "errorRegisterHours")
+                {
+                    ShowNotification('@Html.Raw(ConstantMessages.Notification.TranslateString())', "Số Giờ ĐK Vượt Mức Số Giờ ĐK Quy Định", "k-block k-info-colored");
+                    return;
+                }
+                ShowNotificationProcessor("Lưu Thành Công");//Chưa Dịch*@
+                //$("#gridAtt_ComputeOvertime").data("kendoGrid").refresh();
+            }
+        });
+
+        CloseHre_ProgressBar();
+
+    };
+
+
+
+
+    //Xử lý ẩn hiện các textbox số giờ
+    function ChangeMethodPayment(e) {
+
+
+        if (e.sender._selectedValue == "E_CASHOUT") {
+            //alert(e.sender._selectedValue);
+            $("#hourToTimeOff").data("kendoNumericTextBox").enable(false);
+            $("#hourToTimeOff").data("kendoNumericTextBox").value("");
+            $("#timeRegister").data("kendoNumericTextBox").enable(true);
+            return;
+            //document.getElementById("hourToTimeOff").disabled = true;
+            //$("#hourToTimeOff").disable=true;
+        }
+        else if (e.sender._selectedValue == "E_TIMEOFF") {
+            //alert(e.sender._selectedValue);
+            //$("#timeRegister").disable = true;
+            $("#hourToTimeOff").data("kendoNumericTextBox").enable(true);
+            $("#timeRegister").data("kendoNumericTextBox").enable(false);
+            $("#timeRegister").data("kendoNumericTextBox").value("");
+            return;
+            //document.getElementById("timeRegister").disabled = true;
+        }
+        else if (e.sender._selectedValue == "") {
+            //alert(e.sender._selectedValue);
+            //$("#timeRegister").disable = true;
+            $("#hourToTimeOff").data("kendoNumericTextBox").enable(false);
+            $("#timeRegister").data("kendoNumericTextBox").enable(false);
+            $("#timeRegister").data("kendoNumericTextBox").value("");
+            $("#hourToTimeOff").data("kendoNumericTextBox").value("");
+            return;
+            //document.getElementById("timeRegister").disabled = true;
+        }
+        $("#timeRegister").data("kendoNumericTextBox").enable(true);
+        $("#hourToTimeOff").data("kendoNumericTextBox").enable(true);
+    };
+
+
+    //Mở poup đăng ký nghỉ bù
+    function ChangeManualLeave() {
+        if (selectedIds.length == 1) {
+
+            var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+            var currentSource = grid.dataSource.data();
+
+            for (var i = 0; i < currentSource.length; i++) {
+                if (SelectedGuid.indexOf(currentSource[i].uid) != -1) {
+                    if (currentSource[i].udOvertimeStatus == 'Duyệt' || currentSource[i].udOvertimeStatus == 'E_APPROVED') {
+                        ShowNotificationProcessor("Vui Lòng Không Chọn Dữ Liệu Đã Duyệt !");//Chưa Dịch
+                        return;
+                    }
+                    break;
+                }
+            }
+            PopUpEdit('windowAtt_ChangeMethodOverTime_Manual_Leave', '@_hrm_Main_Web' + '/Att_Overtime/ChangeMethodOverTime_Manual_Leave/', selectedIds[0], "Đăng Ký Nghỉ Bù")//Chưa Dịch
+        }
+        else {
+            ShowNotificationProcessor("Phải chọn một nhân viên !");//Chưa Dịch
+        }
+    };
+
+    $("#btnExport").click(function () {
+
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var grid = $('#gridAtt_ComputeOvertime').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/GetComputeOvertimeList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = eventParaData(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_ComputeOvertime');
+        checkedNodes = [];
+    });
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hre_Service' + 'Att_GetData/GetComputeOvertimeList', filterFieldInfo(true));
+    });
+
+    $(document).ready(function () {
+        $("#MaximumOvertimeHour").attr('readonly', true);
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnComputeOvertime").click(function () {
+            var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Att_ComputeOvertime_Compute', false);
+            if (!isAccess) {
+                ShowNotificationProcessor(permissionNotAllow_Msg);
+                return;
+            }
+
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeOvertimeListValidate',
+                data: eventParaData(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+
+                        _typeFilter = 'Filter_All';
+
+                        var grid = $('#gridAtt_ComputeOvertime').data("kendoGrid");
+                        grid.dataSource.read();
+                        SelectedGuid = [];
+                    }
+                }
+            });
+        });
+        $("#btnComputeAll").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeOvertimeListValidate',
+                data: eventParaData(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        _typeFilter = 'Filter_All';
+
+                        var grid = $('#gridAtt_ComputeOvertime').data("kendoGrid");
+                        grid.dataSource.read();
+
+                        SelectedGuid = [];
+                    }
+                }
+            });
+        });
+        $("#btnComputeDataNotLimit").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeOvertimeListValidate',
+                data: eventParaData(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        _typeFilter = 'Filter_NotLimit';
+
+                        var grid = $('#gridAtt_ComputeOvertime').data("kendoGrid");
+                        grid.dataSource.read(); SelectedGuid = [];
+                    }
+                }
+            });
+        });
+        $("#btnComputeDataLimit").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hre_Service' + 'Att_GetData/GetComputeOvertimeListValidate',
+                data: eventParaData(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        _typeFilter = 'Filter_Limit';
+
+                        var grid = $('#gridAtt_ComputeOvertime').data("kendoGrid");
+                        grid.dataSource.read();
+                        SelectedGuid = [];
+                    }
+                }
+            });
+            @*$.ajax({
+                type: "POST",
+                url: '@_hrm_Hre_Service' + "Att_GetData/GetComputeOvertimeList_DataLimit",
+                data: eventParaData(false),
+                dataType: "json",
+                success: function (result) {
+                    var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+                    var dataSource = new kendo.data.DataSource({
+                        data: result.Data
+                    });
+                    grid.setDataSource(dataSource);
+                    grid.dataSource.read();
+                },
+                error: function (result) {
+                    alert(result.Id);
+                }
+            });*@
+        });
+
+
+        $("#btn4").click(function () {
+
+            if (SelectedGuid.length <= 0) {
+                ShowNotificationProcessor("Vui Lòng Chọn Nhân Viên !");//Chưa Dịch!
+                return;
+            }
+
+            var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentSource = grid.dataSource.data();
+            var currentData = [];
+
+            for (var i = 0; i < currentSource.length; i++) {
+                if (SelectedGuid.indexOf(currentSource[i].uid) != -1) {
+                    currentData.push(currentSource[i].toJSON());
+                }
+            }
+
+            var data = {};
+            $.extend(data, parameterMap({ models: currentData }));
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Att_GetData/CalNonAllowOvertime",
+                data: data,
+                type: "POST",
+                async: false,
+                error: function () {
+                    ShowNotificationProcessor("Lỗi, Thử Lại Sau !");//Chưa Dịch
+                },
+                success: function () {
+                    ShowNotificationProcessor("Lưu Thành Công");//Chưa Dịch
+                    //$("#gridAtt_ComputeOvertime").data("kendoGrid").refresh();
+                }
+            });
+
+        });
+
+        $("#btn5").click(function () {
+
+            if (SelectedGuid.length <= 0) {
+                ShowNotificationProcessor("Vui Lòng Chọn Nhân Viên !");//Chưa Dịch!
+                return;
+            }
+
+
+
+            var grid = $("#gridAtt_ComputeOvertime").data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentSource = grid.dataSource.data();
+            var currentData = [];
+
+            for (var i = 0; i < currentSource.length; i++) {
+                if (SelectedGuid.indexOf(currentSource[i].uid) != -1) {
+                    currentData.push(currentSource[i].toJSON());
+                }
+            }
+
+            var data = {};
+            $.extend(data, parameterMap({ models: currentData }));
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Att_GetData/CalAllowOvertime",
+                data: data,
+                type: "POST",
+                async: false,
+                error: function () {
+                    ShowNotificationProcessor("Lỗi, Thử Lại Sau !");//Chưa Dịch
+                },
+                success: function () {
+                    ShowNotificationProcessor("Lưu Thành Công");//Chưa Dịch
+                    //$("#gridAtt_ComputeOvertime").data("kendoGrid").refresh();
+                }
+            });
+
+        });
+
+
+        //$('input[type=radio]').change(function () {
+        //
+        //    if (this.checked) {
+        //        this.value = true;
+        //    } else {
+        //        this.value = false;
+        //    }
+        //});
+        $('input[type=checkbox]').change(function () {
+            if ($(this).is(':checked')) {
+                $(this).val('true');
+            } else {
+                $(this).val('false');
+            }
+        });
+    });
+
+    var para1 = $('#@Html.FieldIdFor(model => model.DefinitionOfShiftWork)');
+    var para2 = $('#@Html.FieldIdFor(model => model.isAllowGetOTOutterShift)');
+    var optionDiv = $("#selectOption :input");
+
+    para1.click(function () {
+        para2.prop("checked", false);
+        optionDiv.attr("disabled", true);
+        optionDiv.attr("checked", false);
+        para2.attr("value", false);
+        $("#isAllowGetOTOutterShift").val(false);
+        $("#isAllowGetBeforeShift").val(false);
+        $("#isAllowGetAfterShift").val(false);
+        $("#isAllowGetInShift").val(false);
+    });
+
+    para2.click(function () {
+        para1.prop("checked", false);
+        para1.prop("value", false);
+        optionDiv.attr("disabled", false);
+    });
+
+    $("#Att_ComputeWorkdayAdjust").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeWorkdayAdjust/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_ComputeLeaveLateEarly").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_ComputeLeaveLateEarly/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    $("#Att_OvertimeConfirm").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_OvertimeConfirm/Index/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    $("#RegisterManualLeave").change(function () {
+        var button = $("#btnChangeManualLeave").data("kendoButton");
+        // disable button
+
+
+        if (this.checked) {
+            button.enable(true);
+        }
+        else {
+            button.enable(false);
+        }
+
+    });
+
+</script>
+<style type="text/css">
+    .VnrBoxLeft {
+        width: 520px;
+        float: left;
+        padding: 0px;
+        margin: 0px;
+        margin-bottom: 5px;
+    }
+
+
+    .VnrBoxRight {
+        float: left;
+        padding: 0px;
+        margin: 0px;
+        margin-bottom: 5px;
+    }
+</style>
+
+
+@using (Html.BeginForm())
+{
+    <style>
+        .breadcrumb {
+            float: left;
+        }
+    </style>
+
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div>
+                    <h3 style="height:28px">
+                        <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                        <div style=" width:100%">
+                            <div>
+                                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                                <div style="float: right; margin-top: -3px">
+                                    <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                    <a id="Att_ComputeWorkdayAdjust">
+                                        @Html.Label(ConstantDisplay.HRM_Attendance_ComputeWorkdayAdjust.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                    </a>
+
+                                    <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                    <a id="Att_ComputeLeaveLateEarly">
+                                        @Html.Label(ConstantDisplay.HRM_Attendance_ComputeLeaveLateEarly.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                    </a>
+
+                                    <img src="@ConstantPath.IconBreadcrumbPath" alt="" width="9" height="23" />
+                                    <a id="Att_OvertimeConfirm">
+                                        @Html.Label(ConstantDisplay.HRM_Attendance_OvertimeConfirm.TranslateString(), new { style = "color:#999999; cursor:pointer; margin-top:5px;" })
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </h3>
+                </div>
+
+                <!--Bất đầu nôi dung tìm kiếm-->
+                <div class="contendSearchWidge" style="width: 100%">
+                    <div class="VnRMain">
+                        <fieldset>
+                            <legend>
+                                @ConstantDisplay.HRM_Attendance_ComputeWorkDay_ComputeCondition.TranslateString()
+                            </legend>
+
+                            <div style="float:left; width:100%">
+
+                                <div class="VnrBoxLeft">
+                                    <div>
+                                        <div class="FieldTitle170">
+                                            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_ComputeWorkDay_OvertimeHour.TranslateString())
+                                        </div>
+                                        <div class="FieldValue">
+                                            <div>@Html.VnrRadioButtonFor(mode => mode.DefinitionOfShiftWork)@Html.VnrLabelFor(mode => mode.DefinitionOfShiftWork)</div>
+                                            <div>@Html.VnrRadioButtonFor(mode => mode.isAllowGetOTOutterShift)@Html.VnrLabelFor(mode => mode.isAllowGetOTOutterShift)</div>
+                                            <div id="selectOption" style="padding-left: 25px;">
+                                                <div style="float: left;">
+                                                    @{
+    var isAllowGetBeforeShift = new CheckBoxBuilderInfo() { };
+                                                    }
+                                                    @Html.VnrCheckBoxFor(mode => mode.isAllowGetBeforeShift, isAllowGetBeforeShift)
+                                                    @Html.VnrLabelFor(mode => mode.isAllowGetBeforeShift)
+                                                </div>
+                                                <div style="float: left; padding-left:15px">
+                                                    @{
+    var isAllowGetAfterShift = new CheckBoxBuilderInfo() { };
+                                                    }
+                                                    @Html.VnrCheckBoxFor(mode => mode.isAllowGetAfterShift, isAllowGetAfterShift)
+                                                    @Html.VnrLabelFor(mode => mode.isAllowGetAfterShift)
+                                                </div>
+
+                                                <div style="float: left; padding-left: 15px">
+                                                    @{
+    var isAllowGetInShift = new CheckBoxBuilderInfo() { };
+                                                    }
+                                                    @Html.VnrCheckBoxFor(mode => mode.isAllowGetInShift, isAllowGetInShift)
+                                                    @Html.VnrLabelFor(mode => mode.isAllowGetInShift)
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle170">
+                                            @Html.VnrLabelFor(mode => mode.MininumOvertimeHour)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var nmrMinOvertime = new NumericTextBoxBuilderInfo<double>
+    {
+        StyleCss = "width:60px",
+        Value = 0.5,
+        Format = "0.0"
+    };
+                                            }
+                                            @Html.VnrNumericTextBoxFor(mode => mode.MininumOvertimeHour, nmrMinOvertime)
+                                        </div>
+
+                                        <div class="FieldValue" id="configMaxOT" style="font-size: 12px; font-weight: bold; margin: 6px 0 0 16px; width: 180px">
+                                            @Html.VnrLabelFor(mode => mode.MaximumOvertimeHour)
+                                        </div>
+                                        <div class="FieldValue" id="formulaMaxOT" style="margin-top:2px">
+                                            @{
+    var nmrMaximumOvertimeHour = new NumericTextBoxBuilderInfo<double>
+    {
+        StyleCss = "width:60px; disable: true",
+        Value = 12,
+        Format = "0.0",
+    };
+                                            }
+                                            @Html.VnrNumericTextBoxFor(mode => mode.MaximumOvertimeHour, nmrMaximumOvertimeHour)
+                                        </div>
+
+
+
+                                        <div style="clear: both;"></div>
+                                    </div>
+
+                                </div>
+                                <div class="VnrBoxRight" style="border:1px black thin;">
+                                    <div>
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabel(ConstantDisplay.HRM_Attendance_Overtime_OvertimeTypeTimeOffRateLit.TranslateString())
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrRadioButtonFor(mode => mode.isAllowGetTypeBaseOnActualDate, "groupRadioComputeOvertim")
+
+                                            @Html.VnrLabelFor(mode => mode.isAllowGetTypeBaseOnActualDate)
+
+                                            <div style="clear: both;"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle">
+
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrRadioButtonFor(mode => mode.isAllowGetTypeBaseOnBeginShift, "groupRadioComputeOvertim")
+                                            @Html.VnrLabelFor(mode => mode.isAllowGetTypeBaseOnBeginShift)
+                                            <div style="clear: both;"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle">
+
+                                        </div>
+                                        <div class="FieldValue">
+                                            @Html.VnrRadioButtonFor(mode => mode.isAllowGetTypeBaseOnEndShift, "groupRadioComputeOvertim")
+                                            @Html.VnrLabelFor(mode => mode.isAllowGetTypeBaseOnEndShift)
+                                            <div style="clear: both;"></div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabel(ConstantDisplay.HRM_Category_Shift_IsNightShift.TranslateString())
+                                        </div>
+                                        <div class="FieldValue">
+                                            @*@{
+                                                var _isAllowGetNightShift = new CheckBoxBuilderInfo()
+                                                {
+                                                    Value = true
+                                                };
+                                                                                        }
+                                                                                        @Html.VnrCheckBoxFor(mode => mode.isAllowGetNightShift, _isAllowGetNightShift)
+                                                                                        @Html.VnrLabelFor(mode => mode.isAllowGetNightShift)*@
+                                            @Html.VnrRadioButtonFor(mode => mode.isNotAllowGetNightShift, "groupNightShift")
+                                            @Html.VnrLabelFor(mode => mode.isNotAllowGetNightShift)
+                                            @Html.VnrRadioButtonFor(mode => mode.isAllowGetNightShift, "groupNightShift")
+                                            @Html.VnrLabelFor(mode => mode.isAllowGetNightShift)
+
+                                            <div style="clear: both;"></div>
+                                        </div>
+
+                                    </div>
+                                </div>
+
+                            </div>
+
+                        </fieldset>
+
+                        <fieldset>
+                            <legend>
+                                @ConstantDisplay.HRM_Attendance_ComputeWorkDay_ComputeData.TranslateString()
+                            </legend>
+
+                            <div style="float:left; width:100%">
+                                <div class="VnrBoxLeft">
+                                    <div>
+                                        <div class="FieldTitle170">
+                                            @Html.VnrLabelFor(mode => mode.DateFrom)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var dtDateFrom = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+        Value = new DateTime(DateTime.Now.Year, DateTime.Now.Month, 1).ToString()
+    };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.DateFrom, dtDateFrom)
+
+                                            @{
+    var dtDateTo = new DatePickerBuilderInfo()
+    {
+        StyleCss = "width:100px;",
+        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+        Value = DateTime.Now.ToString()
+    };
+                                            }
+                                            @Html.VnrDatePickerFor(model => model.DateTo, dtDateTo)
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div id="div2">
+                                        <div class="FieldTitle170">
+                                            @Html.VnrLabelFor(mode => mode.ProfileID)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var multiSelectProfileID = new MultiSelectBuilderInfo()
+    {
+        DataTextField = "ProfileName",
+        DataValueField = "ID",
+        Url = _hrm_Hre_Service + "HrMultiSelect/GetMultiProfile",
+        Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+    };
+                                            }
+                                            @Html.VnrMultiSelectFor(mode => mode.ProfileID, multiSelectProfileID)
+
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                </div>
+                                <div class="VnrBoxRight">
+
+                                    <div>
+                                        <div class="FieldTitle">
+                                            @Html.VnrLabelFor(model => model.Type)
+                                        </div>
+                                        <div class="FieldValue">
+                                            @{
+    var _type = new MultiSelectBuilderInfo()
+    {
+        Name = "msl_Type",
+        DataTextField = "Text",
+        DataValueField = "Value",
+        BindTo = listComputeOvertimeType,
+        Placeholder = ConstantDisplay.HRM_Attendance_SelectType.TranslateString(),
+    };
+                                            }
+                                            @Html.VnrMultiSelectFor(model => model.Type, _type)
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+                                    <div>
+                                        <div>
+                                            <div class="FieldTitle">
+                                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                                            </div>
+                                            <div class="FieldValue">
+                                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                                            </div>
+                                        </div>
+                                        <div style="clear: both;"></div>
+                                    </div>
+
+
+                                </div>
+
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+}
+<div class="commandToolBarWidge">
+    <div style="float:left">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeOvertime", Content = ConstantAction.HRM_Common_Compute.TranslateString(), ImageUrl = ConstantPath.IconComputePath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeAll", Content = ConstantAction.HRM_Common_Filter_All.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeDataNotLimit", Content = ConstantAction.HRM_Common_Filter_DataNotLimit.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnComputeDataLimit", Content = ConstantAction.HRM_Common_Filter_DataLimit.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btn4", Content = ConstantAction.HRM_Common_NoCalculateOvertime.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btn5", Content = ConstantAction.HRM_Common_AllowCalculateOvertime.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    </div>
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hre_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_Export.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+
+    </div>
+    <div class="clear"></div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        //  IList<SelectListItem> paymenMethod = Enum.GetValues(typeof(EnumDropDown.MethodPayment))
+        //.Cast<EnumDropDown.MethodPayment>()
+        //.Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        //.ToList();
+
+        IList<SelectListItem> overtimeStatus = Enum.GetValues(typeof(EnumDropDown.OverTimeStatus))
+        .Cast<EnumDropDown.OverTimeStatus>()
+        .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+        .ToList();
+
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+          //  {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+             {"ShiftID",new object[] { "ID", "ShiftName", ViewData["Cat_Shift"], ConstantDisplay.HRM_Attendance_Overtime_ShiftID,""}},
+              {"udLeaveTypeCode",new object[] { "Code", "Code",  ViewData["Cat_LeaveDayType"], ConstantDisplay.HRM_Attendance_udLeaveTypeCode,""}},
+            {"udOvertimeStatus",new object[] { "Value", "Text", overtimeStatus, ConstantDisplay.HRM_Attendance_udOvertimeStatus,""}},
+            //{"MethodPayment",new object[] { "Value", "Text", paymenMethod, ConstantDisplay.HRM_Attendance_Overtime_MethodPayment,""}},
+            {"OvertimeTypeID",new object[] { "ID", "OvertimeTypeName",  ViewData["Cat_OvertimeType"], ConstantDisplay.HRM_Attendance_Overtime_OvertimeTypeID,""}},
+            //{"UserApproveID",new object[] { "ID", "UserInfoName",  ViewData["Sys_UserInfo"], ConstantDisplay.HRM_Attendance_Overtime_UserApproveID,""}},
+            //{"UserApproveID2",new object[] { "ID", "UserInfoName",  ViewData["Sys_UserInfo"], ConstantDisplay.HRM_Attendance_Overtime_UserApproveID2,""}},
+        };
+
+        valueFields = new string[]
+            {
+                Att_OvertimeModel.FieldNames.ProfileID,
+                Att_OvertimeModel.FieldNames.CodeEmp,
+                Att_OvertimeModel.FieldNames.ProfileName,
+                Att_OvertimeModel.FieldNames.WorkDate,
+                Att_OvertimeModel.FieldNames.InTime,
+                Att_OvertimeModel.FieldNames.TempTimeIn,
+                Att_OvertimeModel.FieldNames.OutTime,
+                Att_OvertimeModel.FieldNames.TempTimeOut,
+                Att_WorkdayModel.FieldNames.ShiftID,
+                Att_OvertimeModel.FieldNames.OvertimeTypeID,
+                //Att_OvertimeModel.FieldNames.RegisterHours,
+                Att_OvertimeModel.FieldNames.AnalyseHour,
+                Att_OvertimeModel.FieldNames.ApproveHours,
+                Att_OvertimeModel.FieldNames.udHourByDate,
+                //Att_OvertimeModel.FieldNames.udHourByWeek,
+                Att_OvertimeModel.FieldNames.udHourByMonth,
+                Att_OvertimeModel.FieldNames.udHourByYear,
+                Att_OvertimeModel.FieldNames.udLeaveTypeCode,
+                Att_OvertimeModel.FieldNames.udOvertimeStatus,
+                Att_OvertimeModel.FieldNames.Valid,
+            };
+
+        var sizeFields = new Dictionary<string, int>()
+            {
+                {Att_OvertimeModel.FieldNames.CodeEmp, 70},
+                {Att_OvertimeModel.FieldNames.ProfileName, 135},
+                {Att_WorkdayModel.FieldNames.ShiftID,85},
+                {Att_OvertimeModel.FieldNames.WorkDate, 85},
+                {Att_OvertimeModel.FieldNames.InTime, 85},
+                {Att_OvertimeModel.FieldNames.TempTimeIn, 65},
+                {Att_OvertimeModel.FieldNames.OutTime, 85},
+                {Att_OvertimeModel.FieldNames.TempTimeOut, 65},
+                {Att_OvertimeModel.FieldNames.OvertimeTypeID, 92},
+                {Att_OvertimeModel.FieldNames.AnalyseHour, 95},
+                {Att_OvertimeModel.FieldNames.ApproveHours, 83},
+                //{Att_OvertimeModel.FieldNames.RegisterHours, 83},
+                {Att_OvertimeModel.FieldNames.udHourByDate , 100},
+                //{Att_OvertimeModel.FieldNames.udHourByWeek , 100},
+                {Att_OvertimeModel.FieldNames.udHourByMonth, 110},
+                {Att_OvertimeModel.FieldNames.udHourByYear , 100},
+                {Att_OvertimeModel.FieldNames.udLeaveTypeCode , 82},
+                {Att_OvertimeModel.FieldNames.udOvertimeStatus, 100},
+            };
+
+        var displayFields = new Dictionary<string, string>()
+            {
+                {Att_OvertimeModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                {Att_OvertimeModel.FieldNames.ProfileName, ConstantDisplay.HRM_Attendance_Overtime_ProfileName},
+                {Att_WorkdayModel.FieldNames.ShiftID,ConstantDisplay.HRM_Attendance_WorkDay_ShiftID},
+                {Att_OvertimeModel.FieldNames.WorkDate, ConstantDisplay.HRM_Attendance_Overtime_WorkDate},
+                {Att_OvertimeModel.FieldNames.InTime, ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Date},
+                {Att_OvertimeModel.FieldNames.TempTimeIn, ConstantDisplay.HRM_Attendance_WorkDay_FirstInTime_Time},
+                {Att_OvertimeModel.FieldNames.OutTime, ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Date},
+                {Att_OvertimeModel.FieldNames.TempTimeOut, ConstantDisplay.HRM_Attendance_WorkDay_LastOutTime_Time},
+                {Att_OvertimeModel.FieldNames.OvertimeTypeID, ConstantDisplay.HRM_Attendance_Overtime_OvertimeTypeID},
+                {Att_OvertimeModel.FieldNames.AnalyseHour, ConstantDisplay.HRM_Attendance_Overtime_AnalyseHour},
+                {Att_OvertimeModel.FieldNames.ApproveHours, ConstantDisplay.HRM_Attendance_Overtime_ApproveHours},
+                //{Att_OvertimeModel.FieldNames.RegisterHours, ConstantDisplay.HRM_Attendance_Overtime_RegisterHours},
+                {Att_OvertimeModel.FieldNames.udHourByDate    , ConstantDisplay.HRM_Attendance_udHourByDate    },
+                //{Att_OvertimeModel.FieldNames.udHourByWeek    , ConstantDisplay.HRM_Attendance_udHourByWeek    },
+                {Att_OvertimeModel.FieldNames.udHourByMonth   , ConstantDisplay.HRM_Attendance_udHourByMonth   },
+                {Att_OvertimeModel.FieldNames.udHourByYear    , ConstantDisplay.HRM_Attendance_udHourByYear    },
+                {Att_OvertimeModel.FieldNames.udLeaveTypeCode , ConstantDisplay.HRM_Attendance_udLeaveTypeCode },
+                {Att_OvertimeModel.FieldNames.udOvertimeStatus, ConstantDisplay.HRM_Attendance_udOvertimeStatus},
+            };
+
+
+        var disableFields = new string[]
+            {
+                Att_OvertimeModel.FieldNames.CodeEmp,
+                Att_OvertimeModel.FieldNames.ProfileName,
+                Att_OvertimeModel.FieldNames.ShiftID,
+                Att_OvertimeModel.FieldNames.WorkDate,
+                Att_OvertimeModel.FieldNames.InTime,
+                Att_OvertimeModel.FieldNames.TempTimeIn,
+                Att_OvertimeModel.FieldNames.OutTime,
+                Att_OvertimeModel.FieldNames.TempTimeOut,
+                Att_OvertimeModel.FieldNames.AnalyseHour,
+                Att_OvertimeModel.FieldNames.OvertimeTypeID,
+                Att_OvertimeModel.FieldNames.udHourByDate,
+                //Att_OvertimeModel.FieldNames.udHourByWeek,
+                Att_OvertimeModel.FieldNames.udHourByMonth,
+                Att_OvertimeModel.FieldNames.udHourByYear,
+                Att_OvertimeModel.FieldNames.udLeaveTypeCode,
+                Att_OvertimeModel.FieldNames.udOvertimeStatus,
+            };
+
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+            {
+                {Att_OvertimeModel.FieldNames.InTime,ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_OvertimeModel.FieldNames.OutTime,ConstantFormat.HRM_Format_DayMonthYear},
+                {Att_OvertimeModel.FieldNames.TempTimeIn,ConstantFormat.HRM_Format_HourMinSecond},
+                {Att_OvertimeModel.FieldNames.TempTimeOut,ConstantFormat.HRM_Format_HourMinSecond},
+                {Att_OvertimeModel.FieldNames.AnalyseHour,ConstantFormat.HRM_Format_Number_Double},
+                {Att_OvertimeModel.FieldNames.ApproveHours,ConstantFormat.HRM_Format_Number_Double},
+                //{Att_OvertimeModel.FieldNames.RegisterHours,ConstantFormat.HRM_Format_Number_Double},
+                {Att_OvertimeModel.FieldNames.udHourByDate ,ConstantFormat.HRM_Format_Number_Double},
+                //{Att_OvertimeModel.FieldNames.udHourByWeek ,ConstantFormat.HRM_Format_Number_Double},
+                {Att_OvertimeModel.FieldNames.udHourByMonth,ConstantFormat.HRM_Format_Number_Double},
+                {Att_OvertimeModel.FieldNames.udHourByYear ,ConstantFormat.HRM_Format_Number_Double},
+            };
+
+        var hiddenField = new string[]
+            {
+                Att_OvertimeModel.FieldNames.ProfileID,
+                Att_OvertimeModel.FieldNames.Valid,
+                Att_OvertimeModel.FieldNames.OvertimeTypeID,
+            };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ComputeOvertime",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            DisableFields = disableFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetComputeOvertimeList",
+            CreateActionUrl = _hrm_Main_Web + "Att_ComputeOvertime/Create",
+            ForeignKey = foreignKey,
+            HiddenFields = hiddenField,
+            Batch = true,
+            ServerOperation = false,
+            ShowCustomSaveChanges = true,
+            EventCustomSaveChanges = "onSaveChange()",
+            EventCustomCancelChanges = "onCancelChange()",
+            CustomSaveChangesText = ConstantAction.HRM_Common_Cumulative.TranslateString(),
+            CustomCancelChangesText = ConstantAction.HRM_Common_CancelChanges.TranslateString(),
+            EditMode = GridEditMode.InCell,
+            ReadData = "eventParaData",
+            ShowEditIcon = false,
+            EvenEdit = "onEdit",
+            Navigatable = true,
+            EventDataBound = "changePageGirdOT"
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_OvertimeModel>(grid)
+    )
+</div>
+
+
+<div style="border: 1px solid #c5c5c5; border-top: 0px; padding: 0px; width: 100%; background-color: #F7F5F5">
+    <table cellpadding="2" cellspacing="2" style="border: 0px solid #c5c5c5; margin-top:0px; padding:5px;  height:60px">
+        <tr>
+            <td style="width:130px">
+                @Html.Label(ConstantDisplay.HRM_Attendance_Status.TranslateString(), new { style = "width:100px;" })
+            </td>
+            <td style="width:200px">
+                @{
+                    var _status = new DropDownListBuilderInfo()
+                    {
+                        Name = "mls_status",
+                        DataTextField = "Text",
+                        DataValueField = "Value",
+                        BindTo = computeOvertimeStatus,
+                        StyleCss = "width:160px",
+                        Value = Att_ComputeOvertimeStatus.E_SUBMIT.ToString()
+                        //Placeholder = ConstantDisplay.HRM_Attendance_Status.TranslateString()
+                    };
+                }
+                @Html.VnrDropDownList(_status)
+            </td>
+
+            <td style="width:180px">
+                <label>@Html.CheckBox(ConstantDisplay.HRM_Attendance_LeaveOffRegister.TranslateString(), new { id = "RegisterManualLeave" }) @ConstantDisplay.HRM_Attendance_LeaveOffRegister.TranslateString() </label>
+            </td>
+            <td style="width:130px">
+                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "ChangeManualLeave", Name = "btnChangeManualLeave", Content = ConstantAction.HRM_Common_ChangeMethodOvertimeLeave.TranslateString(), ImageUrl = ConstantPath.IconApprovePath }).Enable(false)@*//Chưa Dịch*@
+            </td>
+            <td style="width:180px"></td>
+            <td style="width:130px"></td>
+        </tr>
+        <tr>
+
+            <td class="">
+                @Html.Label(ConstantDisplay.HRM_Attendance_Overtime_MethodPayment.TranslateString(), new { style = "width:100px;" })
+            </td>
+            <td class="">
+                @{
+                    var _payment = new DropDownListBuilderInfo()
+                    {
+                        Name = "mls_methodPayment",
+                        DataTextField = "Text",
+                        DataValueField = "Value",
+                        BindTo = methodPayment,
+                        EventChange = "ChangeMethodPayment",
+                        StyleCss = "width:160px",
+                        //Placeholder = ConstantDisplay.HRM_Attendance_SelectType.TranslateString()
+                    };
+                }
+                @Html.VnrDropDownList(_payment)
+
+            </td>
+            <!--Tăng ca trả tiền-->
+            <td class="">
+                @Html.Label(ConstantDisplay.HRM_Attendance_Overtime_PaymentHours.TranslateString(), new { style = "width:150px;" })
+            </td>
+            <td class="">
+                @{
+                    var _timeRegister = new NumericTextBoxBuilderInfo<int>()
+                    {
+                        Name = "timeRegister",
+                        StyleCss = "width:80px;"
+                    };
+                }
+                @Html.VnrNumericTextBox(_timeRegister).Enable(false)
+            </td>
+
+            <!--Tăng ca nghỉ bù-->
+            <td class="">
+                @Html.Label(ConstantDisplay.HRM_Attendance_Overtime_OffHours.TranslateString(), new { style = "width:150px;" })
+            </td>
+            <td class="">
+                @{
+                    var _hourToTimeOff = new NumericTextBoxBuilderInfo<int>()
+                    {
+                        Name = "hourToTimeOff",
+                        StyleCss = "width:80px;",
+                    };
+                }
+                @Html.VnrNumericTextBox(_hourToTimeOff).Enable(false)
+            </td>
+
+        </tr>
+        <tr>
+            <!--Lý do-->
+
+            <td class="">
+                @Html.Label(ConstantDisplay.HRM_Attendance_Overtime_ReasonOT.TranslateString(), new { style = "width:100px;" })
+            </td>
+            <td colspan="8" class="">
+                @{
+                    var _area = new TextAreaBuilderInfo()
+                    {
+                        Name = "Att_ReasonOT",
+                        CssStyle = "width:770px;height:25px"
+                    };
+                }
+                @Html.VnrTextArea(_area)
+            </td>
+
+        </tr>
+        <tr>
+            <td>
+                @Html.Label(ConstantDisplay.HRM_Attendance_AttendanceTable_UserApprove.TranslateString(), new { style = "width:100px;" })
+            </td>
+            <td>
+                @{
+                    var multiSelectUserApprove = new MultiSelectBuilderInfo()
+                    {
+                        Name = "UserApproved",
+                        DataTextField = "UserInfoName",
+                        DataValueField = "ID",
+                        //Url = @_hrm_Hre_Service + "Sys_GetData/GetMultiUser",
+                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_OVERTIME.ToString(),
+                        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                        MaxSelectedItems = 1,
+                    };
+                }
+                @Html.VnrMultiSelect(multiSelectUserApprove).HtmlAttributes(new { style = "width:160px;" })
+            </td>
+            <td>
+                @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "btnSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+            </td>
+            <td></td>
+        </tr>
+    </table>
+</div>
+<br />
+<br />
+
+
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+
+

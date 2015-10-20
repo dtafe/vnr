@@ -1,0 +1,210 @@
+﻿@using HRM.Infrastructure.Utilities;
+@using HRM.Infrastructure.Security
+
+@using HRM.Presentation.Attendance.Models;
+@model HRM.Presentation.Attendance.Models.Att_AttendanceTableModel
+
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_Att_AttendanceTable.TranslateString();
+    Layout = "~/Views/Shared/_Layout.cshtml";
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+
+
+<script type="text/javascript">
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo() {
+        var _form = $('#form-search');
+        var queryEntity = _form.serialize();
+        var entity = queryStringToJSON(queryEntity);
+        return entity;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            var grid = $('#gridAtt_AttendanceTable').data("kendoGrid");
+            grid.dataSource.read();
+        });
+    });
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Att_AttendanceTable/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+    function eEditAttendanceTable(e) {
+        var dataItem = this.dataItem($(e.currentTarget).closest("tr"));
+        var id = dataItem.Id;
+        KendoRouteMapping('#Hrm_Main_Web/Att_AttendanceTable/Edit/' + id, 'Hrm_Main_Web', '@_hrm_Main_Web');
+    }
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#gridAtt_AttendanceTable').data("kendoGrid");
+        if (grid.dataSource.total() == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportAttendanceTableList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Att_AnalysysLeaveAndLateEarly');
+    });
+
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Att_GetData/ExportAttendanceTableSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Att_AnalysysLeaveAndLateEarly');
+    });
+
+    $(document).ready(function () {
+        //exapand
+        $(".panel-wrap").on("click", "span.k-i-arrowhead-s", function (e) {
+            var contentElement = $(e.target).closest(".widget").find(">div");
+            $(e.target)
+                .removeClass("k-i-arrowhead-s")
+                .addClass("k-i-arrowhead-n");
+
+            kendo.fx(contentElement).expand("vertical").stop().play();
+        });
+
+        //collapse
+        $(".panel-wrap").on("click", "span.k-i-arrowhead-n", function (e) {
+            var contentElement = $(e.target).closest(".widget").find(">div");
+            $(e.target)
+                .removeClass("k-i-arrowhead-n")
+                .addClass("k-i-arrowhead-s");
+
+            kendo.fx(contentElement).expand("vertical").stop().reverse();
+        });
+    });
+
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div id="div2">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(model => model.ProfileName)
+                    </div>
+                    <div class="FieldValue">
+                        @Html.VnrTextBoxFor(model => model.ProfileName)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), SpriteCssClass = "k-icon k-i-plus" })    
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), SpriteCssClass = "k-icon k-i-search" })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown" >
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+            Att_AttendanceTableModel.FieldNames.ProfileName,
+            Att_AttendanceTableModel.FieldNames.CutOffDurationName,
+            Att_AttendanceTableModel.FieldNames.MonthYear,
+            Att_AttendanceTableModel.FieldNames.DateStart,
+            Att_AttendanceTableModel.FieldNames.DateEnd,
+            Att_AttendanceTableModel.FieldNames.StdWorkDayCount,
+            Att_AttendanceTableModel.FieldNames.RealWorkDayCount,
+            Att_AttendanceTableModel.FieldNames.PaidWorkDayCount,
+            Att_AttendanceTableModel.FieldNames.HourPerDay,
+            Att_AttendanceTableModel.FieldNames.NightShiftHours,
+            Att_AttendanceTableModel.FieldNames.OTNightShiftHours,
+            Att_AttendanceTableModel.FieldNames.AnlDayTaken,
+            Att_AttendanceTableModel.FieldNames.AnlDayAvailable,
+            Att_AttendanceTableModel.FieldNames.LateEarlyDeductionHours
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_AttendanceTableModel.FieldNames.ProfileName,200},
+            {Att_AttendanceTableModel.FieldNames.CutOffDurationName,200},
+            {Att_AttendanceTableModel.FieldNames.MonthYear,150},
+            {Att_AttendanceTableModel.FieldNames.DateStart,150},
+            {Att_AttendanceTableModel.FieldNames.DateEnd,150},
+            {Att_AttendanceTableModel.FieldNames.StdWorkDayCount,200},
+            {Att_AttendanceTableModel.FieldNames.RealWorkDayCount,200},
+            {Att_AttendanceTableModel.FieldNames.PaidWorkDayCount,200},
+            {Att_AttendanceTableModel.FieldNames.HourPerDay,150},
+            {Att_AttendanceTableModel.FieldNames.NightShiftHours,200},
+            {Att_AttendanceTableModel.FieldNames.OTNightShiftHours,200},
+            {Att_AttendanceTableModel.FieldNames.AnlDayTaken,150},
+            {Att_AttendanceTableModel.FieldNames.AnlDayAvailable,150},
+            {Att_AttendanceTableModel.FieldNames.LateEarlyDeductionHours,200}
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_AttendanceTableModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_AttendanceTable_ProfileID},
+            {Att_AttendanceTableModel.FieldNames.CutOffDurationName,ConstantDisplay.HRM_Attendance_AttendanceTable_CutOffDurationID},
+            {Att_AttendanceTableModel.FieldNames.MonthYear,ConstantDisplay.HRM_Attendance_AttendanceTable_MonthYear},
+            {Att_AttendanceTableModel.FieldNames.DateStart,ConstantDisplay.HRM_Attendance_AttendanceTable_DateStart},
+            {Att_AttendanceTableModel.FieldNames.DateEnd,ConstantDisplay.HRM_Attendance_AttendanceTable_DateEnd},
+            {Att_AttendanceTableModel.FieldNames.StdWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_StdWorkDayCount},
+            {Att_AttendanceTableModel.FieldNames.RealWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_RealWorkDayCount},
+            {Att_AttendanceTableModel.FieldNames.PaidWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_PaidWorkDayCount},
+            {Att_AttendanceTableModel.FieldNames.HourPerDay,ConstantDisplay.HRM_Attendance_AttendanceTable_HourPerDay},
+            {Att_AttendanceTableModel.FieldNames.NightShiftHours,ConstantDisplay.HRM_Attendance_AttendanceTable_NightShiftHours},
+            {Att_AttendanceTableModel.FieldNames.OTNightShiftHours,ConstantDisplay.HRM_Attendance_AttendanceTable_OTNightShiftHours},
+            {Att_AttendanceTableModel.FieldNames.AnlDayTaken,ConstantDisplay.HRM_Attendance_AttendanceTable_AnlDayTaken},
+            {Att_AttendanceTableModel.FieldNames.AnlDayAvailable,ConstantDisplay.HRM_Attendance_AttendanceTable_AnlDayAvailable},
+            {Att_AttendanceTableModel.FieldNames.LateEarlyDeductionHours,ConstantDisplay.HRM_Attendance_AttendanceTable_LateEarlyDeductionHours}
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_AttendanceTable",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ShowCommand = true,
+            ShowEditButton = true,
+            ShowDeleteButton = true,
+            ShowCustomEdit = true,
+            EventCustomEdit = "eEditAttendanceTable",
+            DeleteActionUrl = "/Att_AttendanceTable/Remove/",
+            AutoBind = false,
+            ReadActionUrl = _hrm_Hre_Service + "Att_GetData/GetAttendanceTableList",
+            ReadData = "filterFieldInfo"
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<HRM.Presentation.Attendance.Models.Att_AttendanceTableModel>(grid))
+</div>
+
+
+

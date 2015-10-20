@@ -1,0 +1,359 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Attendance.Models.Att_ReportMonthlyTimeSheetModel
+
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    SetFieldRequired();
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExportDDL) {
+
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        var _shiftIDs = $('#@Html.FieldIdFor(model => model.ShiftIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ShiftIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ShiftIDs)').val();
+        var _payrollIDs = $('#@Html.FieldIdFor(model => model.PayrollIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.PayrollIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.PayrollIDs)').val();
+        var _workplace = $('#@Html.FieldIdFor(model => model.WorkPlaceIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.WorkPlaceIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.WorkPlaceIDs)').val();
+        var codeEmp = $('#@Html.FieldIdFor(model => model.CodeEmp)').val();
+        var elementPara = {
+            OrgStructureID: checkedNodes.join(','),
+            CutOffDurationID: $('#@Html.FieldIdFor(model => model.CutOffDurationID)').val(),
+            isIncludeQuitEmp: document.getElementById('@Html.FieldIdFor(model => model.isIncludeQuitEmp)').checked,
+            NoDisplay0Data: document.getElementById('@Html.FieldIdFor(model => model.NoDisplay0Data)').checked,
+            WorkPlaceIDs: _workplace,
+            ShiftIDs: _shiftIDs,
+            CodeEmp: codeEmp,
+            PayrollIDs: _payrollIDs,
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            isCreateTemplate = false;
+            isCreateTemplateForDynamicGrid = false;
+            
+
+            var grid = $('#gridAtt_ReportMonthlyHourFlightLocal').data("kendoGrid");
+            grid.dataSource.read();
+            return false;
+        });
+    });
+
+
+    $("#btnExport").click(function () {
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportMonthlyHourFlightLocal');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetReportMonthlyHourFlightLocal';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+    });
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportMonthlyHourFlightLocal', filterFieldInfo(true));
+    });
+
+</script>
+
+@Html.Hidden("valueFields")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <div>
+                    <div style="float:left; width:450px">
+                        <div id="div2">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(m => m.CutOffDurationID)
+                                @Html.HiddenFor(m => m.UserExport)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var cutOffDurationName = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "CutOffDurationName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                                        OptionLabel = ConstantDisplay.HRM_Att_SelectCutOffDuration.TranslateString(),
+                                        StyleCss = "width:200px;",
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(m => m.CutOffDurationID, cutOffDurationName))
+                            </div>
+                        </div>
+
+                        <div id="div6">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.CodeEmp)
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrTextBoxFor(model => model.CodeEmp)
+                            </div>
+                        </div>
+                        <div id="div77">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.ShiftIDs)
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _ShiftIDs = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "ShiftName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiShift",
+                                            Value = @Html.DisplayFor(mode => mode.ShiftID).ToString(),
+                                            Enable = true,
+                                            Placeholder = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.ShiftIDs, _ShiftIDs))
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: block; float: left; width: 600px">
+
+                        <div id="div7">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(mode => mode.PayrollIDs)
+                            </div>
+                            <div class="FieldValue">
+                                <div class="FieldValue">
+                                    @{
+                                        var _PayrollIDs = new MultiSelectBuilderInfo()
+                                        {
+                                            DataTextField = "PayrollGroupName",
+                                            DataValueField = "ID",
+                                            Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                            Value = @Html.DisplayFor(mode => mode.PayrollID).ToString(),
+                                            Enable = true,
+                                            Placeholder = @ConstantDisplay.HRM_Category_SelectShift.TranslateString()
+                                        };
+                                    }
+                                    @(Html.VnrMultiSelectFor(mode => mode.PayrollIDs, _PayrollIDs))
+                                </div>
+                            </div>
+                        </div>
+                        <div id="div7">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkPlaces = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        Value = @Html.DisplayFor(mode => mode.WorkPlaceID).ToString(),
+                                        Enable = true,
+                                        Placeholder = @ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString()
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.WorkPlaceIDs, _WorkPlaces))
+                            </div>
+
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var IsIncludeQuitEmp = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(model => model.isIncludeQuitEmp, IsIncludeQuitEmp) @Html.VnrLabelFor(mode => mode.isIncludeQuitEmp)
+                            </div>
+                        </div>
+                        <div id="div66">
+                            <div class="FieldTitle">
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _NoDisplay0Data = new CheckBoxBuilderInfo() { };
+                                }
+                                @Html.VnrCheckBoxFor(mode => mode.NoDisplay0Data, _NoDisplay0Data)@Html.VnrLabelForNoneIcon(model => model.NoDisplay0Data)
+
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+            Att_ReportMonthlyTimeSheetModel.FieldNames.CodeEmp,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.ProfileName,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.CodeOrg,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.StdWorkDayCount,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.RealWorkDayCount,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.PaidWorkDayCount,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayAvailable,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.NightShiftHours,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.LateEarlyDeductionHours,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayTaken,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.Note,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateFrom,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateTo,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.UserExport,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateExport,
+
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.CodeEmp,70},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.ProfileName,135},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.CodeOrg,100},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.StdWorkDayCount,128},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.RealWorkDayCount,136},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.PaidWorkDayCount,155},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayAvailable,140},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.NightShiftHours,104},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.LateEarlyDeductionHours,141},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayTaken,149},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.Note,150}
+
+    };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.CodeOrg,ConstantDisplay.HRM_Attendance_DepartmentCode},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.StdWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_StdWorkDayCount},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.RealWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_RealWorkDayCount},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.PaidWorkDayCount,ConstantDisplay.HRM_Attendance_AttendanceTable_PaidWorkDayCount},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayAvailable,ConstantDisplay.HRM_Attendance_AttendanceTable_AnlDayAvailable},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.NightShiftHours,ConstantDisplay.HRM_Attendance_AttendanceTable_NightShiftHours},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.LateEarlyDeductionHours,ConstantDisplay.HRM_Attendance_AttendanceTable_LateEarlyDeductionHours},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.AnlDayTaken,ConstantDisplay.HRM_Attendance_AttendanceTable_AnlDayTaken},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.Note,ConstantDisplay.HRM_Attendance_AttendanceTable_Note},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport},
+
+        };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+            {Att_ReportMonthlyTimeSheetModel.FieldNames.SickLeave,"{0:hh:mm:ss}"},
+        };
+        string[] hiddenFields = new string[]
+        {
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateFrom,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateTo,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.UserExport,
+            Att_ReportMonthlyTimeSheetModel.FieldNames.DateExport,
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportMonthlyHourFlightLocal",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportMonthlyHourFlightLocal",
+            ReadData = "filterFieldInfo",
+
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportMonthlyTimeSheetModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

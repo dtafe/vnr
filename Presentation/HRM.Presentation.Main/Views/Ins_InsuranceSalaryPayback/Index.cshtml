@@ -1,0 +1,401 @@
+﻿@using System.Collections
+
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Insurance.Models
+@using HRM.Infrastructure.Security
+@model Ins_InsuranceSalaryPaybackSearchModel
+@{
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    Layout = null;
+    var gridName = ConstantControlName.HRM_Ins_InsuranceSalaryPayback_Grid_Name;
+    var popupName =ConstantControlName.HRM_Ins_InsuranceSalaryPayback_PopUp_Name;   
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = popupName,
+        Visible = false,
+        Width = 750,
+        LoadContentFrom = @_hrm_Main_Web + "Ins_InsuranceSalaryPayback/InsurancePayBackInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+<script>
+    var gridName = '@gridName';
+    var popUpName = '@popupName';
+    var titleEditPopUpInsRecord = '@Html.Raw(ConstantDisplay.HRM_Ins_InsuranceSalaryPayback_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpInsRecord = '@Html.Raw(ConstantDisplay.HRM_Ins_InsuranceSalaryPayback_PopUp_Create_Title.TranslateString())';
+    SetFieldRequired();
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        //get ordernumber for orgtruc
+        var treeView = $("#OrgInsurance").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+
+        return {
+            MonthYear: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#MonthYear1").val()),
+            CodeEmp: $('#@Html.FieldIdFor(model => model.CodeEmp)').val(),
+            ProfileName: $('#@Html.FieldIdFor(model => model.ProfileName)').val(),            
+            OrgStructureID: checkedNodes.join(','),           
+            IsCallPayBack: $('#@Html.FieldIdFor(model => model.IsCallPayBack)').is(':checked'),         
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            //validate
+            var isactive = true;
+            $.ajax({
+                type: 'POST',
+                url: '@_Hrm_Hre_Service' + 'Ins_GetData/InsuranceSalaryPaybackValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                        isactive = false;
+                        return isactive;
+                    }
+                }
+            });
+            if (isactive == false) {
+                return;
+            }
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Ins_InsuranceSalaryPayback/InsurancePayBackInfo/";
+        EditGridPopUp(gridName, popUpName, url, '@ConstantPermission.Ins_InsuranceSalaryPayback', titleEditPopUpInsRecord);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        PopUpCreate('@ConstantControlName.HRM_Ins_InsuranceSalaryPayback_PopUp_Name', titleCreatePopUpInsRecord, '@ConstantPermission.Ins_InsuranceSalaryPayback');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Ins_InsuranceSalaryPayback/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Ins_InsuranceSalaryPayback');
+        return false;
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#@ConstantControlName.HRM_Ins_InsuranceSalaryPayback_Grid_Name').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportInsuranceSalaryPaybackList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Ins_InsuranceSalaryPayback');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_Hrm_Hre_Service' + "Ins_GetData/ExportInsuranceSalaryPaybackSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Ins_InsuranceSalaryPayback');
+    });
+
+    $("#btnCalculate").click(function () {
+        //validate
+        var isactive = true;
+        $.ajax({
+            type: 'POST',
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/InsuranceSalaryPaybackValidate',
+            data: filterFieldInfo(),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data[0] == "error") {
+                    ShowNotificationProcessor(data[1]);
+                    isactive = false;
+                    return isactive;
+                }
+            }
+        });
+        if (isactive == false) {
+            return;
+        }
+
+
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var listIds = selectedIds.join(",");
+
+        //chuc nang tính toán truy lĩnh bảo hiểm
+        $.ajax({
+            url: '@_Hrm_Hre_Service' + 'Ins_GetData/CalculateInsurancePayBack',
+            data: { payBackIds: selectedIds,monthYear:$("#MonthYear1").val() },
+            type: 'POST',
+            traditional:true,
+            success: function (data) {
+                CloseHre_ProgressBar();
+                if (data == "IsProcessing") {
+                    ShowNotificationProcessor("Có Người Đang Xử Lý Tính Toán Truy Lĩnh Bảo Hiểm.Vui Lòng Đợi Trong Giây Lát và  Tính Toán Trở Lại");
+                }
+                else {
+                    ShowNotificationProcessor("Tính Toán Truy Lĩnh Bảo Hiểm Thành Công");
+                }
+                ReadGrid(gridName);
+            }
+        });
+        return false;
+    });
+
+
+
+
+</script>
+<style>
+    .k-window div.k-window-content {
+        overflow: hidden;
+    }
+</style>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div class="hrm_box">
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(model => model.ProfileName)
+                        </div>
+                        <div class="FieldValue" id="test">
+                            @Html.VnrTextBoxFor(model => model.ProfileName)
+                        </div>
+                    </div>
+                    <div id="dropdownlist"></div>
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode => mode.CodeEmp)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.VnrTextBoxFor(model => model.CodeEmp)
+                        </div>
+                    </div>
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var orgbuilder = new TreeViewDropdDownBuilderInfo()
+                                {
+                                    Width = "220px;",
+                                    Name = "OrgInsurance",
+                                };
+
+                            }
+                            @Html.Partial("EditorTemplates/OrgTreeViewDropDown", orgbuilder)
+
+                        </div>
+                    </div>
+
+                </div>
+                <div class="hrm_box">
+
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode=>mode.MonthYear)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dtMonthYear = new DatePickerBuilderInfo()
+                                {
+                                    Name="MonthYear1",
+                                    StyleCss = "width:100px",
+                                    Format = ConstantFormat.HRM_Format_DayMonthYear
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.MonthYear, dtMonthYear).Format(ConstantFormat.HRM_Format_MonthYear)
+                           
+                        </div>
+                    </div>     
+                    <div>
+                        <div class="FieldTitle170">
+                            @Html.VnrLabelFor(mode => mode.IsCallPayBack)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var isCallPayBack= new CheckBoxBuilderInfo(){
+                                Value=false
+                                };
+                            }
+                            @Html.VnrCheckBoxFor(mode => mode.IsCallPayBack, isCallPayBack)
+                        </div>
+                    </div>   
+                </div>                
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })    
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCalculate", Content = ConstantAction.HRM_Common_Calculate.TranslateString(), ImageUrl = ConstantPath.IconCall })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnChangeColumnInsuranceRecord", Content = ConstantDisplay.HRM_ChangeColumn.TranslateString(), ImageUrl = ConstantPath.Hrm_ChangeColumnIcon })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        var columnMode = string.Empty;
+        var defaultColumnMode = string.Empty;
+        var userId = Session[SessionObjects.UserId];
+        //Lấy tên lưới cộng thêm tên của control và action để tránh trùng nhau
+        var gridControlName = ConstantControlName.HRM_Ins_InsuranceSalaryPayback_Grid_Name + "__Ins_InsuranceSalaryPayback_Index";
+        HRM.Presentation.Main.Controllers.Sys_ColumnModeController control = new HRM.Presentation.Main.Controllers.Sys_ColumnModeController();
+        //Get thông tin cấu hình trong database
+        GridBuilderModel gridInfo = control.GetGridBuilderInfo(userId + "," + gridControlName);
+
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ReadActionUrl = _Hrm_Hre_Service + "Ins_GetData/GetInsuranceSalaryPaybackList",
+            ReadData = "filterFieldInfo",
+        };
+
+        if (gridInfo != null && gridInfo.ValueFields != null && gridInfo.ValueFields.Any())
+        {
+            grid.ValueFields = gridInfo.ValueFields;
+            grid.SizeFields = gridInfo.SizeFields;
+            grid.Filterable = gridInfo.FilterFields;
+            grid.DisplayFields = gridInfo.DisplayFields;
+            grid.LockedFields = gridInfo.LockedFields;
+            grid.GroupFields = gridInfo.GroupFields;
+            if (gridInfo.PageSize > 0)
+            {
+                grid.PageSize = gridInfo.PageSize;
+            }
+            columnMode = gridInfo.StringXml;
+        }
+        else
+        {
+            grid.ValueFields = new string[]
+                            {
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.ProfileName,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.CodeEmp,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.MonthYear,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.FromMonthEffect,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.ToMonthEffect,                                
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalary,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryPayBack,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryAdjust,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.AmoutHDTIns,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.IsSocialIns,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.IsMedicalIns,
+                                Ins_InsuranceSalaryPaybackModel.FieldNames.IsUnemploymentIns                                
+                            };
+
+            grid.SizeFields = new Dictionary<string, int>()
+                            {
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.ProfileName, 150},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.CodeEmp, 100},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.MonthYear, 120},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.FromMonthEffect, 150},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.ToMonthEffect, 150},                                
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalary, 140},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryPayBack, 150},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryAdjust, 150},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.AmoutHDTIns, 100},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsSocialIns, 100},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsMedicalIns, 100},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsUnemploymentIns, 100},
+                            };
+
+            grid.DisplayFields = new Dictionary<string, string>()
+                            {
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.ProfileName, ConstantDisplay.HRM_HR_Profile_ProfileName},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.CodeEmp, ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.MonthYear, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_MonthYear},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.FromMonthEffect, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_FromMonthEffect},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.ToMonthEffect, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_ToMonthEffect},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalary, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_InsSalary},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryPayBack, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_InsSalaryPayBack},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.InsSalaryAdjust, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_InsSalaryAdjust},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.AmoutHDTIns, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_AmoutHDTIns},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsSocialIns, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsSocialIns},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsMedicalIns, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsMedicalIns},
+                                {Ins_InsuranceSalaryPaybackModel.FieldNames.IsUnemploymentIns, ConstantDisplay.HRM_Ins_InsuranceSalary_Payback_IsUnemploymentIns},
+                            };
+            
+            
+            
+
+            grid.FormatFields = new Dictionary<string, string>()
+        {
+              {Ins_InsuranceSalaryPaybackModel.FieldNames.MonthYear, ConstantFormat.HRM_Format_Grid_MonthYear},             
+              {Ins_InsuranceSalaryPaybackModel.FieldNames.FromMonthEffect, ConstantFormat.HRM_Format_Grid_MonthYear},             
+              {Ins_InsuranceSalaryPaybackModel.FieldNames.ToMonthEffect, ConstantFormat.HRM_Format_Grid_MonthYear},             
+        };
+              
+            defaultColumnMode = control.SetDefaultGridBuilderInfo(grid);
+        }
+   
+    }
+    @(Html.VnrGrid<Ins_InsuranceSalaryPaybackModel>(grid))
+    <script>
+        ClickButtonChangeColum("btnChangeColumnInsuranceRecord", "Ins_InsuranceSalaryPaybackModel");
+        $(document).ready(function () {
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Grid_Name').val('@gridControlName');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_ColumMode_Name').val('@Html.Raw(columnMode)');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('');
+            $("#" + '@ConstantControlName.HRM_ChangeColum_Default_ColumMode_Name').val('@Html.Raw(defaultColumnMode)');
+        });
+    </script>
+</div>
+@{
+    var listValueField = grid.ValueFields;
+    var valueFields1 = string.Empty;
+    if (listValueField != null)
+    {
+        for (int i = 0; i < listValueField.Count(); i++)
+        {
+            valueFields1 += "," + listValueField[i];
+        }
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

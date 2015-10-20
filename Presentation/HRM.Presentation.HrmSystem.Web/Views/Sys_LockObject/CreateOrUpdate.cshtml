@@ -1,0 +1,537 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Kendo.DropDownList
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Security;
+
+@model Sys_LockObjectModel
+@{
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Cat_Service;
+    var _hrm_Att_Service = ConstantPathWeb.Hrm_Att_Service;
+    var _hrm_Att_Web = ConstantPathWeb.Hrm_Att_Web;
+
+    IList<SelectListItem> listLockObjectType = Enum.GetValues(typeof(EnumDropDown.LockObjectType))
+        .Cast<EnumDropDown.LockObjectType>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p=>p.Text)
+        .ToList();
+
+    IList<SelectListItem> listLockObjectStatus = Enum.GetValues(typeof(EnumDropDown.LockObjectStatus))
+    .Cast<EnumDropDown.LockObjectStatus>()
+    .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() }).OrderBy(p=>p.Text)
+
+    .ToList();
+    var LockObjectID = Guid.Empty;
+    if (Model != null)
+    {
+        LockObjectID = Model.ID;
+    }
+    string value = Model != null ? Model.OrgStructureName : "";
+}
+
+@{
+    var windowLockObjectItem = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_System_LockObjectItem_PopUp_Name,
+        Visible = false,
+        LoadContentFrom = _hrm_Sys_Web + "Sys_LockObject/LockObjectItemInfo?id=" + LockObjectID,
+    };
+}
+
+@(Html.VnrWindow(windowLockObjectItem))
+@{
+    var windowError_LockObjectItem = new WindowBuilderInfo
+    {
+        Name = "windowError_LockObjectItem",
+        Visible = false,
+        Height = 150,
+        Width = 300,
+        Title = "Thông Báo Lỗi",
+        Content = "<br><br><center><b>" + ConstantDisplay.LockObject_MessageError.TranslateString() + " </b></center>"
+    };
+}
+@(Html.VnrWindow(windowError_LockObjectItem))
+<script type="text/javascript">
+
+
+    var gridLockObjectItemName = '@ConstantControlName.HRM_System_LockObjectItem_Grid_Name';
+    var popUpLockObjectItemName = '@ConstantControlName.HRM_System_LockObjectItem_PopUp_Name';
+    var titleEditPopUpLockObjectItem = '@Html.Raw(ConstantDisplay.HRM_System_LockObjectItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpLockObjectItem = '@Html.Raw(ConstantDisplay.HRM_System_LockObjectItem_PopUp_Create_Title.TranslateString())';
+    $(document).ready(function () {
+        ShowHidePanel();
+        EditGridPopUp('grid_Sys_LockObjectItem', popUpLockObjectItemName, '@_hrm_Sys_Web' + "Sys_LockObject/LockObjectItemInfo/", '@ConstantPermission.Sys_LockObject', titleEditPopUpLockObjectItem);
+
+    });
+
+    function getStartEnd() {
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Att_Service' + 'Att_GetData/GetStartEndOfCutOffDuration',
+            data: { cutoffID: $('#@Html.FieldIdFor(model => model.CutOffDurationID)').val() },
+            dataType: 'json',
+            async: false,
+            success: function (strResponse) {
+                debugger;
+                if (strResponse != null) {
+                    var dateStart = $("#DateStart").data("kendoDatePicker");
+                    var dateEnd = $("#DateEnd").data("kendoDatePicker");
+                    var dStart = strResponse.DateStart;
+                    var dEnd = strResponse.DateEnd;
+                    dateStart.value(dStart);
+                    dateEnd.value(dEnd);
+                    dateStart.readonly();
+                    dateEnd.readonly()
+                    //$("#DateStart").data("kendoDatePicker").value(dStart);
+
+                    //$("#DateEnd").data("kendoDatePicker").value(dEnd);
+                }
+            }
+        });
+    };
+
+    //Tạo mới Quá Trình Công Tác
+    $("#btnCreate_LockObjectItem").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Sys_LockObject');
+        if (!isAccess) {
+            return;
+        }
+        var x = $('#@Html.FieldIdFor(model => model.ID)').val();
+        debugger
+        if (x == '') {
+            PopUpCreate("windowError_LockObjectItem");
+        }
+        else {
+            PopUpCreate('@ConstantControlName.HRM_System_LockObjectItem_PopUp_Name', titleCreatePopUpLockObjectItem, '@ConstantPermission.Sys_LockObject');
+            $("#LockObject_ID").val($('#@Html.FieldIdFor(model => model.LockObject_ID)').val());
+        }
+    });
+
+    $('#btnDelete_LockObjectItem').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+
+        DeleteSelected("grid_Sys_LockObjectItem", '@_hrm_Sys_Web' + "Sys_LockObjectItem/RemoveSelected/", selectedIds, '@ConstantPermission.Sys_LockObject');
+        return false;
+    });
+
+    function filterFieldInfo() {
+        return {
+            LockObjectID: $("#LockObject_ID").val()
+        };
+    }
+
+    $("#btnCreate_All").click(function () {
+        debugger;
+        ShowHre_ProgressBar();
+        var ddl = $("#LockObjectTypeID").data("kendoComboBox");
+        
+        if (ddl.value() == "")
+        {
+
+            CloseHre_ProgressBar();
+            ShowNotificationProcessor("Loại Không Thể Bỏ Trống...");
+            return;
+        }
+      //cập Nhật SalaryClassName,DateHire,DateEndProbation,OrgStructureID cho hre_Profile
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Sys_Service' + "Sys_GetData/AddDataForLockObjectType/",
+                data: {LockObjectID : $("#LockObject_ID").val(), LockObjectTypeID: ddl.value() },
+                dataType: 'json',
+                success: function (data) {
+                    CloseHre_ProgressBar();
+                    if (data == "Success")
+                    {
+                        ShowNotificationProcessor(data);
+                        ReadGrid('grid_Sys_LockObjectItem');
+                        return;
+                    }
+                }
+
+
+            });
+    });
+
+
+</script>
+
+
+<div class="VnRMain">
+    <table style="width:100%">
+        <tbody>
+            <tr>
+                <td class="Box_Top_Left"></td>
+                <td valign="middle" class="Box_Top_Mid"></td>
+                <td class="Box_Top_Right"></td>
+            </tr>
+            <tr>
+                <td class="Box_Mid_Left">&nbsp;&nbsp;&nbsp;</td>
+                <td valign="top">
+                    <div class="hrm_box">
+                        @Html.HiddenFor(model => model.ID)
+                        @Html.HiddenFor(model => model.LockObject_ID)
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.CutOffDurationID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _CutOff = new ComboBoxBuilderInfo()
+                                    {
+                                        DataTextField = "CutOffDurationName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Att_Service + "Att_GetData/GetMultiCutOffDuration",
+                                        StyleCss = "Width:215px",
+                                        EventChange = "getStartEnd",
+                                        Value = Model != null ? Model.CutOffDurationID.ToString() : string.Empty
+                                    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.CutOffDurationID, _CutOff).Text(Model != null ? Model.CutOffDurationName : string.Empty))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                       
+                        @*<div id="div5">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.DateEnd)
+                            </div>
+                            <div class="FieldValue">
+                              
+                            </div>
+                        </div>*@
+                        <div id="div7">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.PayrollGroups)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    
+                                    var _PayrollGroup = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "PayrollGroupName",
+                                        DataValueField = "OrderNumber",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectGroupPayroll.TranslateString(),
+                                        Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiPayrollGroup",
+                                        Width = 214
+                                    };
+                                    if (Model != null)
+                                    {
+                                        if (Model.lstPayrollGroupID != null)
+                                        {
+                                            _PayrollGroup.Value = Model.lstPayrollGroupID;
+                                        }
+                                    }
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.PayrollGroups, _PayrollGroup))
+                                @Html.HiddenFor(model => model.PayrollGroupID)
+                            </div>
+                        </div>
+                        <div id="div6">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                            </div>
+                            <div class="FieldValue">
+                                @*@Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")*@
+                                @{
+                                    var org = new TreeViewDropdDownBuilderInfo()
+                                    {
+                                        Name = "LockObject_Info_OrgStructureID",
+                                        Value = Model == null ? string.Empty : Model.OrgStructureName,
+                                        SetFieldID = "OrgStructureID",
+                                        SetFieldName = "OrgStructureID",
+                                        Width = "217px"
+                                        //IsShowCheckBox = false,
+                                    };
+                                }
+                                @Html.Partial("EditorTemplates/OrgTreeViewDropDown", org)
+                                @Html.HiddenFor(model => model.OrgStructureID)
+                            </div>
+                            <div style="clear: both;"></div>
+                            <div>
+                                @if (Model != null)
+                                {
+                                    if (Model.ID != Guid.Empty)
+                                    {
+                                        <script>
+            $(document).ready(function () {
+
+                setTimeout(function () {
+                    debugger;
+                    $("#LockObject_Info_OrgStructureIDinput").val('@Html.Raw(value)');
+
+                    var treeView = $("#LockObject_Info_OrgStructureID").data("kendoTreeView");
+                                                    CheckNodeByOrderNumber(treeView.dataSource.view(), '@Model.OrgStructureID'.split(','));
+                                                }, 2000);
+                                            });
+                                        </script>
+                                    }
+
+                                }
+                            </div>
+                        </div>
+
+
+                        <div id="dvProfileID">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.WorkPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var multiSelectWorkPlaceID = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        MaxSelectedItems = 1,
+                                        Url = _hrm_Hre_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectWorkPlace.TranslateString(),
+                                        Width = 215
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.WorkPlaceID, multiSelectWorkPlaceID)
+                            </div>
+                        </div>
+
+                        <div id="div5">
+                            <div class="FieldTitle150">
+                                @*@Html.VnrLabelFor(mode => mode.DateStart)*@
+                                @Html.VnrLabel(@ConstantDisplay.HRM_Common_Search_Duration.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var DateStart = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateStart, DateStart)
+                                @{
+                                    var _DateEnd = new DatePickerBuilderInfo()
+                                    {
+                                        Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                        StyleCss = "width:100px"
+                                    };
+                                }
+                                @Html.VnrDatePickerFor(model => model.DateEnd, _DateEnd)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Status)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Status = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listLockObjectStatus,
+                                        StyleCss = "Width:216px",
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.Status, _Status))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    <div class="hrm_box" style="padding-left:30px">
+                        @*<div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Type)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _Type = new DropDownListBuilderInfo()
+                                    {
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = listLockObjectType,
+                                        StyleCss = "Width:250px",
+                                    };
+                                }
+                                @(Html.VnrDropDownListFor(mode => mode.Type, _Type))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>*@
+                   
+                        
+                        <div id="div11">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.UserApprove1ID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    System.Collections.IEnumerable valueUserApprove = new string[] { };
+                                    if (Model != null)
+                                    {
+                                        valueUserApprove = new[] { new { UserInfoName = Model.UserApprove1Name, ID = Model.UserApprove1ID } };
+                                    }
+                                }
+                                @{
+                                    var multiSelectUserApproveID1 = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "UserInfoName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_LOCKOBJECT.ToString(),
+                                        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        Value = valueUserApprove,
+                                        Width = 248
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.UserApprove1ID, multiSelectUserApproveID1)
+                            </div>
+                        </div>
+                        <div id="div12">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.UserApprove2ID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    System.Collections.IEnumerable valueUserApprove2 = new string[] { };
+                                    if (Model != null)
+                                    {
+                                        valueUserApprove2 = new[] { new { UserInfoName = Model.UserApprove2Name, ID = Model.UserApprove2ID } };
+                                    }
+                                }
+                                @{
+                                    var multiSelectUserApproveID2 = new MultiSelectBuilderInfo()
+                                    {
+                                        DataTextField = "UserInfoName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Sys_Service + "Sys_GetData/GetMultiUserApproved_" + ApproveType.E_LOCKOBJECT.ToString(),
+                                        Placeholder = ConstantDisplay.HRM_System_SelectUserApprove.TranslateString(),
+                                        MaxSelectedItems = 1,
+                                        Value = valueUserApprove2,
+                                        Width = 248
+                                    };
+                                }
+                                @Html.VnrMultiSelectFor(mode => mode.UserApprove2ID, multiSelectUserApproveID2)
+                            </div>
+                        </div>
+                        <div id="div4">
+                            <div class="FieldTitle150">
+                                @Html.VnrLabelFor(mode => mode.Commend)
+                            </div>
+                            <div class="FieldValue">
+                             
+                                @(Html.VnrTextAreaFor(mode => mode.Commend))
+                            </div>
+                            <div style="clear: both;"></div>
+                        </div>
+                    </div>
+                    
+                </td>
+                <td class="Box_Mid_Right">&nbsp;&nbsp;&nbsp;&nbsp;</td>
+            </tr>
+            <tr>
+                <td class="Box_Bottom_Left"></td>
+                <td class="Box_Bottom_Mid"></td>
+                <td class="Box_Bottom_Right"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+@*<div style="float:left;display:block">
+    <div style="display: block; padding-top: 10px; float: left; width:100%">
+        <fieldset>
+            <legend>
+            </legend>
+            <div id="CoBreakInTime">*@
+                <div class="commandToolBarWidge">
+                    <div class="GridTitle">
+                        @ConstantDisplay.HRM_System_LockObject_ExcludeObject.TranslateString()
+                    </div>
+                    <div style="float:right">
+                                @{
+                                    var _GraduatedLevelID = new ComboBoxBuilderInfo()
+                                     {
+                                         DataTextField = "NameEntityName",
+                                         DataValueField = "ID",
+                                         Url = _hrm_Hre_Service + "Cat_GetData/GetMultiLockObject",
+                                         Value = Model == null ? string.Empty : Model.LockObjectTypeID.ToString(),
+                                     };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.LockObjectTypeID, _GraduatedLevelID).Text(Model == null ? string.Empty : Model.NameEntityName))
+                         
+                       
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_All", Content = ConstantAction.HRM_Common_Create_LockObject.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate_LockObjectItem", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete_LockObjectItem", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                    </div>
+                    <div class="clear"></div>
+                </div>
+                <div>
+                    <!--Khai báo các thông tin cho Grid-->
+                    @using HRM.Presentation.HrmSystem.Models
+                    @using HRM.Presentation.UI.Controls.Kendo
+                    @{
+                        //Thông tin hiển column hiển thị
+                        string[] valueFields = new string[]
+                                {
+                                    Sys_LockObjectItemModel.FieldNames.ObjectName,
+                                    //Sys_LockObjectItemModel.FieldNames.DateStart,
+                                    //Sys_LockObjectItemModel.FieldNames.DateEnd,
+                                    Sys_LockObjectItemModel.FieldNames.UserCreate,
+                                    Sys_LockObjectItemModel.FieldNames.DateUpdate,
+                                };
+
+                        //Set độ rộng cho từng column
+                        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                                {
+                                    {Sys_LockObjectItemModel.FieldNames.ObjectName, 150},
+                                    //{Sys_LockObjectItemModel.FieldNames.DateStart, 100},
+                                    //{Sys_LockObjectItemModel.FieldNames.DateEnd , 100},
+                                    {Sys_LockObjectItemModel.FieldNames.UserCreate , 110},
+                                    {Sys_LockObjectItemModel.FieldNames.DateUpdate , 120},
+                                };
+                        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+                                {
+                                    //{Sys_LockObjectItemModel.FieldNames.DateStart, ConstantFormat.HRM_Format_DayMonthYear},
+                                    //{Sys_LockObjectItemModel.FieldNames.DateEnd, ConstantFormat.HRM_Format_DayMonthYear},
+                                    {Sys_LockObjectItemModel.FieldNames.DateUpdate, ConstantFormat.HRM_Format_DayMonthYear},
+                                };
+                        //Thông tin hiển thị được dịch
+                        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                                {
+                                    {Sys_LockObjectItemModel.FieldNames.ObjectName, ConstantDisplay.HRM_Attendance_ObjectName},
+                                    //{Sys_LockObjectItemModel.FieldNames.DateStart, ConstantDisplay.HRM_Attendance_DateFrom},
+                                    //{Sys_LockObjectItemModel.FieldNames.DateEnd, ConstantDisplay.HRM_Attendance_DateTo},
+                                    {Sys_LockObjectItemModel.FieldNames.UserCreate, ConstantDisplay.HRM_Attendance_UserCreate},
+                                    {Sys_LockObjectItemModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Attendance_DateUpdate},
+                                };
+
+
+                        var grid = new GridBuilderInfo
+                        {
+                            Name = "grid_Sys_LockObjectItem",
+                            ValueFields = valueFields,
+                            DisplayFields = displayFields,
+                            SizeFields = sizeFields,
+                            ShowCommand = true,
+                            FormatFields = formatFields,
+                            EditActionUrl = _hrm_Sys_Web + "/Sys_LockObjectItem/Create/",
+                            DeleteActionUrl = _hrm_Sys_Web + "/Sys_LockObjectItem/Delete/",
+                            AutoBind = true,
+                            ReadActionUrl = _hrm_Sys_Service + "Sys_GetData/GetLockObjectItemByLockObjectIDList",
+                            ReadData = "filterFieldInfo",
+
+                        };
+                    }
+                    <!--Khởi tạo Grid-->
+                    @(Html.VnrGrid<Sys_LockObjectItemModel>(grid)
+                                  .HtmlAttributes(new { style = "height:400px" })
+                                  .DataSource(dataSource => dataSource
+                                      .Ajax())
+                    )
+                </div>
+            @*<@*/div>
+        </fieldset>
+    </div>
+</div>*@
+

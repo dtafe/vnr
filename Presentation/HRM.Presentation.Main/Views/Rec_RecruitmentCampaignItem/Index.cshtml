@@ -1,0 +1,205 @@
+﻿@using System.Collections
+@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.Recruitment.Models
+@using HRM.Infrastructure.Security
+@model Rec_RecruitmentCampaignItemSearchModel
+@{
+    //ViewBag.Title = "Recl Level Index";
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    Layout = null;
+    string[] valueFields = null;
+}
+@{
+    var windowRecruitmentCampaignItem = new WindowBuilderInfo
+    {
+        Name = "windowRecruitmentCampaignItem",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Rec_RecruitmentCampaignItem/RecruitmentCampaignItemInfo/",
+    };
+}
+@(Html.VnrWindow(windowRecruitmentCampaignItem))
+<script>
+    var titleEditPopUpRecruitmentCampaignItem = '@Html.Raw(ConstantDisplay.HRM_Rec_RecruitmentCampaignItem_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUpRecruitmentCampaignItem = '@Html.Raw(ConstantDisplay.HRM_Rec_RecruitmentCampaignItem_PopUp_Create_Title.TranslateString())';
+    var gridName = "gridRecruitmentCampaignItem";
+    var windowName = "windowRecruitmentCampaignItem";
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        return {
+            RecruitmentCampaignID: $('#SRecruitmentCampaignID').val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Show Hide Panel
+        ShowHidePanel();
+        //Xử lý Edit
+        var url = '@_hrm_Main_Web' + "Rec_RecruitmentCampaignItem/RecruitmentCampaignItemInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Rec_RecruitmentCampaignItem', titleEditPopUpRecruitmentCampaignItem);
+    });
+
+    //Xử lý tạo mới
+    $("#btnCreate").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Rec_RecruitmentCampaignItem');
+        if (!isAccess) {
+            return;
+        }
+        PopUpCreate(windowName, titleCreatePopUpRecruitmentCampaignItem, '@ConstantPermission.Rec_RecruitmentCampaignItem');
+    });
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử lý delete
+    $('#btnDelete').click(function (e) {
+        if (selectedIds == "") {
+            DeleteFail();
+            return;
+        }
+        e.preventDefault();
+        DeleteSelected(gridName, '@_hrm_Main_Web' + "Rec_RecruitmentCampaignItem/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Rec_RecruitmentCampaignItem');
+        return false;
+    });
+    //Expoprt
+    $("#btnExportAll").click(function () {
+
+        
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportRecruitmentCampaignItemList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Rec_RecruitmentCampaignItem');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hre_Service' + "Rec_GetData/ExportRecruitmentCampaignItemSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Rec_RecruitmentCampaignItem');
+    });
+</script>
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+                <div id="div14">
+                    <div class="FieldTitle">
+                        @Html.VnrLabelFor(mode => mode.RecruitmentCampaignID)
+                    </div>
+                    <div class="FieldValue">
+                        @{
+                            var RecruitmentCampaignID = new DropDownListBuilderInfo
+                            {
+                                StyleCss="width:200px",
+                                Name="SRecruitmentCampaignID",
+                                DataTextField = "RecruitmentCampaignName",
+                                DataValueField = "ID",
+                                Url = @_hrm_Hre_Service + "Rec_GetData/GetMultiRecruitmentCampaign",
+                                OptionLabel=ConstantDisplay.HRM_Recruitment_SelectRecruitmentCampaign.TranslateString(),
+                            };
+                        }
+                        @Html.VnrDropDownListFor(mode => mode.RecruitmentCampaignID, RecruitmentCampaignID)
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge" style="margin-top:3px">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new string[]
+                        {
+                            Rec_RecruitmentCampaignItemModel.FieldNames.PositionName,
+                            Rec_RecruitmentCampaignItemModel.FieldNames.RecruitmentCampaignName,
+                            Rec_RecruitmentCampaignItemModel.FieldNames.HeadCount,
+                            Rec_RecruitmentCampaignItemModel.FieldNames.Comment,
+                             Rec_RecruitmentCampaignItemModel.FieldNames.UserUpdate,
+                            Rec_RecruitmentCampaignItemModel.FieldNames.DateUpdate,
+                        };
+
+        var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.PositionName, 130},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.RecruitmentCampaignName, 150},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.HeadCount, 75},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.Comment, 300},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.UserUpdate, 110},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.DateUpdate, 100},
+                           
+                        };
+
+        var displayFields = new Dictionary<string, string>()
+                        {
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.PositionName, ConstantDisplay.HRM_HR_Profile_PositionName},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.RecruitmentCampaignName, ConstantDisplay.HRM_Rec_RecruitmentCampaign},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.HeadCount, ConstantDisplay.HRM_Rec_RecruitmentCampaignItem_HeadCount},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.Comment, ConstantDisplay.HRM_Category_UsualAllowance_Comment},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Common_UserUpdate},
+                            {Rec_RecruitmentCampaignItemModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Common_DateUpdate}
+                        };
+
+
+        var grid = new GridBuilderInfo
+        {
+
+            Name = "gridRecruitmentCampaignItem",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hre_Service + "Rec_GetData/GetRecruitmentCampaignItemList",
+            ReadData = "filterFieldInfo",
+            AutoBind = false,
+            ShowDeleteButton = true,
+        };
+    }
+    @(Html.VnrGrid<Rec_RecruitmentCampaignItemModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

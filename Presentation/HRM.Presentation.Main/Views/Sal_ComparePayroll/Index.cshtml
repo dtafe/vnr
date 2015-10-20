@@ -1,0 +1,682 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Payroll.Models
+@model HRM.Presentation.Payroll.Models.Sal_ComparePayrollModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Cat_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+  
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+   
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listCompareType = Enum.GetValues(typeof(EnumDropDown.CompareType))
+        .Cast<EnumDropDown.CompareType>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+        .ToList();
+    IList<SelectListItem> lstShowDataType = Enum.GetValues(typeof(EnumDropDown.ShowDataType))
+        .Cast<EnumDropDown.ShowDataType>()
+        .Select(x => new SelectListItem { Text = EnumDropDown.GetEnumDescription(x), Value = x.ToString() })
+        .ToList();
+}
+@Html.Hidden("Screen", screen)
+@*@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "PopUpCreateTemplate",
+        Visible = false,
+
+        LoadContentFrom = _hrm_Main_Web + "Hre_ReportHCGender/CreateTemplate"
+    };
+}
+@(Html.VnrWindow(window))*@
+
+@{
+    var window1 = new WindowBuilderInfo
+    {
+        Name = "windowConfigElement",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Sal_ComparePayroll/Sal_ConfigElementIfno/",
+    };
+}
+@(Html.VnrWindow(window1))
+<style>
+    #btnConfigElement {
+        border:none;
+        background-color:transparent;
+    }
+    #btnConfigElement img {
+        max-width:20px;
+    }
+
+</style>
+<script type="text/javascript">
+    SetFieldRequired();
+    var titleCreatePopUpItemForShop = '@Html.Raw(ConstantDisplay.HRM_Sal_ItemForShop_PopUp_Create_Title.TranslateString())';
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    function filterFieldInfo(isExport) {
+        var WorkingPlace = $("#WorkingPlaceID").data("kendoComboBox");
+        var checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _cutOff = $('#@Html.FieldIdFor(model => model.CutOffDurationIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.CutOffDurationIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.CutOffDurationIDs)').val();
+        var _element = $('#@Html.FieldIdFor(model => model.ElementIDs)').val() != null ? $('#@Html.FieldIdFor(model => model.ElementIDs)').val().join(',') : $('#@Html.FieldIdFor(model => model.ElementIDs)').val();
+        var elementPara = {
+            CutOffDurationIDs: _cutOff,
+            ElementIDs: _element,
+            OrgStructureID: checkedNodes.join(','),
+            OrgStructureTypeID: $('#SOrgStructureTypeID').val() ? $('#SOrgStructureTypeID').val()[0] : null,
+            CompareType: $('#SCompareType').val(),
+            WorkingPlaceID: WorkingPlace.value(),
+            ShowDataType: $('#SShowDataType').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnSearch").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = false;
+        ShowHre_ProgressBar();
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + 'Sal_GetData/ComparePayrollValiedate',
+            data: filterFieldInfo(false),
+            dataType: 'json',
+            async: false,
+            success: function (data) {
+                if (data[0] == "error") {
+                    CloseHre_ProgressBar();
+                    ShowNotificationProcessor(data[1]);
+                } else {
+                    $.ajax({
+                        url: '@_hrm_Hr_Service' + "Sal_GetData/ComparePayroll",
+                        type: 'POST',
+                        data: filterFieldInfo(false),
+                        datatype: 'json',
+                        success: function (data) {
+                            CloseHre_ProgressBar();
+                            
+                            var grid = VnrGridDynamic;
+                            grid.GridName = "grid_ComparePayrollTable";
+                            grid.DataSource = data.Data;
+                            VnrGridDynamicControl(grid);
+                            if ($("#ShowChart").is(':checked')) {
+                                $("#ShowChartForData").show();
+                                 createChart();
+                            } else {
+                                $("#ShowChartForData").hide();
+                            }
+                            if ($("#ShowChartByProfile").is(':checked')) {
+                                $("#ShowChartDataByProfile").show();
+                                createChartByProfile();
+                            } else {
+                                $("#ShowChartDataByProfile").hide();
+                            }
+                        }
+                    });
+                }
+            },
+            error: function myfunction() {
+                CloseHre_ProgressBar();
+            }
+        });
+
+        
+    });
+
+    $("#btnExport").click(function () {
+        
+
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Hre_ReportHCSeniority');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Sal_GetData/ComparePayroll',
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+            }
+        });
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + '/Sal_GetData/ComparePayroll', filterFieldInfo(true));
+        @*var window12 = window;
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Sal_GetData/ComparePayroll",
+            data: filterFieldInfo(true),
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var index = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (index > 0) {
+                    status = returnValue.substring(0, index);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(index + 1, returnValue.length);
+                        window12.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                        $.when(kendo.ui.ExtOkCancelDialog.show({
+                            title: '@ConstantDisplay.HRM_CreateTemplate_Title.TranslateString()',
+                            message: '@ConstantDisplay.HRM_CreateTemplate_Message.TranslateString()',
+                            icon: "k-ext-warning"
+                        })
+                        ).done(function (response) {
+                            if (response.button == "OK") {
+                                var window2 = $("#PopUpCreateTemplate").data("kendoWindow");
+                                window2.center().open().title('@ConstantDisplay.HRM_CreateTemplate_Popup_Title.TranslateString()');
+                            }
+                        });
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+            }
+        });*@
+    });
+    function onChange(e) {
+        var checkboxByOrg = document.getElementById("ShowChart");
+        
+        if (e.sender._old == 'E_ORGSTRUCTURE') {
+            $('#divOrgStructureType').show();
+        } else {
+            $('#divOrgStructureType').hide();
+        }
+
+        if (e.sender._old == 'E_PROFILE') {
+            $('#divShowChartByProfile').show();
+            checkboxByOrg.checked = false;
+        } else {
+            $('#divShowChartByProfile').hide();
+        }
+        if (e.sender._old == '') {
+            $('#divShowChartByProfile').show();
+            checkboxByOrg.checked = false;
+        }
+    }
+
+    //Xử lý tạo mới
+    $("#btnConfigElement").click(function () {
+        debugger;
+        var _key = "HRM_SAL_PAYROLL_CONFIGELEMENT";
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Sal_GetData/GetConfigElement",
+            data: {Key : _key},
+            dataType: 'json',
+            success: function (returnValue) {
+                debugger;
+               
+                $("#ValueKey").val(returnValue.Name);
+                $("#ValueConfig").val(returnValue.Value1);
+                $("#ConfigID").val(returnValue.ID);
+               
+                setTimeout(function () {
+                    PopUpCreate("windowConfigElement", "Cấu Hình Phần Tử", '@HRM.Infrastructure.Security.ConstantPermission.Sal_ItemForShop');
+                },1000);
+            }
+        });
+
+        @*PopUpCreate("windowConfigElement", titleCreatePopUpItemForShop, '@HRM.Infrastructure.Security.ConstantPermission.Sal_ItemForShop');*@
+    });
+
+    $(document).ready(function () {
+        var _key = "HRM_SAL_PAYROLL_CONFIGELEMENT";
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + "Sal_GetData/GetConfigElement",
+            data: { Key: _key },
+            dataType: 'json',
+            success: function (returnValue) {
+                
+                var elementConfiged = $("#ElementIDs").data("kendoMultiSelect");
+                if (returnValue.Value1.indexOf(',') > 1) {
+                    elementConfiged.dataSource.filter({});
+                    elementConfiged.value(returnValue.Value1.split(","));
+                } else {
+                    elementConfiged.dataSource.filter({});
+                    elementConfiged.value(returnValue.Value1);
+                }
+              
+            }
+        });
+    });
+
+    function createChart() {
+        
+        var grid = $("#grid_ComparePayrollTable").data("kendoGrid");
+        var elementMulti = $("#ElementIDs").data("kendoMultiSelect");
+        var cutOffMulti = $("#CutOffDurationIDs").data("kendoMultiSelect");
+        //arr để chứa mã Phòng Ban
+        var categoryValue = [];
+        var parentDiv = document.getElementById('ShowChartForData');
+        parentDiv.innerHTML = "";
+        //for wa mỗi phần tử
+        for (var i = 0; i < elementMulti._dataItems.length; i++) {
+            var detail = "";
+            var chartSeries = [];
+            var elementName = elementMulti._dataItems[i].ElementName;
+                detail = "<fieldset><legend>" + elementName + "</legend><div id=\"ShowChartData" + i + "\"></div></fieldset>";
+                parentDiv.innerHTML += detail;
+          
+            //for wa từng column
+            for (var k = 2; k < grid.columns.length ; k++) {
+                //arr để chứa data của series
+                var chartData = [];
+                //biến để chứa tên cột
+                var chartName = grid.columns[k].title.split("_");
+                
+                if (elementName == chartName[0]) {
+                    var field = grid.columns[k].field;
+                    //for wa mỗi dòng của column
+                    for (var f = 0; f < grid.dataSource._data.length; f++) {
+                        chartData[f] = grid.dataSource._data[f][field];
+                        categoryValue[f] = grid.dataSource._data[f].OrgStructureCode;
+                    }
+                    chartSeries.push({
+                        data: chartData,
+                        name: chartName
+                    });
+                }
+            }
+            $("#ShowChartData" + i).kendoChart({
+                legend: {
+                    position: "top"
+                },
+                seriesDefaults: {
+                    type: "column"
+                },
+                series: chartSeries,
+                valueAxis: {
+                    labels: {
+                        format: "{0:n0}"
+                    },
+                    line: {
+                        visible: false
+                    },
+                    axisCrossingValue: 0
+                },
+                categoryAxis: {
+                    categories: categoryValue,
+                    line: {
+                        visible: false
+                    },
+                    labels: {
+                        padding: { top: 20 }
+                    }
+                },
+                tooltip: {
+                    visible: true,
+                    format: "{0:n0}",
+                    template: "#= series.name #: #= .value # "
+                }
+            });
+        }
+    }
+
+    function createChartByProfile() {
+        
+        var grid = $("#grid_ComparePayrollTable").data("kendoGrid");
+        var elementMulti = $("#ElementIDs").data("kendoMultiSelect");
+        var cutOffMulti = $("#CutOffDurationIDs").data("kendoMultiSelect");
+        var series = [];
+        var category = [];
+        var chartSeries = [];
+        var categoryValue = [];
+        
+           
+        for (var x = 0; x < cutOffMulti._dataItems.length; x++) {
+            categoryValue.push(cutOffMulti._dataItems[x].CutOffDurationName);
+        }
+
+        //for wa mỗi phần tử
+        var chartData = [];
+        for (var i = 0; i < elementMulti._dataItems.length; i++) {
+            
+            chartData = [];
+            var chartName = "";
+            //arr để chứa mã Phòng Ban
+            var elementName = elementMulti._dataItems[i].ElementName;
+
+            //biến index để lấy giá trị của vị trí của mỗi element
+            var index = 0;
+
+            //for wa từng column
+            for (var k = 3; k < grid.columns.length ; k++) {
+                //biến để chứa tên cột
+                chartName = grid.columns[k].title.split("_");
+                
+                 if (elementName == chartName[0]) {
+                     var total = 0;
+                     
+                    var field = grid.columns[k].field;
+                        //for wa mỗi dòng của column
+                        for (var f = 0; f < grid.dataSource._data.length; f++) {
+                            total += grid.dataSource._data[f][field];
+                        }
+                        
+                        chartData[index] = total;
+                        index++;
+                }
+                
+            }
+            chartSeries.push({
+                data: chartData,
+                name: elementName
+            });
+            
+        }
+        //for (var i = 0; i < categoryValue.length; i++) {
+        //    
+        //    for (var i = 0; i < chartSeries.length; i++) {
+        //        
+        //        series.push({
+        //            data:
+        //        });
+        //    }
+        //}
+        
+       
+
+        $("#ShowChartDataByProfile").kendoChart({
+            legend: {
+                position: "bottom"
+            },
+            chartArea: {
+                background: ""
+            },
+            seriesDefaults: {
+                type: "line",
+                style: "smooth"
+            },
+            series: chartSeries,
+            valueAxis: {
+                labels: {
+                    format: "{0:n0}"
+                },
+                line: {
+                    visible: false
+                },
+                axisCrossingValue: -10
+            },
+            categoryAxis: {
+                categories: categoryValue,
+                majorGridLines: {
+                    visible: false
+                }
+            },
+            tooltip: {
+                visible: true,
+                format: "{0:n0}",
+                template: "#= series.name #: #= value #"
+            }
+        });
+    }
+
+</script>
+
+
+@Html.Hidden("valueFields")
+@Html.Hidden("ValueKey")
+@Html.Hidden("ValueConfig")
+@Html.Hidden("ConfigID")
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge" style="overflow:visible">
+               <div style="float:left;width:500px">
+                   <div>
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.CutOffDurationIDs)
+                       </div>
+                       <div class="FieldValue">
+                           @{
+                               var _CutOffDurationIDs = new MultiSelectBuilderInfo
+                               {
+                                  
+                                   DataTextField = "CutOffDurationName",
+                                   DataValueField = "ID",
+                                   Url = @_hrm_Hr_Service + "Att_GetData/GetMultiCutOffDuration",
+                                 //  MaxSelectedItems = 1,
+                                   Placeholder = ConstantDisplay.HRM_Att_SelectCutOffDuration.TranslateString(),
+                               };
+                           }
+                           @Html.VnrMultiSelectFor(mode => mode.CutOffDurationIDs, _CutOffDurationIDs)
+                       </div>
+                   </div>
+                   <div>
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.ElementIDs)
+                       </div>
+                       <div class="FieldValue">
+                          
+                           @{
+                               var _ElementName = new MultiSelectBuilderInfo
+                               {
+                                  
+                                   DataTextField = "ElementName",
+                                   DataValueField = "ID",
+                                   Url = @_hrm_Cat_Service + "Cat_GetData/GetElementType",
+                                  // MaxSelectedItems = 1,
+                                   Placeholder = ConstantDisplay.HRM_Category_SelectElementType.TranslateString(),
+                               };
+                           }
+                           @Html.VnrMultiSelectFor(mode => mode.ElementIDs, _ElementName)
+                          
+                           @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnConfigElement", ImageUrl = "/Content/images/icons/submenu/menu/Config-icon.png", CssStyle = "margin-left: 5px" })
+                                                    
+                       </div>
+                   </div>
+                   <div id="div4">
+                       <div class="FieldTitle">
+                           @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                       </div>
+                       <div class="FieldValue">
+                           @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                       </div>
+                   </div>
+
+                   
+               </div>
+
+
+                <div style="float:left">
+                    <div id="div13">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelForNoneIcon(model => model.CompareType)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var ddlCompareType = new DropDownListBuilderInfo()
+                                {
+                                    Name = "SCompareType",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listCompareType,
+                                    OptionLabel = " ",
+                                    StyleCss = "width:100px",
+                                    EventChange = "onChange"
+                                };
+                            }
+                            @Html.VnrDropDownListFor(model => model.CompareType, ddlCompareType)
+                        </div>
+                    </div>
+                    <div id="divShowChartByProfile">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Payroll_DisplayChart.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrCheckBoxFor(mode => mode.ShowChartByProfile)
+                            </div>
+                        </div>
+                    </div>
+                    <div id="divOrgStructureType" hidden="hidden">
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.OrgStructureTypeID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _OrgStructureTypeID = new MultiSelectBuilderInfo()
+                                    {
+                                        Name = "SOrgStructureTypeID",
+                                        DataTextField = "OrgStructureTypeName",
+                                        DataValueField = "ID",
+                                        Url = @_hrm_Cat_Service + "Cat_GetData/GetMultiOrgStructureType",
+                                        Placeholder = ConstantDisplay.HRM_Category_SelectOrgStructureType.TranslateString(),
+                                        MaxSelectedItems = 1
+                                    };
+                                }
+                                @(Html.VnrMultiSelectFor(mode => mode.OrgStructureTypeID, _OrgStructureTypeID))
+                            </div>
+                        </div>
+                        <div id="div13">
+                            <div class="FieldTitle">
+                                @Html.VnrLabelForNoneIcon(model => model.ShowDataType)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var ddlShowDataType = new DropDownListBuilderInfo()
+                                    {
+                                        Name = "SShowDataType",
+                                        DataTextField = "Text",
+                                        DataValueField = "Value",
+                                        BindTo = lstShowDataType,
+                                        OptionLabel = " ",
+                                        StyleCss = "width:100px",
+                                       // EventChange = "onChange"
+                                    };
+                                }
+                                @Html.VnrDropDownListFor(model => model.ShowDataType, ddlShowDataType)
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabelFor(model => model.WorkingPlaceID)
+                            </div>
+                            <div class="FieldValue">
+                                @{
+                                    var _WorkingPlaceID = new ComboBoxBuilderInfo()
+                                    {
+                                        StyleCss = "width:200px;",
+                                        // Name = "SShopID",
+                                        DataTextField = "WorkPlaceName",
+                                        DataValueField = "ID",
+                                        Url = _hrm_Hr_Service + "Cat_GetData/GetMultiWorkPlace",
+                                        ServerFilter = true
+                                    };
+                                }
+                                @(Html.VnrComboBoxFor(mode => mode.WorkingPlaceID, _WorkingPlaceID))
+                            </div>
+                        </div>
+                        <div>
+                            <div class="FieldTitle">
+                                @Html.VnrLabel(ConstantDisplay.HRM_Payroll_DisplayChart.TranslateString())
+                            </div>
+                            <div class="FieldValue">
+                                @Html.VnrCheckBoxFor(mode => mode.ShowChart)
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+            <script>
+                function GetScreenName() {
+                    return {
+                        screenName: '@screen'
+                    };
+                }
+            </script>
+            <div class="FieldValue" style="margin-top: 0;">
+                @{
+                    var screenName = new DropDownListBuilderInfo()
+                    {
+                        Name = "ddlScreenName",
+                        DataTextField = "ExportName",
+                        DataValueField = "ID",
+                        Url = @_hrm_Cat_Service + "Cat_GetData/GetScreenName",
+                        StyleCss = "width:200px;",
+                        Data = "GetScreenName",
+                    };
+                }
+                @Html.VnrDropDownList(screenName)
+
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantDisplay.HRM_Common_Export_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantDisplay.HRM_Common_CreateTemplate_Button.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            </div>
+        </div>
+</div>
+
+<div id="grid_ComparePayrollTable">
+
+</div>
+<div> 
+    <div id="ShowChartForData" hidden="hidden" style="padding-top:20px">
+    </div>
+</div>
+<div>
+    <div id="ShowChartDataByProfile" style="padding-top: 20px;height:100%">
+
+    </div>
+</div>
+
+
+
+

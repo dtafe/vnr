@@ -1,0 +1,210 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Presentation.Hr.Models
+@using HRM.Infrastructure.Security
+@model HRM.Presentation.Hr.Models.Hre_ProfileModel
+@{
+    var profileID = Guid.Empty;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _Hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    Layout = null;
+    if (Model != null)
+    {
+        profileID = Model.ID;
+    }
+}
+<div style="padding-top:3px">
+    <!--Khen thưởng-->
+    <div>
+        @{
+            var window = new WindowBuilderInfo
+            {
+                Name = "windowReWard",
+                Visible = false,
+                Width = 700,
+                LoadContentFrom = @_hrm_Main_Web + "Hre_ProfileProcessWork/CreateOrUpdate?profileID=" + profileID,
+            };
+        }
+        @(Html.VnrWindow(window))
+        <script>
+            var titleCreatePopUpReWard = '@Html.Raw(ConstantDisplay.HRM_HR_Reward_AddNew.TranslateString())';
+            var titleEditPopUpReWard = '@Html.Raw(ConstantDisplay.HRM_HR_Reward_Edit.TranslateString())';
+            var selectedIds = [];
+            //Xử lý sự kiện click button tìm kiếm
+            $(document).ready(function () {
+                $("#btnSearch").click(function () {
+                    ReadGrid("gridReWard");
+                });
+                //Show Hide Panel
+                ShowHidePanel();
+                //Xử lý Edit
+                var url = '@_hrm_Main_Web' + "Hre_ProfileProcessWork/CreateOrUpdate/";
+                EditGridPopUp("gridReWard", "windowReWard", url, '@ConstantPermission.Hre_Reward', titleEditPopUpReWard);
+            });
+
+            //Xử lý tạo mới
+            $("#btnCreateReward").click(function () {
+                
+                var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Hre_Reward');
+                if (!isAccess) {
+                    return;
+                }
+                var x = '@profileID';
+                if (x == '') {
+                    PopUpCreate("windowError");
+                }
+                else {
+                    var url = '@_hrm_Main_Web' + "Hre_ProfileProcessWork/CreateOrUpdate/";
+                    PopUpEdit("windowReWard", url, SelectID, titleCreatePopUpReWard);
+                }
+            });
+
+            //Xử Lý grid
+            GridCheckbox("gridReWard");
+
+            //Xử lý delete
+            $('#btnDeleteReward').click(function (e) {
+                if (selectedIds == "") {
+                    DeleteFail();
+                    return;
+                }
+                e.preventDefault();
+                DeleteSelected("gridReWard", '@_hrm_Main_Web' + "Hre_Reward/RemoveSelected/", selectedIds, '@ConstantPermission.Hre_Reward');
+                return false;
+            });
+
+            //Expoprt
+            $("#btnExportAll").click(function () {
+
+                var grid = $('#gridReWard').data("kendoGrid");
+                if (grid.dataSource.total() == 0) {
+                    ExportAllFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardList/";
+                var urlDownload = '@_hrm_Main_Web';
+                var dataParameter = filterFieldInfo(true);
+                ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Hre_Reward');
+            });
+
+            $("#btnExportSelected").click(function () {
+                if (selectedIds == "") {
+                    ExportSelectedFail();
+                    return;
+                }
+                var urlGetData = '@_Hrm_Hre_Service' + "Hre_GetData/ExportRewardSelected/";
+                var urlDownload = '@_hrm_Main_Web';
+                var listIds = selectedIds.join(",");
+                var listFields = $('#valueFieldsGrid').val();
+                ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Hre_Reward');
+            });
+
+        </script>
+
+        <div class="commandToolBarWidge">
+            <div class="GridTitle">
+                @Html.VnrLabel(ConstantDisplay.HRM_HR_Reward.TranslateString())
+            </div>
+            <div style="float:right">
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateReward", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+                @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDeleteReward", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })*@
+            </div>
+            @*<div style="float:right">
+                    <div class="btn-group">
+                        <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                            <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                            @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                            <span class="caret"></span>
+                        </button>
+                        <ul class="dropdown-menu pull-right" role="menu">
+                            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                            <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                        </ul>
+                    </div>
+                    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+                </div>*@
+            <div class="clear"></div>
+        </div>
+
+        <div style="width:100%; height:580px">
+            <!--Khai báo các thông tin cho Grid-->
+            @using HRM.Presentation.Hr.Models
+            @using HRM.Presentation.UI.Controls.Kendo
+            @{
+                valueFields = new[]
+                        {
+                            Hre_RewardModel.FieldNames.DateOfIssuance,
+                            Hre_RewardModel.FieldNames.DateOfEffective,
+                            Hre_RewardModel.FieldNames.Reason,
+                            Hre_RewardModel.FieldNames.OrgStructureName,
+                            Hre_RewardModel.FieldNames.DateUpdate,
+                            Hre_RewardModel.FieldNames.UserUpdate
+                        };
+
+                var sizeFields = new Dictionary<string, int>()
+                        {
+                            {Hre_RewardModel.FieldNames.DateOfIssuance,90},
+                            {Hre_RewardModel.FieldNames.DateOfEffective,110},
+                            {Hre_RewardModel.FieldNames.Reason,150},
+                            {Hre_RewardModel.FieldNames.OrgStructureName,100},
+                            {Hre_RewardModel.FieldNames.DateUpdate,110},
+                            {Hre_RewardModel.FieldNames.UserUpdate,110},
+                        };
+
+                var filterable = new Dictionary<string, bool>()
+                {
+
+                };
+
+                var displayFields = new Dictionary<string, string>()
+                        {
+                            {Hre_RewardModel.FieldNames.DateOfIssuance,ConstantDisplay.HRM_HR_Reward_DateOfIssuance},
+                            {Hre_RewardModel.FieldNames.DateOfEffective,ConstantDisplay.HRM_HR_Reward_DateOfEffective},
+                            {Hre_RewardModel.FieldNames.Reason,ConstantDisplay.HRM_HR_Reward_Reason},
+                            {Hre_RewardModel.FieldNames.OrgStructureName,ConstantDisplay.HRM_Attendance_OrgStructureID},
+                            {Hre_RewardModel.FieldNames.DateUpdate,ConstantDisplay.HRM_Attendance_Overtime_DateUpdate},
+                            {Hre_RewardModel.FieldNames.UserUpdate,ConstantDisplay.HRM_Attendance_Overtime_UserUpdate},
+                        };
+
+                var grid = new GridBuilderInfo
+                {
+
+                    Name = "gridReWard",
+                    ValueFields = valueFields,
+                    SizeFields = sizeFields,
+                    DisplayFields = displayFields,
+                    ReadActionUrl = _Hrm_Hre_Service + "Hre_GetData/GetRewardID?profileID=" + profileID,
+                    //ReadData = "filterFieldInfo",
+                    AutoBind = true,
+                    GridHeight = 580,
+                    ShowCheckAll = false,
+                    ShowDeleteButton = true,
+                };
+            }
+
+            @(Html.VnrGrid<Hre_RewardModel>(grid))
+        </div>
+        @{
+            var valueFields1 = string.Empty;
+            for (int i = 0; i < valueFields.Count(); i++)
+            {
+                valueFields1 += "," + valueFields[i];
+            }
+        }
+        @Html.Hidden("valueFieldsGrid", valueFields1)
+    </div>
+</div>
+@*<script>
+    $("#gridReWard .k-grid-pager").css('display', 'none');
+    $("#gridDiscipline .k-grid-pager").css('display', 'none');
+    $("#gridAccident .k-grid-pager").css('display', 'none');
+    $("#gridWorkHistory .k-grid-pager").css('display', 'none');
+    $("#@ConstantControlName.HRM_HR_CandidateHistory_Grid_Name .k-grid-pager").css('display', 'none');
+
+    $(document).ready(function () {
+        $("#panelbar").kendoPanelBar();
+    });
+</script>*@

@@ -1,0 +1,321 @@
+﻿@using System.Web.Caching
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.UI.Controls.Menu
+@model List<string>
+@{
+    Layout = null;
+}
+
+@{
+
+    var siteMap = new HRM.Presentation.UI.Controls.Menu.XmlSiteMap();
+    if (HttpContext.Current.Cache["SiteMap"] == null)
+    {
+        siteMap.LoadFrom("~/Mvc.sitemap");
+        HttpContext.Current.Cache["SiteMap"] = siteMap;
+    }
+    else
+    {
+        siteMap = (HRM.Presentation.UI.Controls.Menu.XmlSiteMap)HttpContext.Current.Cache["SiteMap"];
+    }
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+}
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_CONFIG_DASHBOARD_OPTION_POPUP_NAME,
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Home/DashboardOptionView",
+    };
+}
+@(Html.VnrWindow(window))
+
+@{
+    var windowMenu = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_CONFIG_MENU_OPTION_POPUP_NAME,
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Home/MenuOptionView",
+    };
+}
+@(Html.VnrWindow(windowMenu))
+
+@{
+    var windowModuleOption = new WindowBuilderInfo
+    {
+        Name = ConstantControlName.HRM_CONFIG_MODULE_OPTION_POPUP_NAME,
+        Visible = false,
+        LoadContentFrom = _hrm_Main_Web + "Home/ModuleOptionView",
+    };
+}
+@(Html.VnrWindow(windowModuleOption))
+<script>
+     function DashboardOptionFunction() {
+            PopUpCreate('@ConstantControlName.HRM_CONFIG_DASHBOARD_OPTION_POPUP_NAME', '@Html.Raw(ConstantDisplay.Dashboard_Option.TranslateString())');
+        }
+        function MenuOptionFunction() {
+            PopUpCreate('@ConstantControlName.HRM_CONFIG_MENU_OPTION_POPUP_NAME', '@Html.Raw(ConstantDisplay.Menu_Option.TranslateString())');
+        }
+        function ModuleOptionFunction() {
+            PopUpCreate('@ConstantControlName.HRM_CONFIG_MODULE_OPTION_POPUP_NAME', '@Html.Raw(ConstantDisplay.Module_Option.TranslateString())');
+        }
+    $(document).ready(function () {
+        $('.vnr-class-menu').mousedown(function (event) {
+            if (event.ctrlKey == false && event.which == 1) {
+                var hrefs = this.href.split("#");
+                if (hrefs.length > 1) {
+                    var str = "#" + hrefs[1] + "|" + this.name + "|" + this.lang;
+                    $("#CurrentLinkForClickBack").val(str);
+                    onMenuClick("#" + hrefs[1], this.name, this.lang);
+                }
+            }
+        });
+    });
+</script>
+@helper RenderMenuItem(HRM.Presentation.UI.Controls.Menu.SiteMapNode item)
+{
+   
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+
+    bool IsActive = true;
+    if (Model != null && Model.Count > 0)
+    {
+        if (Model.All(m => m != item.ControllerName))
+        {
+            IsActive = false;
+        }
+    }
+
+
+    if (IsActive)
+    {
+        string url = null;
+        string customCss = "";
+        if (!string.IsNullOrEmpty(item.Url))
+        {
+            url = item.Url;
+        }
+        else
+        {
+            if (!string.IsNullOrEmpty(item.ControllerName) && !string.IsNullOrEmpty(item.ActionName))
+            {
+                url = Url.Action(item.ActionName, item.ControllerName, null, null, null);
+            }
+        }
+
+        url += "#NewTab";
+        if (item.Parent != null && item.Parent == "True")
+        {
+            customCss = "k_link_parent";
+        }
+        <li>
+            @if (!String.IsNullOrEmpty(url))
+            {
+        <!--<a href="javascript:onMenuClick('url', 'item.HrmWebSite','item.Alias');" parent="Url.Content(item.HrmWebSite)" class="customCss">-->
+
+    <a href="@url" name="@item.HrmWebSite" resource="@item.ModuleName" lang="@item.Alias" class="vnr-class-menu @customCss" parent="@Url.Content(item.HrmWebSite)">
+        @if (!String.IsNullOrEmpty(item.ImageUrl))
+        {
+            <text>
+                <img alt="" src="@Url.Content(item.ImageUrl)" title="@Url.Content(item.Title)" style="width:16px; height:16px" parent="@Url.Content(item.HrmWebSite)" />
+            </text>
+        }
+        @item.Title.TranslateString()
+    </a>
+            }
+            else
+            {
+                if (!String.IsNullOrEmpty(item.ImageUrl))
+                {
+                    <text>
+                        <img src="@Url.Content(item.ImageUrl)" title="@Url.Content(item.Title)" style="width:16px; height:16px" parent="@Url.Content(item.HrmWebSite)" />
+                    </text>
+                }
+                @item.Title.TranslateString()
+            }
+            @if (item.ChildNodes.Any(x => x.Visible))
+            {
+                <ul>
+                    @{
+                var lstChildNodes = item.ChildNodes.Where(x => x.Visible);
+                foreach (var childItem in lstChildNodes)
+                {
+                    @RenderMenuItem(childItem)
+                }
+                    }
+                </ul>
+            }
+        </li>
+    }
+}
+
+<ul id="admin-menu">
+
+    @{
+        //Lấy cấu hình hiển thị các module trong db
+        HRM.Presentation.Main.Controllers.HomeController homeControl = new HRM.Presentation.Main.Controllers.HomeController();
+        var moduleOption = homeControl.GetConfig(Constant.HRM_CONFIG_MODULE_OPTION);
+        string[] listModule = null;
+        if (moduleOption != null && !string.IsNullOrEmpty(moduleOption.Value1))
+        {
+            listModule = moduleOption.Value1.Split(',');
+        }
+        if (Session["userId"] == null)
+        {
+            return;
+        }
+        var lstSiteMapNodes = siteMap.RootNode.ChildNodes.Where(x => x.Visible);
+        foreach (var item in lstSiteMapNodes)
+        {
+            //Nếu chưa có config thì lấy tất cả
+            //Nếu có rồi thì kiểm tra tồn tại trong cấu hình mới hiển thị
+            if (listModule == null)
+            {
+                @RenderMenuItem(item)
+            }
+            else
+            {
+                if (listModule.Contains(item.NopResource))
+                {
+                    @RenderMenuItem(item)
+                }
+            }
+        }
+        
+        <li id="moreMenu">
+        <a class="dropdown-toggle" data-toggle="dropdown" href="#moreMenu"><strong>All&nbsp;</strong><b class="caret"></b></a>
+        <div class="dropdown-menu moreMenus container">
+          <div class="row">
+              <div>
+                  @{
+                      var menuOption = homeControl.GetConfig(Constant.HRM_CONFIG_MENU_OPTION);
+                      if (menuOption != null && !string.IsNullOrEmpty(menuOption.Value1) && !string.IsNullOrEmpty(menuOption.Value2))
+                      {
+                          var strParent = menuOption.Value1;
+                          var strChild = menuOption.Value2;
+                          var parents = strParent.Split(',');
+                          var childs = strChild.Split('|');
+                          for (int i = 0; i < parents.Count(); i++)
+                          {
+                              var strParents = parents[i];
+                              var strchilds = childs[i];
+                              var parenrNode = siteMap.RootNode.ChildNodes.FirstOrDefault(d => d.NopResource == strParents);
+                              if (parenrNode != null)
+                              {
+                                  var nodes = parenrNode.ChildNodes;
+                                  //Biến lưu tat cả các node con
+                                  var smNodes = new HRM.Presentation.UI.Controls.Menu.SiteMapNode();
+                                  if (nodes != null)
+                                  {
+                                      //Duyệt qua 4 cấp và lưu tat cả các node con
+                                      foreach (var node in nodes)
+                                      {
+                                          if (node.ChildNodes != null)
+                                          {
+                                              var nodes1 = node.ChildNodes;
+                                              if (nodes1.Count == 0)
+                                              {
+                                                  smNodes.ChildNodes.Add(node);
+                                              }
+                                              foreach (var node1 in nodes1)
+                                              {
+                                                  if (node1.ChildNodes != null)
+                                                  {
+                                                      var nodes2 = node1.ChildNodes;
+                                                      if (nodes2.Count == 0)
+                                                      {
+                                                          smNodes.ChildNodes.Add(node1);
+                                                      }
+                                                      foreach (var node2 in nodes2)
+                                                      {
+                                                          smNodes.ChildNodes.Add(node2);
+                                                      }
+                                                  }
+                                              }
+                                          }
+                                      }
+                                      
+                              var childs1 = strchilds.Split(',');
+                              <span class="col-lg-3">
+                                  <strong>@strParents.TranslateString()</strong>
+                                  <hr>
+                                  @{
+                              for (int j = 0; j < childs1.Count(); j++)
+                              {
+                                  if (parenrNode != null)
+                                  {
+                                      var childNode = smNodes.ChildNodes.FirstOrDefault(d => d.NopResource == childs1[j]);
+                                      if (childNode != null)
+                                      {
+                                          bool IsActive = true;
+                                          if (Model != null && Model.Count > 0)
+                                          {
+                                              if (Model.All(m => m != childNode.ControllerName))
+                                              {
+                                                  IsActive = false;
+                                              }
+                                          }
+
+                                          if (IsActive)
+                                          {
+                                              var href = "#";
+                                              if (!string.IsNullOrEmpty(childNode.Url))
+                                              {
+                                                  href = _hrm_Main_Web + childNode.Url + "#NewTab";
+                                              }
+                                              <div><a class="vnr-class-menu" name="@childNode.HrmWebSite" lang="@childNode.Alias" href="@href">@childs1[j].TranslateString()</a></div>
+                                          }
+                                      }
+                                  }
+                              }
+                                  }
+                              </span>
+                                  }
+                              }
+                          }
+                      }
+                  }
+              </div>
+          </div>
+            <div class="row">
+                <div class="col-lg-12" style="text-align: right">
+                    Tùy chỉnh: 
+                    <a onclick="DashboardOptionFunction()">Dashboard</a>&nbsp/
+                    <a onclick="MenuOptionFunction()">Menu</a>&nbsp/
+                    <a onclick="ModuleOptionFunction()">Module&nbsp</a>
+                </div>
+            </div>
+        </div>
+    </li>
+    }
+    
+</ul>
+<script>
+    $(document).ready(function () {
+        $("#admin-menu").kendoMenu();
+    });
+</script>
+
+@*@{
+        var _hrm_Main_Web = HRM.Infrastructure.Utilities.ConstantPathWeb.Hrm_Main_Web;
+    }
+    <script>
+
+        var enumKey = @HRM.Infrastructure.Utilities.AppConfig.E_MAIN_MENU.ToString();
+        $.ajax({
+            url: '@_hrm_Main_Web' + 'Home/Create',
+            data: { enumKey: enumKey },
+            type: 'POST',
+            success: function (data) {
+                if(data.Value1 != null){
+                    $("#admin-menu").html(data.Value1);
+                }
+            },
+            error: function (data) {
+                // alert(data);
+            }
+        });
+
+    </script>*@
+

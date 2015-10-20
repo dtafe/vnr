@@ -1,0 +1,204 @@
+﻿
+@using HRM.Infrastructure.Utilities;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model HRM.Presentation.Evaluation.Models.Eva_PerformanceModel
+@{
+    ViewBag.Title = "Index  Performance";
+    Layout = null;
+    var _hrm_System_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hre_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    string gridName = "gridEva_Performance";
+    var profileId = Guid.Empty;
+    if (Request["ProfileID"] != null)
+    {
+        Guid.TryParse(Request["ProfileID"].ToString(), out profileId);
+    }
+}
+<script>
+    function getData() {
+        
+        //var performancePlanMultiSelect = $("#PerformancePlanID").data("kendoMultiSelect");
+        //var performancePlanId = performancePlanMultiSelect.value();
+        var performancePlanId = $("#PerformancePlanID").val();
+        var performanceTypeId = $("#PerformanceTypeID").val();
+        var performanceTemplateId = $("#PerformanceTemplateID1").val();
+        var proportion = $("#Proportion").val();
+        var strengths = $("#Strengths").val();
+        var weaknesses = $("#Weaknesses").val();
+        var resultNote = $("#ResultNote").val();
+        var levelId = $("#LevelID").val();
+        var evaluatorMultiSelect = $("#EvaluatorID").data("kendoMultiSelect");
+        var evaluatorIds = null;
+        var evaluatorId = null;
+        if (evaluatorMultiSelect != undefined) {
+            if (evaluatorMultiSelect.value().length > 0) {
+                evaluatorId = evaluatorMultiSelect.value()[0];
+            }
+            evaluatorIds = evaluatorMultiSelect.value().join(',');
+        }
+        var profileMultiSelect = $("#ProfileID").data("kendoMultiSelect");
+        var profileId = profileMultiSelect.value();
+        var dueDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#DueDate").val());
+        var periodFromDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodFromDate").val());
+        var periodToDate = ConvertDatetime('@_hrm_System_Service' + 'Sys_GetData/GetFormatDate/', $("#PeriodToDate").val());
+        //  var attachFile = $("#AttachFile").val();
+        var attachFiles = $("#AttachFile").val().split(",");
+
+
+        return {
+            ProfileID: profileId.join(','),
+            EvaluatorID: evaluatorId,
+            EvaluatorIDList: evaluatorIds,
+            // AttachFile: attachFile,
+            AttachFiles: attachFiles,
+            PerformancePlanID: performancePlanId,
+            PerformanceTypeID: performanceTypeId,
+            PerformanceTemplateID: performanceTemplateId,
+            Proportion: proportion,
+            Strengths: strengths,
+            Weaknesses: weaknesses,
+            ResultNote: resultNote,
+            DueDate: dueDate,
+            PeriodFromDate: periodFromDate,
+            PeriodToDate: periodToDate,
+            LevelID: levelId
+        };
+    }
+    var gridName = '@gridName';
+    SetFieldRequired();
+    
+    var doSave = function () {
+        var check = CheckMark();
+        if (check === false) {
+            return;
+        } else {
+            var performamceData = getData();
+            //lay data cua luoi post len
+            var grid = $("#" + gridName).data("kendoGrid");
+            parameterMap = grid.dataSource.transport.parameterMap;
+            var currentData = grid.dataSource.view();
+            var kpiData = [];
+            for (var i = 0; i < currentData.length; i++) {
+                kpiData.push(currentData[i].toJSON());
+            }
+            var lstModel = {};
+            $.extend(lstModel, parameterMap({ models: kpiData, performanceModel: performamceData }));
+
+            //save
+            $.ajax({
+                traditional: true,
+                url: '@_hrm_Main_Web' + 'Eva_PerformanceProfile/Create',
+                data: lstModel,
+                type: 'POST',
+                success: function (data) {
+                    ReadGrid(gridName);
+                    if (data.ActionStatus != undefined) {
+                        ShowNotificationProcessor(data.ActionStatus);
+                        return;
+                    }
+                    ShowNotificationProcessor("Thêm Mới Thành Công");
+                    $('#ID').val(data.ID);
+                },
+                error: function (data) { }
+            });
+        }
+    };
+
+    function CheckMark() {
+        
+        var list = $("#" + gridName).data("kendoGrid").dataSource.data();
+        for (var i = 0; i < list.length; i++) {
+            if (list[i].Mark == null) {
+                ShowNotificationProcessor("Bạn Chưa Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Trong Bản Đánh Giá.");
+                return false;
+            }
+            if (list[i].Mark > list[i].MaximumRating || list[i].Mark < list[i].MinimumRating) {
+                ShowNotificationProcessor("Nhập " + '@ConstantDisplay.HRM_Evaluation_PerformanceDetail_Mark.TranslateString()' + " Ở Tiêu Chí " + (i + 1).toString() + " Nằm Trong Khoảng Giữa Của " + '@ConstantDisplay.HRM_Evaluation_MinimumRating.TranslateString()' + " Và " + '@ConstantDisplay.HRM_Evaluation_MaximumRating.TranslateString()');
+                return false;
+            }
+        }
+        return true;
+    }
+    
+
+    function calculate() {
+        
+        var check = CheckMark();
+        if (check === false) {
+            return;
+        }
+        else {
+            var list = $("#" + gridName).data("kendoGrid").dataSource.data();
+            var TotalMark = 0;
+            var TotalRate = 0;
+            var TotalKPI = list.length;
+            var Formula = $("#FormularKPI").val();
+            for (var i = 0; i < list.length; i++) {
+                TotalMark += list[i].Mark;
+                TotalRate += list[i].Rate;
+            }
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Eva_GetData/GetTotalMarkByFormula",
+                data: { Formula: Formula, TOTALMARK: TotalMark, TOTALRATE: TotalRate, TOTALKPI: TotalKPI },
+                async: false,
+                datatype: 'json',
+                type: 'POST',
+                success: function (data) {
+                    $("#TotalMark").val(data);
+                }
+            });
+
+            $.ajax({
+                url: '@_hrm_Hre_Service' + "Eva_GetData/GetTotalMark",
+                data: { TotalMark: TotalMark },
+                async: false,
+                datatype: 'json',
+                type: 'POST',
+                success: function (data) {
+                    var datas = [{ LevelName: data.LevelName, ID: data.ID }];
+                    var ddl = $("#LevelID").data("kendoDropDownList");
+                    ddl.value(data.ID);
+                }
+            });
+        }
+    }
+
+
+</script>
+<div>
+    @ViewBag.MsgInsert
+</div>
+
+
+<form action="#" method="POST" id="form-create">
+  
+    @*@Html.Hidden("PerformanceTemplateID")
+        @Html.Hidden("EvaluatorIDList")*@
+    <div class="panel-wrap">
+        <div id="main-content">
+            <div class="widget">
+                <div class="section-header">
+                    <div class="title">
+                        <img src="@ConstantPath.Eva_PerformanceIconPath" alt="" width="20" height="20" />
+                        @ConstantDisplay.HRM_Evaluation_PerformanceProfile_Create_Title.TranslateString()
+                        @Html.ActionLink("(" + ConstantDisplay.HRM_Evaluation_Back_To_PerformanceProfile_List.TranslateString() + ")", "/Index")
+                    </div>
+                </div>
+
+                <div class="commandToolBarWidge">
+                    <div class="options">
+                        @Html.VnrButton(new ButtonBuilderInfo() { EventClick = "doSave", Name = "save", Content = ConstantAction.HRM_Common_Save.TranslateString(), ImageUrl = ConstantPath.IconSavePath })
+                    </div>
+                </div>
+                @Html.Partial("CreateOrUpdate", Model)
+            </div>
+        </div>
+    </div>
+</form>
+
+
+
+

@@ -1,0 +1,254 @@
+﻿@using HRM.Presentation.UI.Controls.Kendo
+@using HRM.Presentation.HrmSystem.Models
+@using HRM.Infrastructure.Utilities
+@using MvcSiteMapProvider.Web.Html
+@using HRM.Infrastructure.Security;
+
+@model Sys_UserApproveModel
+
+@{
+    ViewBag.Title = ConstantDisplay.HRM_Category.TranslateString();
+    Layout = null;
+    var hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var hrm_Sys_Web = ConstantPathWeb.Hrm_Sys_Web;
+    var gridName = "gridUserApprove";
+    var windowName = "windowSysUserApprove";
+    IList<SelectListItem> lstApproveType = Enum.GetValues(typeof(ApproveType))
+  .Cast<ApproveType>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+  .ToList();
+
+}
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = windowName,
+        Visible = false,
+        Width = 700,
+        Title = "Thông Tin Người Duyệt",
+        LoadContentFrom = @hrm_Sys_Web + "Sys_UserApprove/SysUserApproveInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+<script type="text/javascript">
+    var windowName = '@windowName';
+    var gridName = '@gridName';
+    var titleEditPopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Edit_Title.TranslateString())';
+    var titleCreatePopUp = '@Html.Raw(ConstantDisplay.HRM_System_UserApprove_PopUp_Create_Title.TranslateString())';
+
+    var checkedNodes = [];
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var ctrUser = $("#UserApproveID1").data("kendoMultiSelect");
+        var ctrType = $("#Type1").val();
+        return {
+            UserApproveID: ctrUser.value().join(','),
+            Type: ctrType,
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+        //
+        $("#btnSearch").click(function () {
+            ReadGrid(gridName);
+        });
+        //Xử lý Edit popup
+        var url = '@hrm_Sys_Web' + "Sys_UserApprove/SysUserApproveInfo/";
+        EditGridPopUp(gridName, windowName, url, '@ConstantPermission.Sys_UserApprove', titleEditPopUp);
+    });
+
+
+    $("#btnCreate").click(function () {
+        PopUpCreate(windowName, titleCreatePopUp, '@ConstantPermission.Sys_UserApprove');
+    });
+
+    //Xử Lý grid
+    GridCheckbox(gridName);
+
+    //Xử Lý button delete
+    $('#btnDelete').click(function (e) {
+        DeleteSelected(gridName, '@hrm_Sys_Web' + "Sys_UserApprove/RemoveSelected/", selectedIds.join(","), '@ConstantPermission.Sys_UserApprove');
+    })
+    
+
+    //Expoprt
+    $("#btnExportAll").click(function () {
+        var grid = $('#' + gridName).data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportAllUserApproveList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Sys_UserApprove');
+    });
+    $("#btnExportSelected").click(function () {
+        if (selectedIds == "") {
+            ExportSelectedFail();
+            return;
+        }
+        var urlGetData = '@hrm_Sys_Service' + "Sys_GetData/ExportUserApproveSelected/";
+        var urlDownload = '@_hrm_Main_Web';
+        var listIds = selectedIds.join(",");
+        var listFields = $('#valueFieldsGrid').val();
+        ExportSelected(urlGetData, listIds, listFields, urlDownload, '@ConstantPermission.Sys_UserApprove');
+    });
+</script>
+
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+
+            <div class="contendSearchWidge">
+                <form action="#" method="POST" id="form-search">
+                    <div id="dvUserApproveName">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(model => model.UserApproveID)
+                        </div>
+                        <div class="FieldValue">
+                            @{ var multiSelectProfileID = new MultiSelectBuilderInfo()
+                               {
+                                   Name = "UserApproveID1",
+                                   DataTextField = "UserInfoName",
+                                   DataValueField = "ID",
+                                   Url = hrm_Sys_Service + "Sys_GetData/GetMultiUser",
+                                   MaxSelectedItems = 1,
+                                   Placeholder = ConstantDisplay.HRM_System_SelectUser.TranslateString(),
+                               };
+                            }
+                            @Html.VnrMultiSelect(multiSelectProfileID)
+
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Type)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var dropdownStatus = new DropDownListBuilderInfo()
+                                {
+                                    Name = "Type1",
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = lstApproveType,
+                                    OptionLabel = @ConstantDisplay.HRM_System_UserApprove_SelectType.TranslateString(),
+                                    StyleCss = "width:200px;"
+                                };
+                            }
+                            @(Html.VnrDropDownListFor(mode => mode.Type, dropdownStatus))
+                        </div>
+
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreate", Content = ConstantAction.HRM_Common_Create.TranslateString(), ImageUrl = ConstantPath.IconAddNewPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <div class="btn-group">
+            <button type="button" class="k-button btn-default dropdown-toggle" data-toggle="dropdown">
+                <img src="@ConstantPath.IconExportPath" width="15" height="15" />
+                @ConstantDisplay.HRM_Common_ExportDropdown_Title.TranslateString()
+                <span class="caret"></span>
+            </button>
+            <ul class="dropdown-menu pull-right" role="menu">
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportSelected", Content = ConstantAction.HRM_Common_ExportSelected.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+                <li>@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExportAll", Content = ConstantAction.HRM_Common_ExportAll.TranslateString(), ImageUrl = ConstantPath.IconExportPath, CssStyle = "border:0" })</li>
+            </ul>
+        </div>
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+
+
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+               {Sys_UserApproveModel.FieldNames.Type,new object[]
+               { "Value", "Text", lstApproveType, ConstantDisplay.HRM_System_UserApprove_Type,""}},
+        };
+
+
+
+        string[] valueFields = new string[]
+        {
+           Sys_UserApproveModel.FieldNames.UserApproveName,
+           Sys_UserApproveModel.FieldNames.OrgStructureName,
+           Sys_UserApproveModel.FieldNames.Type,
+           Sys_UserApproveModel.FieldNames.CurrentStatus,
+           Sys_UserApproveModel.FieldNames.UserRequestName,
+           Sys_UserApproveModel.FieldNames.UserUpdate,
+           Sys_UserApproveModel.FieldNames.DateUpdate,
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {Sys_UserApproveModel.FieldNames.UserApproveName, 120},
+            {Sys_UserApproveModel.FieldNames.OrgStructureName, 150},
+            {Sys_UserApproveModel.FieldNames.Type, 140},
+            {Sys_UserApproveModel.FieldNames.CurrentStatus, 150},
+            {Sys_UserApproveModel.FieldNames.UserRequestName, 120},
+            {Sys_UserApproveModel.FieldNames.UserUpdate, 120},
+            {Sys_UserApproveModel.FieldNames.DateUpdate, 120},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {Sys_UserApproveModel.FieldNames.UserApproveName, ConstantDisplay.HRM_System_UserApprove},
+            {Sys_UserApproveModel.FieldNames.OrgStructureName, ConstantDisplay.HRM_HR_Reward_OrgStructureName},
+            {Sys_UserApproveModel.FieldNames.Type, ConstantDisplay.HRM_System_UserApprove_Type},
+              {Sys_UserApproveModel.FieldNames.CurrentStatus, ConstantDisplay.HRM_System_UserApprove_CurrentStatus},
+            {Sys_UserApproveModel.FieldNames.UserRequestName, ConstantDisplay.HRM_System_UserApprove_UserRequestID},
+            {Sys_UserApproveModel.FieldNames.UserUpdate, ConstantDisplay.HRM_Common_UserUpdate},
+            {Sys_UserApproveModel.FieldNames.DateUpdate, ConstantDisplay.HRM_Common_DateUpdate},
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = gridName,
+            ValueFields = valueFields,
+            ReadActionUrl = hrm_Sys_Service + "Sys_GetData/GetUserApproveList",
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ForeignKey = foreignKey,
+            ReadData = "filterFieldInfo",
+        };
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Sys_UserApproveModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

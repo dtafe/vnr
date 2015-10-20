@@ -1,0 +1,344 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Hr.Models
+@using HRM.Presentation.UI.Controls.Kendo
+
+@model FIN_ApprovedClaimSearchModel
+@{
+    ViewBag.Title = HRM.Infrastructure.Utilities.ConstantDisplay.HRM_HR_Contract.TranslateString();
+    Layout = null;
+    string[] valueFields = null;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listGender = Enum.GetValues(typeof(EnumDropDown.Gender))
+  .Cast<EnumDropDown.Gender>()
+  .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+  .ToList();
+
+    IList<SelectListItem> listSta = Enum.GetValues(typeof(EnumDropDown.WorkdayStatus))
+          .Cast<EnumDropDown.WorkdayStatus>()
+          .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+          .ToList();
+}
+@Html.Hidden("Screen", screen)
+
+@{
+    var window = new WindowBuilderInfo
+    {
+        Name = "windowApprovedClaim_SendRequest",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Fin_ApprovedClaim/ApprovedClaim_RequestInfo/",
+    };
+}
+@(Html.VnrWindow(window))
+
+
+
+@{
+    var windowApproved = new WindowBuilderInfo
+    {
+        Name = "windowRequestClaim_Approved",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Fin_ApprovedClaim/ApprovedClaim_RequestApprovedInfo/",
+    };
+}
+@(Html.VnrWindow(windowApproved))
+
+@{
+    var windowReject = new WindowBuilderInfo
+    {
+        Name = "windowRequestClaim_Reject",
+        Visible = false,
+        LoadContentFrom = @_hrm_Main_Web + "Fin_ApprovedClaim/ApprovedClaim_RequestRejectInfo/",
+    };
+}
+@(Html.VnrWindow(windowReject))
+
+<script type="text/javascript">
+    var checkedNodes = [];
+
+    //Khởi tạo điều kiện tìm kiếm
+    function filterFieldInfo(isExport) {
+        var elementPara = {
+            UserApproveID: $("#UserLoginId").val(),
+            IsExport: isExport,
+            ValueFields: $('#valueFieldsGrid').val()
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+
+            var grid = $('#grid_ApprovedClaim').data("kendoGrid");
+            grid.dataSource.read();
+
+            checkedNodes = [];
+        });
+        //Xử lý nút Edit
+
+        EditGridNewPage("grid_ApprovedClaim", '#Hrm_Main_Web/Fin_ApprovedClaim/Edit/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+
+    $("#btnCreate").click(function () {
+        KendoRouteMapping('#Hrm_Main_Web/Fin_ApprovedClaim/Create/', 'Hrm_Main_Web', '@_hrm_Main_Web');
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+
+    GridCheckbox("grid_ApprovedClaim");
+    //"Delete (selected)" button
+    $('#btnDelete').click(function (e) {
+        if (selectedIds.length == 0) {
+            DeleteFail();
+            return;
+        }
+        var grid = $('#grid_ApprovedClaim').data("kendoGrid");
+        var selectedItem = grid.dataItem(grid.select());
+        DeleteSelected("grid_ApprovedClaim", '@_hrm_Main_Web' + "Fin_ApprovedClaim/RemoveSelected/", selectedIds, '@ConstantPermission.Fin_ApprovedClaim');
+        return false;
+    });
+
+
+    $("#btnExportAll").click(function () {
+        var grid = $('#grid_ApprovedClaim').data("kendoGrid");
+        var count = grid.dataSource._data.toJSON().length;
+        if (count == 0) {
+            ExportAllFail();
+            return;
+        }
+
+        var urlGetData = '@_hrm_Hr_Service' + "Hre_GetData/ExportAllTravelRequestList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload, '@ConstantPermission.Fin_ApprovedClaim');
+    });
+
+    function onDataBoundGrid() {
+        CheckedGrid("grid_ApprovedClaim", selectedIds.join(","));
+    };
+
+    function filterFieldInfo_Export(isExport) {
+
+        var _exportID = $('#ddlScreenName').val();
+        var _purchaseID = selectedIds.join(",");
+        var elementPara = {
+            UserApproveID: $("#UserLoginId").val(),
+            exportID: isExport,
+            //IsCreateTemplate: isCreateTemplate,
+            //IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+        };
+        if (isExport == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    $("#btnCreateTemplate").click(function () {
+
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = true;
+        CreateTemplate('@_hrm_Hr_Service' + "Hre_GetData/ExportTravelRequest", filterFieldInfo_Export(true));
+
+    });
+
+    $("#btnExport").click(function () {
+        isCreateTemplate = false;
+        isCreateTemplateForDynamicGrid = true;
+
+        var isAccess = checkPermission(PrivilegeType.Export, '@HRM.Infrastructure.Security.ConstantPermission.Fin_ApprovedClaim');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        $.ajax({
+            type: 'POST',
+            url: '@_hrm_Hr_Service' + '/Hre_GetData/ExportTravelRequest',
+            data: filterFieldInfo_Export(true),
+            dataType: 'json',
+            success: function (returnValue) {
+
+                var strSplit = returnValue.indexOf(',');
+                var status = "";
+                var fullPath = "";
+                if (strSplit > 0) {
+                    status = returnValue.substring(0, strSplit);
+                    if (status == "Success") {
+                        fullPath = returnValue.substring(strSplit + 1, returnValue.length);
+                        window.location = '@_hrm_Main_Web' + fullPath;
+                        ShowNotificationProcessor(status);
+                    }
+                } else {
+                    ShowNotificationProcessor(returnValue);
+                }
+                @*var url = '@_hrm_Main_Web' + returnValue;
+                window.location = url;*@
+            }
+        });
+    });
+
+
+
+    $('#btnSendRequest').click(function (e) {
+
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Đơn Hàng Để Duyệt");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "Fin_ApprovedClaim/ApprovedClaim_RequestInfo/";
+        PopUpEdit("windowApprovedClaim_SendRequest", url, selectedIds[0], "Gửi Yêu Cầu Phê Duyệt Thanh Toán Chi Phí Công Tác");
+
+    });
+    $('#btnApproved').click(function (e) {
+
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Thanh Toán Chi Phí Công Tác Để Duyệt");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "Fin_ApprovedClaim/ApprovedClaim_RequestApprovedInfo/";
+        PopUpEdit("windowRequestClaim_Approved", url, selectedIds[0], "Duyệt Thanh Toán Chi Phí Công Tác");
+
+    });
+
+    $('#btnReject').click(function (e) {
+
+        if (selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Thanh Toán Chi Phí Công Tác Từ Chối");
+            return;
+        }
+
+        var url = '@_hrm_Main_Web' + "Fin_ApprovedClaim/ApprovedClaim_RequestRejectInfo/";
+        PopUpEdit("windowRequestClaim_Reject", url, selectedIds[0], "Từ Chối Thanh Toán Chi Phí Công Tác");
+
+    });
+
+    $("#btnViewClaim").click(function () {
+        if (selectedIds.length > 1 || selectedIds.length == 0) {
+            ShowNotificationProcessor("Error,Vui Lòng Chọn 1 Thanh Toán Chi Phí Công Tác");
+            return;
+        }
+        var isAccess = checkPermission(PrivilegeType.Create, '@ConstantPermission.Fin_ApprovedClaim');
+        if (!isAccess) {
+            return;
+        }
+
+        @*var x = '@Model.ID';*@
+
+        var x = selectedIds;
+
+        KendoRouteMapping('#Hrm_Main_Web/Fin_ApprovedClaim/DetailClaim/' + x, 'Hrm_Main_Web', '@_hrm_Main_Web', true);
+    });
+</script>
+
+@*<form action="#" method="POST" id="form-search">*@
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+            </h3>
+
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+    @*@Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })*@
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnViewClaim", Content = ConstantAction.HRM_Common_ViewDetail.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnApproved", Content = ConstantAction.HRM_Common_Approve.TranslateString(), ImageUrl = ConstantPath.IconApprovedPath })
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnReject", Content = ConstantAction.HRM_Common_Reject.TranslateString(), ImageUrl = ConstantPath.IconRejectPath })
+    <div style="float:right">
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnDelete", Content = ConstantAction.HRM_Common_Delete.TranslateString(), ImageUrl = ConstantPath.IconDeletePath })
+    </div>
+</div>
+
+
+
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        valueFields = new[]
+        {
+            FIN_ClaimModel.FieldNames.ProfileName,
+            FIN_ClaimModel.FieldNames.AccountCode,
+            FIN_ClaimModel.FieldNames.TravelRequestName,
+            FIN_ClaimModel.FieldNames.UserApprovedName,
+            FIN_ClaimModel.FieldNames.ClaimCode,
+            FIN_ClaimModel.FieldNames.Status
+        };
+
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+            {FIN_ClaimModel.FieldNames.ProfileName, 130},
+            {FIN_ClaimModel.FieldNames.AccountCode, 130},
+            {FIN_ClaimModel.FieldNames.TravelRequestName, 130},
+            {FIN_ClaimModel.FieldNames.UserApprovedName, 130},
+            {FIN_ClaimModel.FieldNames.ClaimCode, 130},
+            {FIN_ClaimModel.FieldNames.Status, 90},
+        };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+        {
+            {FIN_ClaimModel.FieldNames.ProfileName, ConstantDisplay.HRM_Att_AllowLimitOvertime_ProfileID},
+            {FIN_ClaimModel.FieldNames.AccountCode, ConstantDisplay.HRM_FIN_Claim_AccountCode},
+            {FIN_ClaimModel.FieldNames.TravelRequestName, ConstantDisplay.HRM_FIN_Claim_TravelRequestName},
+            {FIN_ClaimModel.FieldNames.UserApprovedName, ConstantDisplay.HRM_Fin_PurchaseRequest_UserApprovedID},
+            {FIN_ClaimModel.FieldNames.ClaimCode, ConstantDisplay.HRM_FIN_Claim_TravelRequestCode},
+            {FIN_ClaimModel.FieldNames.Status, ConstantDisplay.HRM_Att_Report_Status},
+        };
+
+        var grid = new GridBuilderInfo
+        {
+            Name = "grid_ApprovedClaim",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            ReadActionUrl = _hrm_Hr_Service + "Fin_GetData/GetClaimApprovedList",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowEditButton = false,
+            AutoBind = true,
+
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<FIN_ClaimModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
+
+
+

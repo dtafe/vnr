@@ -1,0 +1,355 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+
+@using HRM.Infrastructure.Security
+@model Att_ReportDetailSwingCardModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+    IList<SelectListItem> listSrcType = Enum.GetValues(typeof(EnumDropDown.TamScanLogSrcType))
+    .Cast<EnumDropDown.TamScanLogSrcType>()
+    .Select(x => new SelectListItem { Value = x.ToString(), Text = EnumDropDown.GetEnumDescription(x) })
+    .ToList();
+
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var cardcode = $("#CardCode").val();
+        var _profileID = $('#@Html.FieldIdFor(model => model.ProfileID)').val() != null ? $('#@Html.FieldIdFor(model => model.ProfileID)').val().join(',') : $('#@Html.FieldIdFor(model => model.ProfileID)').val();
+        
+        var _Status = $('#@Html.FieldIdFor(model=>model.Status)').val() != null ? $('#@Html.FieldIdFor(model=>model.Status)').val().join(',') : $('#@Html.FieldIdFor(model=>model.Status)').val();
+        var _ShiftIDs = $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val() != null ? $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val().join(',') : $('#@Html.FieldIdFor(model=>model.ShiftIDs)').val();
+        var elementPara = {
+            ProfileID: _profileID,
+            OrgStructureID: checkedNodes.join(','),
+            CardCode: cardcode,
+            Status: _Status,
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid,
+            UserExport: $('#UserLoginName').val()
+        };
+        if (isExportDDL == true) {
+            elementPara["ExportId"] = $('#ddlScreenName').val();
+        }
+        return elementPara;
+    }
+
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        ShowHidePanel();
+        $("#btnSearch").click(function () {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetReportDetailSwingCardListValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var grid = $('#gridAtt_ReportDetailSwingCard').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+        });
+    });
+
+    $("#btnExport").click(function () {
+        
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportDetailSwingCard');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        var urlGetData = '@_hrm_Hr_Service' + "Att_GetData/GetReportDetailSwingCardList/";
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+        checkedNodes = [];
+    });
+
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetReportDetailSwingCardList', filterFieldInfo(true));
+    });
+
+    function checkedNodeIds(nodes, checkedNodes) {
+        for (var i = 0; i < nodes.length; i++) {
+            if (nodes[i].checked) {
+                checkedNodes.push(nodes[i].id);
+            }
+
+            if (nodes[i].hasChildren) {
+                checkedNodeIds(nodes[i].children.view(), checkedNodes);
+            }
+        }
+    }
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float: left; width:450px">
+                    <div id="div4">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateStart = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateFrom.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateFrom, DateStart)
+
+                            @{
+                                var DateEnd = new DatePickerBuilderInfo()
+                                {
+                                    Value = DateTime.Today.ToShortDateString(),
+                                    Placeholder = ConstantDisplay.HRM_Attendance_DateTo.TranslateString(),
+                                    StyleCss = "width:100px"
+                                };
+                            }
+                            @Html.VnrDatePickerFor(model => model.DateTo, DateEnd)
+                        </div>
+                    </div>
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.ProfileID)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var mtsProfile = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "ProfileName",
+                                    DataValueField = "ID",
+                                    Url = @_hrm_Hr_Service + "HrMultiSelect/GetMultiProfile",
+                                    Placeholder = ConstantDisplay.HRM_HR_SelectProfile.TranslateString(),
+                                    Value = new string[] { @Html.DisplayFor(mode => mode.ProfileID).ToString() }
+                                };
+
+                                if (Model != null)
+                                {
+                                    if (Model.ID != Guid.Empty)
+                                    {
+                                        mtsProfile.MaxSelectedItems = 1;
+                                    }
+                                }
+                            }
+                            @(Html.VnrMultiSelectFor(mode => mode.ProfileID, mtsProfile))
+                        </div>
+                    </div>
+
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureID)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+                    </div>
+                </div>
+                <div style="float: left">
+                    <div id="div2">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.CardCode)
+                        </div>
+                        <div class="FieldValue">
+
+                            @Html.VnrTextBoxFor(mode => mode.CardCode)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle150">
+                            @Html.VnrLabelFor(model => model.Status)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var status = new MultiSelectBuilderInfo()
+                                {
+                                    DataTextField = "Text",
+                                    DataValueField = "Value",
+                                    BindTo = listSrcType,
+                                    Placeholder = ConstantDisplay.HRM_Category_SelectStatus.TranslateString(),
+                                };
+                            }
+                            @Html.VnrMultiSelectFor(mode => mode.Status, status)
+                        </div>
+                        <div style="clear: both;"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="commandToolBarWidge">
+
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+    <div style="float:right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        <div class="FieldValue" style="margin-top: 0;">
+            @{
+                var screenName = new DropDownListBuilderInfo()
+                {
+                    Name = "ddlScreenName",
+                    DataTextField = "ExportName",
+                    DataValueField = "ID",
+                    Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                    Data = "GetScreenName",
+                };
+            }
+            @Html.VnrDropDownList(screenName)
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+            @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        </div>
+    </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @{
+        Dictionary<object, object[]> foreignKey = new Dictionary<object, object[]>()
+        {
+
+            {Att_ReportDetailSwingCardModel.FieldNames.Status,new object[]
+               { "Value", "Text", listSrcType, ConstantDisplay.HRM_Att_Report_Status,""}},
+        };
+
+
+        string[] valueFields = new string[]
+                            {
+                                Att_ReportDetailSwingCardModel.FieldNames.CodeEmp,
+                                Att_ReportDetailSwingCardModel.FieldNames.ProfileName,
+                                Att_ReportDetailSwingCardModel.FieldNames.CodeOrg,
+                                Att_ReportDetailSwingCardModel.FieldNames.CardCode,
+                                Att_ReportDetailSwingCardModel.FieldNames.Date,
+                                Att_ReportDetailSwingCardModel.FieldNames.ShiftName,
+                                Att_ReportDetailSwingCardModel.FieldNames.Status,
+                                Att_ReportDetailSwingCardModel.FieldNames.Time,
+                                Att_ReportDetailSwingCardModel.FieldNames.MachineNo,
+                                Att_ReportDetailSwingCardModel.FieldNames.DateFrom,
+                                Att_ReportDetailSwingCardModel.FieldNames.DateTo,
+                                Att_ReportDetailSwingCardModel.FieldNames.UserExport,
+                                Att_ReportDetailSwingCardModel.FieldNames.DateExport
+                            };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+                            {
+                                {Att_ReportDetailSwingCardModel.FieldNames.CodeEmp,70},
+                                {Att_ReportDetailSwingCardModel.FieldNames.ProfileName,135},
+
+                                {Att_ReportDetailSwingCardModel.FieldNames.CodeOrg,100},
+                                {Att_ReportDetailSwingCardModel.FieldNames.CardCode,120},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Date,81},
+                                {Att_ReportDetailSwingCardModel.FieldNames.ShiftName,90},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Status,78},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Time,75},
+                                {Att_ReportDetailSwingCardModel.FieldNames.MachineNo,110},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateFrom,90},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateTo,78},
+                                {Att_ReportDetailSwingCardModel.FieldNames.UserExport,75},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateExport,110}
+                            };
+
+        Dictionary<string, string> displayFields = new Dictionary<string, string>()
+                            {
+                                {Att_ReportDetailSwingCardModel.FieldNames.CodeEmp,ConstantDisplay.HRM_HR_Profile_CodeEmp},
+                                {Att_ReportDetailSwingCardModel.FieldNames.ProfileName,ConstantDisplay.HRM_HR_Profile_ProfileName},
+
+                                {Att_ReportDetailSwingCardModel.FieldNames.CodeOrg,ConstantDisplay.HRM_Att_Report_CodeOrg},
+                                {Att_ReportDetailSwingCardModel.FieldNames.CardCode,ConstantDisplay.HRM_Attendance_TAMScanLog_CardCode},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Date,ConstantDisplay.HRM_Attendance_Date},
+                                {Att_ReportDetailSwingCardModel.FieldNames.ShiftName,ConstantDisplay.HRM_Category_Shift_ShiftName},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Status,ConstantDisplay.HRM_Att_Report_Status},
+                                {Att_ReportDetailSwingCardModel.FieldNames.Time,ConstantDisplay.HRM_Att_Report_Time},
+                                {Att_ReportDetailSwingCardModel.FieldNames.MachineNo,ConstantDisplay.HRM_Att_Report_MachineNo},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateFrom,ConstantDisplay.HRM_Attendance_DateFrom},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateTo,ConstantDisplay.HRM_Attendance_DateTo},
+                                {Att_ReportDetailSwingCardModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+                                {Att_ReportDetailSwingCardModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport}
+                            };
+        Dictionary<string, string> formatFields = new Dictionary<string, string>()
+        {
+                                {Att_ReportDetailSwingCardModel.FieldNames.Time,ConstantFormat.HRM_Format_HourMin},
+        };
+        string[] hiddenFields = new string[]
+        {
+                    Att_ReportDetailSwingCardModel.FieldNames.DateFrom,
+                    Att_ReportDetailSwingCardModel.FieldNames.DateTo,
+                    Att_ReportDetailSwingCardModel.FieldNames.UserExport,
+                    Att_ReportDetailSwingCardModel.FieldNames.DateExport
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_ReportDetailSwingCard",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetReportDetailSwingCardList",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            ForeignKey = foreignKey,
+            HiddenFields = hiddenFields
+        };
+
+    }
+
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_ReportDetailSwingCardModel>(grid))
+</div>
+
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)

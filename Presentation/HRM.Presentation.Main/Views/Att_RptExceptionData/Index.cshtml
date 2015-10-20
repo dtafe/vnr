@@ -1,0 +1,376 @@
+﻿@using HRM.Infrastructure.Utilities
+@using HRM.Infrastructure.Security
+@using HRM.Presentation.Attendance.Models;
+@using HRM.Presentation.UI.Controls.Kendo
+@model Att_RptExceptionDataSearchModel
+@{
+    ViewBag.Title = "Index";
+    Layout = null;
+    var _hrm_Hr_Service = ConstantPathWeb.Hrm_Hre_Service;
+    var _hrm_Main_Web = ConstantPathWeb.Hrm_Main_Web;
+    var _hrm_Sys_Service = ConstantPathWeb.Hrm_Sys_Service;
+    var controller = ViewContext.RouteData.Values["Controller"].ToString();
+    var action = ViewContext.RouteData.Values["Action"].ToString();
+    var screen = controller + "/" + action;
+}
+@Html.Hidden("Screen", screen)
+
+<script>
+    var checkedNodes = [];
+    var isCreateTemplate = false;
+    var isCreateTemplateForDynamicGrid = false;
+    SetFieldRequired();
+
+    function filterFieldInfo(isExportDDL) {
+        checkedNodes = [];
+        var treeView = $("#treeviewOrg").data("kendoTreeView");
+        checkedNodeOrderNumbers(treeView.dataSource.view(), checkedNodes);
+        var _Difference = $('#NumDifference').val() != null ? $('#NumDifference').val() : 0;
+        var _LessHours = $('#NumLessHours').val() != null ? $('#NumLessHours').val() : 0;
+        
+        var elementPara = {
+            DateFrom: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateFrom").val()),
+            DateTo: ConvertDatetime('@_hrm_Sys_Service' + 'Sys_GetData/GetFormatDate/', $("#DateTo").val()),
+            OrgStructureIDs: checkedNodes.join(','),
+            NoScan: document.getElementById('@Html.FieldIdFor(model => model.NoScan)').checked,
+            @*DifferenceMoreRoster: $('#@Html.FieldIdFor(model => model.DifferenceMoreRoster)').val(),*@
+                Difference: _Difference,
+            LessHours: _LessHours,
+            MissInOut: document.getElementById('@Html.FieldIdFor(model => model.MissInOut)').checked,
+            ValueFields: $('#valueFieldsGrid').val(),
+            UserExport: $('#UserLoginName').val(),
+            IsCreateTemplate: isCreateTemplate,
+            IsCreateTemplateForDynamicGrid: isCreateTemplateForDynamicGrid
+
+        };
+    if (isExportDDL == true) {
+        elementPara["ExportId"] = $('#ddlScreenName').val();
+    }
+    return elementPara;
+    }
+
+    // var data = SetCharacteFieldRequired();
+    //Xử lý sự kiện click button tìm kiếm
+    $(document).ready(function () {
+        //Show Hide Panel
+        ShowHidePanel();
+
+        //
+        $("#btnSearch").click(function () {
+            
+            // if (CheckValidate(data)) {
+            $.ajax({
+                type: 'POST',
+                url: '@_hrm_Hr_Service' + 'Att_GetData/GetRptExceptionDataValidate',
+                data: filterFieldInfo(),
+                dataType: 'json',
+                async: false,
+                success: function (data) {
+                    
+                    if (data[0] == "error") {
+                        ShowNotificationProcessor(data[1]);
+                    }
+                    else {
+                        var _NoScan = document.getElementById("NoScan");
+                        if (_NoScan.checked) {
+                            $("NoScan").val("true");
+                        } else {
+                            $("NoScan").val("false");
+                        }
+                        var _MissInOut = document.getElementById("MissInOut");
+                        if (_MissInOut.checked) {
+                            $("MissInOut").val("true");
+                        } else {
+                            $("MissInOut").val("false");
+                        }
+                        var grid = $('#gridAtt_RptExceptionData').data("kendoGrid");
+                        grid.dataSource.read();
+                    }
+                }
+            });
+            //  }
+            return false;
+        });
+    });
+
+
+
+    $("#btnExport").click(function () {
+        var isAccess = checkPermission(PrivilegeType.Export, '@ConstantPermission.Att_ReportSumaryInOut');
+        if (!isAccess) {
+            return;
+        }
+        if ($('#ddlScreenName').val() == "") {
+            ExportFail();
+            return;
+        }
+        //var grid = $('#gridAtt_ReportSumaryInOut').data("kendoGrid");
+        //if (grid.dataSource.total() == 0) {
+        //    ExportAllFail();
+        //    return;
+        //}
+        var urlGetData = '@_hrm_Hr_Service' + '/Att_GetData/GetRptExceptionData';
+        var urlDownload = '@_hrm_Main_Web';
+        var dataParameter = filterFieldInfo(true);
+        ExportAll(urlGetData, dataParameter, urlDownload);
+
+    });
+
+    $("#btnCreateTemplate").click(function () {
+        
+        isCreateTemplate = true;
+        isCreateTemplateForDynamicGrid = false;
+        CreateTemplate('@_hrm_Hr_Service' + '/Att_GetData/GetRptExceptionData', filterFieldInfo(true));
+    });
+
+</script>
+
+<div class="panel-wrap">
+    <div id="main-content">
+        <div class="widget">
+            <h3>
+                <!--Dòng title cho biết đang ở form nào và link quay lại-->
+                @Html.MvcSiteMap().SiteMapPath("BootstrapSiteMapPathHelperModel")
+                <span class="collapse k-icon k-i-arrowhead-n"></span>
+            </h3>
+            <!--Bất đầu nôi dung tìm kiếm-->
+            <div class="contendSearchWidge">
+                <div style="float:left; width:430px">
+                    <div id="div2">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(m => m.DateFrom)
+                            @Html.HiddenFor(m => m.UserExport)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var DateFrom = new DatePickerBuilderInfo()
+                                {
+                                    // Value = @Html.DisplayFor(mode => mode.FromDate).ToString(),
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateFrom.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateFrom, DateFrom)
+                            @{
+                                var DateTo = new DatePickerBuilderInfo()
+                                {
+                                    // Value = @Html.DisplayFor(mode => mode.ToDate).ToString(),
+                                    Value = DateTime.Now.ToShortDateString(),
+                                    StyleCss = "width:100px;",
+                                    Placeholder = ConstantDisplay.HRM_HR_Profile_DateTo.TranslateString()
+                                };
+
+                            }
+                            @Html.VnrDatePickerFor(mode => mode.DateTo, DateTo)
+                        </div>
+                    </div>
+
+                    <div id="div5">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.OrgStructureIDs)
+                        </div>
+                        <div class="FieldValue">
+                            @Html.Partial("EditorTemplates/OrgStructureTreeViewDropdown")
+                        </div>
+
+                        <div style="clear: both;"></div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.Difference)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var numericTextBoxDifference = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Name = "NumDifference",
+                                    StyleCss = "width:170px",
+                                    Format = ConstantFormat.HRM_Format_Number_Double
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.Difference, numericTextBoxDifference)
+                        </div>
+                    </div>
+                </div>
+                <div style="width:550px; display:block; float:left">
+                    <div id="div6">
+                        <div class="FieldTitle">
+                            @Html.VnrLabelFor(mode => mode.LessHours)
+                        </div>
+                        <div class="FieldValue">
+                            @{
+                                var numericTextBoxLessHours = new NumericTextBoxBuilderInfo<double>()
+                                {
+                                    Name = "NumLessHours",
+                                    StyleCss = "width:170px",
+                                    Format = ConstantFormat.HRM_Format_Number_Double
+                                };
+                            }
+                            @Html.VnrNumericTextBoxFor(model => model.LessHours, numericTextBoxLessHours)
+                        </div>
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+
+                            @{
+                                var MissInOut = new CheckBoxBuilderInfo()
+                               {
+
+                               };
+                            }
+
+                            @Html.VnrCheckBoxFor(model => model.MissInOut, MissInOut)
+                            @Html.VnrLabelFor(mode => mode.MissInOut)
+                        </div>
+
+                    </div>
+                    <div id="div6">
+                        <div class="FieldTitle">
+
+                        </div>
+                        <div class="FieldValue" style="font-weight:bold">
+                            @{
+                                var NoScan = new CheckBoxBuilderInfo()
+                               {
+
+                               };
+                            }
+
+                            @Html.VnrCheckBoxFor(model => model.NoScan, NoScan)
+                            @Html.VnrLabelFor(mode => mode.NoScan)
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="commandToolBarWidge">
+    @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnSearch", Content = ConstantAction.HRM_Common_Search.TranslateString(), ImageUrl = ConstantPath.IconSearchPath })
+
+    <div style="float: right">
+        <script>
+            function GetScreenName() {
+                return {
+                    screenName: '@screen'
+                };
+            }
+        </script>
+        @{
+            var screenName = new DropDownListBuilderInfo()
+            {
+                Name = "ddlScreenName",
+                DataTextField = "ExportName",
+                DataValueField = "ID",
+                Url = @_hrm_Hr_Service + "Cat_GetData/GetScreenName",
+                Data = "GetScreenName",
+            };
+        }
+        @Html.VnrDropDownList(screenName)
+
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnExport", Content = ConstantAction.HRM_Common_ExportReport.TranslateString(), ImageUrl = ConstantPath.IconExportPath })
+        @Html.VnrButton(new ButtonBuilderInfo() { Name = "btnCreateTemplate", Content = ConstantAction.HRM_Common_CreateTemplate.TranslateString() , ImageUrl = ConstantPath.IconExportPath })
+      </div>
+</div>
+<div>
+    <!--Khai báo các thông tin cho Grid-->
+    @using HRM.Presentation.UI.Controls.Kendo
+    @{
+        string[] valueFields = new string[]
+        {
+           Att_RptExceptionDataModel.FieldNames.CodeEmp,
+           Att_RptExceptionDataModel.FieldNames.ProfileName,
+           Att_RptExceptionDataModel.FieldNames.Position,
+           Att_RptExceptionDataModel.FieldNames.Department,
+           Att_RptExceptionDataModel.FieldNames.Section,
+           Att_RptExceptionDataModel.FieldNames.Date,
+           Att_RptExceptionDataModel.FieldNames.DataType,
+           Att_RptExceptionDataModel.FieldNames.Exception,
+           Att_RptExceptionDataModel.FieldNames.Description,
+                  Att_RptExceptionDataModel.FieldNames.UserExport,
+           Att_RptExceptionDataModel.FieldNames.DateExport,
+
+        };
+        Dictionary<string, int> sizeFields = new Dictionary<string, int>()
+        {
+
+            {Att_RptExceptionDataModel.FieldNames.CodeEmp,80},
+            {Att_RptExceptionDataModel.FieldNames.ProfileName,140},
+            {Att_RptExceptionDataModel.FieldNames.Date,80},
+            {Att_RptExceptionDataModel.FieldNames.Description,200}
+
+    };
+
+        Dictionary<string, string>
+            displayFields = new Dictionary<string, string>
+                ()
+            {
+            {Att_RptExceptionDataModel.FieldNames.CodeEmp,ConstantDisplay.HRM_Attendance_CodeEmp},
+            {Att_RptExceptionDataModel.FieldNames.ProfileName,ConstantDisplay.HRM_Attendance_ProfileName},
+            {Att_RptExceptionDataModel.FieldNames.Position,ConstantDisplay.HRM_Attendance_Position},
+            {Att_RptExceptionDataModel.FieldNames.Department,ConstantDisplay.HRM_Attendance_DepartmentName1},
+            {Att_RptExceptionDataModel.FieldNames.Section,ConstantDisplay.HRM_Attendance_SectionName1},
+            {Att_RptExceptionDataModel.FieldNames.Date,ConstantDisplay.HRM_Attendance_Date},
+            {Att_RptExceptionDataModel.FieldNames.DataType,ConstantDisplay.HRM_Attendance_DataType},
+            {Att_RptExceptionDataModel.FieldNames.Exception,ConstantDisplay.HRM_Attendance_Exception},
+            {Att_RptExceptionDataModel.FieldNames.Description,ConstantDisplay.HRM_Attendance_Description},
+                        {Att_RptExceptionDataModel.FieldNames.UserExport,ConstantDisplay.HRM_Att_Report_UserExport},
+            {Att_RptExceptionDataModel.FieldNames.DateExport,ConstantDisplay.HRM_Attendance_DateExport}
+            };
+
+        Dictionary<string, string>
+            formatFields = new Dictionary<string, string>
+                ()
+                    {
+                    {Att_ReportSumaryInOutModel.FieldNames.udTimeIn,"{0:hh:mm:ss}"},
+                    {Att_ReportSumaryInOutModel.FieldNames.udTimeOut, "{0:hh:mm:ss}" }
+                    };
+        var hiddenFields = new string[]
+        {
+            //Att_ReportSumaryInOutModel.FieldNames.GroupCode,
+            //Att_ReportSumaryInOutModel.FieldNames.GroupName,
+            //Att_ReportSumaryInOutModel.FieldNames.SectionCode,
+            //Att_ReportSumaryInOutModel.FieldNames.SectionName,
+            //Att_ReportSumaryInOutModel.FieldNames.Division,
+            //Att_ReportSumaryInOutModel.FieldNames.DivisionName,
+            //Att_ReportSumaryInOutModel.FieldNames.GroupCode,
+            //Att_ReportSumaryInOutModel.FieldNames.GroupName,
+            //Att_ReportSumaryInOutModel.FieldNames.SectionCode,
+            //Att_ReportSumaryInOutModel.FieldNames.SectionName,
+            //Att_ReportSumaryInOutModel.FieldNames.Division,
+            //Att_ReportSumaryInOutModel.FieldNames.DivisionName,
+            //Att_ReportSumaryInOutModel.FieldNames.DepartmentName,
+            Att_RptExceptionDataModel.FieldNames.UserExport,
+           Att_RptExceptionDataModel.FieldNames.DateExport,
+        };
+        var grid = new GridBuilderInfo
+        {
+            Name = "gridAtt_RptExceptionData",
+            ValueFields = valueFields,
+            SizeFields = sizeFields,
+            DisplayFields = displayFields,
+            //FormatFields = formatFields,
+            ReadActionUrl = _hrm_Hr_Service + "Att_GetData/GetRptExceptionData",
+            ReadData = "filterFieldInfo",
+            ShowEditIcon = false,
+            ShowCheckbox = false,
+            HiddenFields=hiddenFields
+        };
+    }
+    <!--Khởi tạo Grid-->
+    @(Html.VnrGrid<Att_RptExceptionDataModel>(grid))
+</div>
+@{
+    var valueFields1 = string.Empty;
+    for (int i = 0; i < valueFields.Count(); i++)
+    {
+        valueFields1 += "," + valueFields[i];
+    }
+}
+@Html.Hidden("valueFieldsGrid", valueFields1)
